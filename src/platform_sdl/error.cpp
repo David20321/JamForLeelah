@@ -4,7 +4,7 @@
 #include <SDL.h>
 
 void FormattedError(const char* title, const char* msg_fmt, ...) {
-	static const int kBufSize = 256;
+	static const int kBufSize = 512;
 	char error_msg[kBufSize];
 	va_list args;
 	va_start(args, msg_fmt);
