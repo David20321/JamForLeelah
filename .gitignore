@@ -1,1 +1,3 @@
 build/
+lib/FBX_SDK_2015.1/lib/vs2012/x86/debug/libfbxsdk-md.lib
+lib/FBX_SDK_2015.1/lib/vs2012/x86/debug/libfbxsdk-mt.lib
