@@ -1,0 +1,16 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" PreferredExecutionTarget="MonoDevelop.Default" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Assets/spawnTerrain.cs">
+    <Files>
+      <File FileName="Assets/spawnTerrain.cs" Line="45" Column="8" />
+      <File FileName="Assets/scripts/playerMovement.cs" Line="1" Column="1" />
+      <File FileName="Assets/scripts/basicBehavior.cs" Line="1" Column="1" />
+      <File FileName="Assets/scripts/cameraFollow.cs" Line="8" Column="2" />
+      <File FileName="../pushMan/Assets/Scripts/SpewtumBehavior.cs" Line="85" Column="63" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>

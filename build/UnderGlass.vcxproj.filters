@@ -1,0 +1,189 @@
+﻿<?xml version="1.0" encoding="Windows-1252"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\fbx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayAnimation.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayCache.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayCamera.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayCommon.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayGenericInfo.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayGlobalSettings.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayHierarchy.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayLight.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayLink.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayLodGroup.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayMarker.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayMaterial.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayMesh.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayNurb.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayPatch.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayPivotsAndLimits.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayPose.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayShape.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplaySkeleton.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayTexture.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayUserProperties.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\internal\common.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\internal\memory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\platform_sdl\audio.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\platform_sdl\error.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\platform_sdl\file_io.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Dropbox\Under Glass\src\platform_sdl\graphics.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\fbx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayAnimation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayCache.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayCamera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayCommon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayGenericInfo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayGlobalSettings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayHierarchy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayLight.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayLink.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayLodGroup.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayMarker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayMaterial.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayMesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayNurb.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayPatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayPivotsAndLimits.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayPose.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayShape.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplaySkeleton.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayTexture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\fbx\ImportScene\DisplayUserProperties.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\internal\common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\internal\memory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\platform_sdl\audio.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\platform_sdl\error.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\platform_sdl\file_io.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Dropbox\Under Glass\src\platform_sdl\graphics.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="E:\Dropbox\Under Glass\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{696F7D0C-BF38-49D6-B20E-B6624FC86933}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{D911C18A-5F02-4980-9B36-E9B8F35C27BD}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

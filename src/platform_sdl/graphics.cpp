@@ -2,7 +2,6 @@
 #include "platform_sdl/error.h"
 #include "platform_sdl/file_io.h"
 #include <GL/glew.h>
-#include <GL/GL.h>
 #include <glm/glm.hpp>
 #include <cstring>
 #include <cstdlib>
@@ -101,6 +100,9 @@ int CreateShader(int type, const char *src) {
 
 	graphics_context->screen_dims[0] = 1280;
     graphics_context->screen_dims[1] = 720;
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4); // Why does this have to be before createwindow?
 	graphics_context->window = SDL_CreateWindow("Under Glass", 
@@ -133,10 +135,13 @@ int CreateShader(int type, const char *src) {
 		FormattedError("glewInit failed", "Error: %s", glewGetErrorString(err));
 		exit(1);
 	}
-	if (!GLEW_VERSION_2_0) {
-		FormattedError("OpenGL 2.0 not supported", "OpenGL does not support shaders until OpenGL 2.0.");
+	if (!GLEW_VERSION_3_3) {
+		FormattedError("OpenGL 3.3 not supported", "OpenGL 3.3 is required");
 		exit(1);
 	}
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
 }
 
 void InitGraphicsData(int *triangle_vbo, int *index_vbo) {
@@ -219,7 +224,7 @@ static void TestPow2() {
     SDL_assert(test_ret == 7 && test_remainder == 2);
 }
 
-static const int kMaxAnisotropy = 4; //TODO: this should be in a config or something
+static const float kMaxAnisotropy = 4.0f; //TODO: this should be in a config or something
 
 int LoadImage(const char* path, FileLoadData* file_load_data){
 	int path_len = strlen(path);
@@ -234,7 +239,11 @@ int LoadImage(const char* path, FileLoadData* file_load_data){
 			request->path[i] = path[i];
 		}
 		request->condition = SDL_CreateCond();
-		SDL_CondWait(request->condition, file_load_data->mutex);
+        SDL_CondWait(request->condition, file_load_data->mutex);
+        if(file_load_data->err){
+            FormattedError(file_load_data->err_title, file_load_data->err_msg);
+            exit(1);
+        }
 		int x,y,comp;
 		unsigned char *data = stbi_load_from_memory((const stbi_uc*)file_load_data->memory, file_load_data->memory_len, &x, &y, &comp, STBI_default);
 		SDL_UnlockMutex(file_load_data->mutex);

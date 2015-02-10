@@ -1,6 +1,5 @@
 #include "SDL.h"
 #include "GL/glew.h"
-#include "GL/gl.h"
 #define GLM_SWIZZLE
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -16,6 +15,13 @@
 #include "internal/common.h"
 #include "internal/memory.h"
 #include <cstring>
+#include <sys/stat.h>
+
+#ifdef WIN32
+#define ASSET_PATH "../assets/"
+#else
+#define ASSET_PATH "assets/"
+#endif
 
 using namespace glm;
 
@@ -258,6 +264,10 @@ void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadData* file_lo
 		}
 		request->condition = SDL_CreateCond();
 		SDL_CondWait(request->condition, file_load_data->mutex);
+        if(file_load_data->err){
+            FormattedError(file_load_data->err_title, file_load_data->err_msg);
+            exit(1);
+        }
 		ParseFBXFromRAM(parse_scene, file_load_data->memory, file_load_data->memory_len);
 		SDL_UnlockMutex(file_load_data->mutex);
 	} else {
@@ -284,7 +294,11 @@ int CreateProgramFromFile(FileLoadData* file_load_data, const char* path){
 			request->path[i] = shader_path[i];
 		}
 		request->condition = SDL_CreateCond();
-		SDL_CondWait(request->condition, file_load_data->mutex);
+        SDL_CondWait(request->condition, file_load_data->mutex);
+        if(file_load_data->err){
+            FormattedError(file_load_data->err_title, file_load_data->err_msg);
+            exit(1);
+        }
 		char* mem_text = (char*)file_load_data->memory;
 		mem_text[file_load_data->memory_len] = '\0';
 		shaders[0] = CreateShader(GL_VERTEX_SHADER, mem_text);
@@ -302,7 +316,11 @@ int CreateProgramFromFile(FileLoadData* file_load_data, const char* path){
 			request->path[i] = shader_path[i];
 		}
 		request->condition = SDL_CreateCond();
-		SDL_CondWait(request->condition, file_load_data->mutex);
+        SDL_CondWait(request->condition, file_load_data->mutex);
+        if(file_load_data->err){
+            FormattedError(file_load_data->err_title, file_load_data->err_msg);
+            exit(1);
+        }
 		char* mem_text = (char*)file_load_data->memory;
 		mem_text[file_load_data->memory_len] = '\0';
 		shaders[1] = CreateShader(GL_FRAGMENT_SHADER, mem_text);
@@ -420,7 +438,19 @@ int main(int argc, char* argv[]) {
 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER | SDL_INIT_AUDIO) < 0) {
 		FormattedError("SDL_Init failed", "Could not initialize SDL: %s", SDL_GetError());
 		return 1;
-	}
+    }
+    
+    { // Check for assets folder
+        struct stat st;
+        if(stat("../assets", &st) == -1){
+            char *basePath = SDL_GetBasePath();
+            ChangeWorkingDirectory(basePath);
+            SDL_free(basePath);
+            if(stat("../assets", &st) == -1){
+                FormattedError("Assets?", "Could not find assets directory, possibly running from inside archive");
+            }
+        }
+    }
 
 	// Set up file loader 
 	FileLoadData file_load_data;
@@ -446,11 +476,11 @@ int main(int argc, char* argv[]) {
 	GraphicsContext graphics_context;
 	InitGraphicsContext(&graphics_context);
 
-	int texture = LoadImage("../assets/cobbles_c.tga", &file_load_data);
+	int texture = LoadImage(ASSET_PATH "cobbles_c.tga", &file_load_data);
 	FBXParseScene parse_scene;
 
 	int street_lamp_vert_vbo, street_lamp_index_vbo;
-	LoadFBX(&parse_scene, "../assets/street_lamp.fbx", &file_load_data);
+	LoadFBX(&parse_scene, ASSET_PATH "street_lamp.fbx", &file_load_data);
 	int num_street_lamp_indices = parse_scene.meshes[0].num_tris*3;
     vec3 lamp_bb[2];
     GetBoundingBox(&parse_scene.meshes[0], lamp_bb);
@@ -458,17 +488,17 @@ int main(int argc, char* argv[]) {
 	parse_scene.Dispose();
 
 	int cobble_floor_vert_vbo, cobble_floor_index_vbo;
-	LoadFBX(&parse_scene, "../assets/cobble_floor.fbx", &file_load_data);	
+	LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", &file_load_data);	
     int num_cobble_floor_indices = parse_scene.meshes[0].num_tris*3;
     vec3 floor_bb[2];
     GetBoundingBox(&parse_scene.meshes[0], floor_bb);
 	VBOFromMesh(&parse_scene.meshes[0], &cobble_floor_vert_vbo, &cobble_floor_index_vbo);
 	parse_scene.Dispose();
 
-	int cobbles_texture = LoadImage("../assets/cobbles_c.tga", &file_load_data);
-	int lamp_texture = LoadImage("../assets/lamp_c.tga", &file_load_data);
+	int cobbles_texture = LoadImage(ASSET_PATH "cobbles_c.tga", &file_load_data);
+	int lamp_texture = LoadImage(ASSET_PATH "lamp_c.tga", &file_load_data);
 	
-	int shader_3d_model = CreateProgramFromFile(&file_load_data, "../assets/shaders/3D_model");
+	int shader_3d_model = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/3D_model");
 
 	DrawScene draw_scene;
     draw_scene.num_debug_draw_lines = 0;

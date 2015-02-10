@@ -383,40 +383,43 @@ enum FBXParsePass {
 	kCount, kStore
 };
 
-const FbxVector4* GetNormal(FbxMesh* fbx_mesh, int tri_index, int tri_vert, int layer) {
-	FbxVector4* normal = NULL;
+bool GetNormal(FbxMesh* fbx_mesh, int tri_index, int tri_vert, int layer, FbxVector4& normal) {
 	FbxGeometryElementNormal* normal_el = fbx_mesh->GetElementNormal(layer);
+	bool ret = false;
 	int vert_index = fbx_mesh->GetPolygonVertex(tri_index, tri_vert);
 	if(normal_el->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
 		switch (normal_el->GetReferenceMode()) {
 		case FbxGeometryElement::eDirect:
-			normal = &normal_el->GetDirectArray().GetAt(vert_index);
+			normal = normal_el->GetDirectArray().GetAt(vert_index);
+			ret = true;
 			break;
 		case FbxGeometryElement::eIndexToDirect: {
 				int id = normal_el->GetIndexArray().GetAt(vert_index);
-				normal = &normal_el->GetDirectArray().GetAt(id);
+				normal = normal_el->GetDirectArray().GetAt(id);
+				ret = true;
 			} break;
 		default:
 			break;
 		}
 	}
-	return normal;
+	return ret;
 }
 
-const FbxVector2* GetUV(FbxMesh* fbx_mesh, int tri_index, int tri_vert, int layer) {
-	FbxVector2 *uv = NULL;
+bool GetUV(FbxMesh* fbx_mesh, int tri_index, int tri_vert, int layer, FbxVector2& uv) {
+	bool ret = false;
 	FbxGeometryElementUV* uv_el = fbx_mesh->GetElementUV(layer);
-    SDL_assert(uv_el);
 	switch (uv_el->GetMappingMode()) {
 	case FbxGeometryElement::eByControlPoint: {
 		int vert_index = fbx_mesh->GetPolygonVertex(tri_index, tri_vert);
 		switch (uv_el->GetReferenceMode()) {
 		case FbxGeometryElement::eDirect:
-			uv = &uv_el->GetDirectArray().GetAt(vert_index);
+			uv = uv_el->GetDirectArray().GetAt(vert_index);
+			ret = true;
 			break;
 		case FbxGeometryElement::eIndexToDirect: {
 			int id = uv_el->GetIndexArray().GetAt(vert_index);
-			uv = &uv_el->GetDirectArray().GetAt(id);
+			uv = uv_el->GetDirectArray().GetAt(id);
+			ret = true;
 			} break;
 		default:
 			break; // other reference modes not shown here!
@@ -427,14 +430,15 @@ const FbxVector2* GetUV(FbxMesh* fbx_mesh, int tri_index, int tri_vert, int laye
 		switch (uv_el->GetReferenceMode()) {
 		case FbxGeometryElement::eDirect:
 		case FbxGeometryElement::eIndexToDirect: {
-			uv = &uv_el->GetDirectArray().GetAt(tex_uv_index);
+			uv = uv_el->GetDirectArray().GetAt(tex_uv_index);
+			ret = true;
 			} break;
 		default:
 			break; // other reference modes not shown here!
 		}
 		} break;
 	}
-	return uv;
+	return ret;
 }
 
 void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass) {
@@ -464,15 +468,17 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass) {
 					SDL_assert(fbx_mesh->GetPolygonSize(i) == 3); // Should have been triangulated earlier
 					for(int j=0; j<3; ++j){
 						mesh->tri_indices[index++] = fbx_mesh->GetPolygonVertex(i,j);
-						const FbxVector2* uv = GetUV(fbx_mesh, i, j, 0);
-						SDL_assert(uv);
+						FbxVector2 uv;
+						bool ret = GetUV(fbx_mesh, i, j, 0, uv);
+						SDL_assert(ret);
 						for(int k=0; k<2; ++k){
-							mesh->tri_uvs[uv_index++] = (float)(*uv)[k];
+							mesh->tri_uvs[uv_index++] = (float)(uv)[k];
 						}
-						const FbxVector4* normal = GetNormal(fbx_mesh, i, j, 0);
-						SDL_assert(normal);
+						FbxVector4 normal;
+						ret = GetNormal(fbx_mesh, i, j, 0, normal);
+						SDL_assert(ret);
 						for(int k=0; k<3; ++k){
-							mesh->tri_normals[normal_index++] = (float)(*normal)[k];
+							mesh->tri_normals[normal_index++] = (float)(normal)[k];
 						}
 					}
 				}
