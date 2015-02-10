@@ -1,0 +1,1 @@
+// This file is just here so the game can verify that this is the correct assets folder

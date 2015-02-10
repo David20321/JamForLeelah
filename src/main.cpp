@@ -12,6 +12,7 @@
 #include "platform_sdl/audio.h"
 #include "platform_sdl/graphics.h"
 #include "platform_sdl/file_io.h"
+#include "platform_sdl/debug_draw.h"
 #include "internal/common.h"
 #include "internal/memory.h"
 #include <cstring>
@@ -51,7 +52,7 @@ struct GameState {
 	SeparableTransform camera;
 };
 
-glm::mat4 SeparableTransform::GetCombination() {
+mat4 SeparableTransform::GetCombination() {
 	mat4 mat;
 	for(int i=0; i<3; ++i){
 		mat[i][i] = scale[i];
@@ -65,55 +66,12 @@ glm::mat4 SeparableTransform::GetCombination() {
 	return mat;
 }
 
-enum DebugDrawLifetime {
-    kUpdate,
-    kDraw,
-    kPersistent
-};
-
-struct DebugDrawLine {
-    DebugDrawLifetime lifetime;
-    int lifetime_int;
-};
-
 struct DrawScene {
 	static const int kMaxDrawables = 100;
 	Drawable drawables[kMaxDrawables];
 	int num_drawables;
-
-    int debug_draw_shader;
-	int debug_draw_lines_vbo;
-    static const int kMaxDebugDrawLines = 10000;
-    DebugDrawLine debug_draw_lines[kMaxDebugDrawLines];
-	GLfloat line_draw_data[14 * kMaxDebugDrawLines];
-    int num_debug_draw_lines;
-    bool AddDebugDrawLine(const vec3& start, const vec3& end, const vec4& color, DebugDrawLifetime lifetime, int lifetime_int);
+	DebugDrawLines lines;
 };
-
-bool DrawScene::AddDebugDrawLine(const vec3& start, const vec3& end, const vec4& color, DebugDrawLifetime lifetime, int lifetime_int) {
-    if(num_debug_draw_lines < kMaxDebugDrawLines - 1){
-		DebugDrawLine& new_line = debug_draw_lines[num_debug_draw_lines];
-		int line_index = num_debug_draw_lines*14;
-		for(int k=0; k<3; ++k){
-			line_draw_data[line_index++] = start[k];
-		}
-		for(int k=0; k<4; ++k){
-			line_draw_data[line_index++] = color[k];
-		}
-		for(int k=0; k<3; ++k){
-			line_draw_data[line_index++] = end[k];
-		}
-		for(int k=0; k<4; ++k){
-			line_draw_data[line_index++] = color[k];
-		}
-        ++num_debug_draw_lines;
-        new_line.lifetime = lifetime;
-        new_line.lifetime_int = lifetime_int;
-        return true;
-    } else {
-        return false;
-    }
-}
 
 void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
 	float speed = 10.0f;
@@ -133,7 +91,6 @@ void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
 	if (state[SDL_SCANCODE_D]) {
 		game_state->camera.translation += game_state->camera.rotation * vec3(1,0,0) * speed * time_step;
 	}
-	//game_state->camera.translation = vec3(0.0f,0.0f,-2.0f+SDL_sinf(SDL_GetTicks() * 0.001f)*10.0f);
 	const float kMouseSensitivity = 0.003f;
     Uint32 mouse_button_bitmask = SDL_GetMouseState(NULL, NULL);
     static float cam_x = 0.0f;
@@ -149,142 +106,87 @@ void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
 }
 
 void DrawCoordinateGrid(DrawScene* draw_scene){
+	static const float opac = 0.25f;
+	static const vec4 basic_grid_color(1.0f, 1.0f, 1.0f, opac);
+	static const vec4 x_axis_color(1.0f, 0.0f, 0.0f, opac);
+	static const vec4 y_axis_color(0.0f, 1.0f, 0.0f, opac);
+	static const vec4 z_axis_color(0.0f, 0.0f, 1.0f, opac);
     for(int i=-10; i<11; ++i){
-        vec4 color;
-        if(i != 0){
-            color = vec4(1.0f, 1.0f, 1.0f, 0.25f);
-        } else {
-            color = vec4(1.0f, 0.0f, 0.0f, 0.25f);
-        }
-        draw_scene->AddDebugDrawLine(vec3(-10.0f, 0.0f, i), vec3( 10.0f, 0.0f, i),
-            color, kDraw, 1);
+        draw_scene->lines.Add(vec3(-10.0f, 0.0f, i), vec3(10.0f, 0.0f, i),
+							  i==0?x_axis_color:basic_grid_color, kDraw, 1);
+        draw_scene->lines.Add(vec3(i, 0.0f, -10.0f), vec3(i, 0.0f, 10.0f),
+							  i==0?z_axis_color:basic_grid_color, kDraw, 1);
     }
-    for(int i=-10; i<11; ++i){
-        vec4 color;
-        if(i != 0){
-            color = vec4(1.0f, 1.0f, 1.0f, 0.25f);
-        } else {
-            color = vec4(0.0f, 0.0f, 1.0f, 0.25f);
-        }
-        draw_scene->AddDebugDrawLine(vec3(i, 0.0f, -10.0f), vec3(i, 0.0f,  10.0f),
-            color, kDraw, 1);
-    }
-    draw_scene->AddDebugDrawLine(vec3(0.0f, -10.0f, 0.0f), vec3(0.0f,  10.0f,  0.0f),
-        vec4(0.0f, 1.0f, 0.0f, 0.25f), kDraw, 1);
+    draw_scene->lines.Add(vec3(0.0f, -10.0f, 0.0f), vec3(0.0f, 10.0f,  0.0f),
+						  y_axis_color, kDraw, 1);
+}
+
+void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
+	glUseProgram(drawable->shader_id);
+
+	GLuint modelview_matrix_uniform = glGetUniformLocation(drawable->shader_id, "mv_mat");
+	GLuint normal_matrix_uniform = glGetUniformLocation(drawable->shader_id, "norm_mat");
+
+	mat4 model_mat = drawable->transform;
+	mat4 mat = proj_view_mat * model_mat;
+	mat3 normal_mat = mat3(model_mat);
+	glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
+	glUniformMatrix3fv(normal_matrix_uniform, 1, false, (GLfloat*)&normal_mat);
+
+	GLuint texture_uniform = glGetUniformLocation(drawable->shader_id, "texture_id");
+	glUniform1i(texture_uniform, 0);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, drawable->texture_id);
+
+	glBindBuffer(GL_ARRAY_BUFFER, drawable->vert_vbo);
+	switch(drawable->vbo_layout){
+	case kSimple_4V:
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
+		glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glDisableVertexAttribArray(0);
+		break;
+	case kInterleave_3V2T3N:
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glEnableVertexAttribArray(2);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), 0);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
+		glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)(5*sizeof(GLfloat)));
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
+		glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glDisableVertexAttribArray(2);
+		glDisableVertexAttribArray(1);
+		glDisableVertexAttribArray(0);
+		break;
+	}
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glUseProgram(0);
+	CHECK_GL_ERROR();
 }
 
 void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene, int ticks) {
 	glViewport(0, 0, context->screen_dims[0], context->screen_dims[1]);
 	glClearColor(0.5,0.5,0.5,1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 	glEnable(GL_DEPTH_TEST);
 
     float aspect_ratio = context->screen_dims[0] / (float)context->screen_dims[1];
     mat4 proj_mat = glm::perspective(45.0f, aspect_ratio, 0.1f, 100.0f);
 	mat4 view_mat = inverse(game_state->camera.GetCombination());
+	mat4 proj_view_mat = proj_mat * view_mat;
 
 	for(int i=0; i<draw_scene->num_drawables; ++i){
 		Drawable* drawable = &draw_scene->drawables[i];
-		glUseProgram(drawable->shader_id);
-
-		GLuint modelview_matrix_uniform = glGetUniformLocation(drawable->shader_id, "mv_mat");
-		GLuint normal_matrix_uniform = glGetUniformLocation(drawable->shader_id, "norm_mat");
-
-		mat4 model_mat = drawable->transform;
-		mat4 mat = proj_mat * view_mat * model_mat;
-		mat3 normal_mat = mat3(model_mat);
-		glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
-		glUniformMatrix3fv(normal_matrix_uniform, 1, false, (GLfloat*)&normal_mat);
-
-		GLuint texture_uniform = glGetUniformLocation(drawable->shader_id, "texture_id");
-		glUniform1i(texture_uniform, 0);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, drawable->texture_id);
-
-		glBindBuffer(GL_ARRAY_BUFFER, drawable->vert_vbo);
-		switch(drawable->vbo_layout){
-		case kSimple_4V:
-			glEnableVertexAttribArray(0);
-			glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
-			glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-			glDisableVertexAttribArray(0);
-			break;
-		case kInterleave_3V2T3N:
-			glEnableVertexAttribArray(0);
-			glEnableVertexAttribArray(1);
-			glEnableVertexAttribArray(2);
-			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), 0);
-			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
-			glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)(5*sizeof(GLfloat)));
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
-			glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-			glDisableVertexAttribArray(0);
-			glDisableVertexAttribArray(1);
-			glDisableVertexAttribArray(2);
-			break;
-		}
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glUseProgram(0);
-		CHECK_GL_ERROR();
+		DrawDrawable(proj_view_mat, drawable);
 	}
 
     DrawCoordinateGrid(draw_scene);
-
-	glBindBuffer(GL_ARRAY_BUFFER, draw_scene->debug_draw_lines_vbo);
-	glBufferData(GL_ARRAY_BUFFER, draw_scene->num_debug_draw_lines*sizeof(GLfloat)*14, draw_scene->line_draw_data, GL_STREAM_DRAW);
-	glUseProgram(draw_scene->debug_draw_shader);
-	GLuint modelview_matrix_uniform = glGetUniformLocation(draw_scene->debug_draw_shader, "mv_mat");
-	mat4 mat = proj_mat * view_mat;
-	glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), 0);
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
-	glDrawArrays(GL_LINES, 0, draw_scene->num_debug_draw_lines*2);
-	glDisableVertexAttribArray(1);
-	glDisableVertexAttribArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glUseProgram(0);
-	
-    for(int i=0; i<draw_scene->num_debug_draw_lines; ++i){		
-		DebugDrawLine& line = draw_scene->debug_draw_lines[i];
-		/*vec3 line_points[2];
-		for(int j=0; j<2; ++j){
-			line_points[j] = draw_scene->line_points[i*2+j];
-		}
-		glPushMatrix();
-            mat4 mat = proj_mat * view_mat;
-			glLoadMatrixf((GLfloat*)&mat);
-			glColor4f(line.color[0], line.color[1], line.color[2], line.color[3]);
-			glBegin(GL_LINES);
-			glVertex3f(line_points[0][0], line_points[0][1], line_points[0][2]);
-			glVertex3f(line_points[1][0], line_points[1][1], line_points[1][2]);
-			glEnd();
-        glPopMatrix();*/
-        if(line.lifetime == kDraw){
-            --line.lifetime_int;
-        }
-    }
-
-    for(int i=0; i<draw_scene->num_debug_draw_lines;){
-        DebugDrawLine& line = draw_scene->debug_draw_lines[i];
-        if(line.lifetime == kDraw && line.lifetime_int <= 0){
-            line = draw_scene->debug_draw_lines[draw_scene->num_debug_draw_lines-1];
-			int dst_line_index = i*14;
-			int src_line_index = (draw_scene->num_debug_draw_lines-1)*14;
-			memcpy(&draw_scene->line_draw_data[dst_line_index],
-				   &draw_scene->line_draw_data[src_line_index],
-				   sizeof(GLfloat)*14);
-            --draw_scene->num_debug_draw_lines;
-        } else {
-            ++i;
-        }
-	}
+	draw_scene->lines.Draw(proj_view_mat);
 }
 
 void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadData* file_load_data) {
@@ -409,58 +311,40 @@ void GetBoundingBox(const Mesh* mesh, vec3* bounding_box) {
     }
 }
 
-static const int binary[] = {
-    1,
-    1 << 1,
-    1 << 2,
-    1 << 3,
-    1 << 4,
-    1 << 5,
-    1 << 6,
-    1 << 7,
-    1 << 8
-};
+static const int s_pos_x = 1 << 0, s_pos_y = 1 << 1, s_pos_z = 1 << 2;
+static const int e_pos_x = 1 << 3, e_pos_y = 1 << 4, e_pos_z = 1 << 5;
 
-static void AddBBLine(DrawScene* draw_scene, const mat4& mat, vec3 bb[], int flags) {
-    vec3 start;
-    vec3 end;
-    start[0] = (flags & binary[0])?bb[1][0]:bb[0][0];
-    start[1] = (flags & binary[1])?bb[1][1]:bb[0][1];
-    start[2] = (flags & binary[2])?bb[1][2]:bb[0][2];
-    end[0] = (flags & binary[3])?bb[1][0]:bb[0][0];
-    end[1] = (flags & binary[4])?bb[1][1]:bb[0][1];
-    end[2] = (flags & binary[5])?bb[1][2]:bb[0][2];
-    draw_scene->AddDebugDrawLine((mat*vec4(start,1.0f)).xyz, (mat*vec4(end,1.0f)).xyz, vec4(1.0f), kPersistent, 1);
+static void AddBBLine(DebugDrawLines* lines, const mat4& mat, vec3 bb[], int flags) {
+    vec3 points[2];
+    points[0][0] = (flags & s_pos_x)?bb[1][0]:bb[0][0];
+    points[0][1] = (flags & s_pos_y)?bb[1][1]:bb[0][1];
+    points[0][2] = (flags & s_pos_z)?bb[1][2]:bb[0][2];
+    points[1][0] = (flags & e_pos_x)?bb[1][0]:bb[0][0];
+    points[1][1] = (flags & e_pos_y)?bb[1][1]:bb[0][1];
+    points[1][2] = (flags & e_pos_z)?bb[1][2]:bb[0][2];
+    lines->Add((mat*vec4(points[0],1.0f)).xyz, 
+		       (mat*vec4(points[1],1.0f)).xyz, 
+		       vec4(1.0f), kPersistent, 1);
 }
 
-void DrawBoundingBox(DrawScene* draw_scene, const mat4& mat, vec3 bb[]) {
-    static const int s_pos_x = binary[0];
-    static const int s_pos_y = binary[1];
-    static const int s_pos_z = binary[2];
-    static const int e_pos_x = binary[3];
-    static const int e_pos_y = binary[4];
-    static const int e_pos_z = binary[5];
-    static const int s_neg_x = 0;
-    static const int s_neg_y = 0;
-    static const int s_neg_z = 0;
-    static const int e_neg_x = 0;
-    static const int e_neg_y = 0;
-    static const int e_neg_z = 0;
-    // Bottom square
-    AddBBLine(draw_scene, mat, bb, s_neg_x | s_neg_y | s_neg_z | e_pos_x | e_neg_y | e_neg_z);
-    AddBBLine(draw_scene, mat, bb, s_pos_x | s_neg_y | s_neg_z | e_pos_x | e_neg_y | e_pos_z);
-    AddBBLine(draw_scene, mat, bb, s_pos_x | s_neg_y | s_pos_z | e_neg_x | e_neg_y | e_pos_z);
-    AddBBLine(draw_scene, mat, bb, s_neg_x | s_neg_y | s_pos_z | e_neg_x | e_neg_y | e_neg_z);
-    // Top square
-    AddBBLine(draw_scene, mat, bb, s_neg_x | s_pos_y | s_neg_z | e_pos_x | e_pos_y | e_neg_z);
-    AddBBLine(draw_scene, mat, bb, s_pos_x | s_pos_y | s_neg_z | e_pos_x | e_pos_y | e_pos_z);
-    AddBBLine(draw_scene, mat, bb, s_pos_x | s_pos_y | s_pos_z | e_neg_x | e_pos_y | e_pos_z);
-    AddBBLine(draw_scene, mat, bb, s_neg_x | s_pos_y | s_pos_z | e_neg_x | e_pos_y | e_neg_z);
-    // Pillars
-    AddBBLine(draw_scene, mat, bb, s_neg_x | s_neg_y | s_neg_z | e_neg_x | e_pos_y | e_neg_z);
-    AddBBLine(draw_scene, mat, bb, s_pos_x | s_neg_y | s_neg_z | e_pos_x | e_pos_y | e_neg_z);
-    AddBBLine(draw_scene, mat, bb, s_pos_x | s_neg_y | s_pos_z | e_pos_x | e_pos_y | e_pos_z);
-    AddBBLine(draw_scene, mat, bb, s_neg_x | s_neg_y | s_pos_z | e_neg_x | e_pos_y | e_pos_z);
+static void DrawBoundingBox(DebugDrawLines* lines, const mat4& mat, vec3 bb[]) {
+    static const int s_neg_x = 0, s_neg_y = 0, s_neg_z = 0;
+    static const int e_neg_x = 0, e_neg_y = 0, e_neg_z = 0;
+    // Neg Y square
+    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_neg_z | e_pos_x | e_neg_y | e_neg_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_neg_z | e_pos_x | e_neg_y | e_pos_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_pos_z | e_neg_x | e_neg_y | e_pos_z);
+    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_pos_z | e_neg_x | e_neg_y | e_neg_z);
+    // Pos Y square
+    AddBBLine(lines, mat, bb, s_neg_x | s_pos_y | s_neg_z | e_pos_x | e_pos_y | e_neg_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_pos_y | s_neg_z | e_pos_x | e_pos_y | e_pos_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_pos_y | s_pos_z | e_neg_x | e_pos_y | e_pos_z);
+    AddBBLine(lines, mat, bb, s_neg_x | s_pos_y | s_pos_z | e_neg_x | e_pos_y | e_neg_z);
+    // Neg Y to Pos Y
+    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_neg_z | e_neg_x | e_pos_y | e_neg_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_neg_z | e_pos_x | e_pos_y | e_neg_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_pos_z | e_pos_x | e_pos_y | e_pos_z);
+    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_pos_z | e_neg_x | e_pos_y | e_pos_z);
 }
 
 int main(int argc, char* argv[]) {
@@ -479,11 +363,11 @@ int main(int argc, char* argv[]) {
     
     { // Check for assets folder
         struct stat st;
-        if(stat("../assets", &st) == -1){
+        if(stat(ASSET_PATH "under_glass_game_assets_folder.txt", &st) == -1){
             char *basePath = SDL_GetBasePath();
             ChangeWorkingDirectory(basePath);
             SDL_free(basePath);
-            if(stat("../assets", &st) == -1){
+            if(stat(ASSET_PATH "under_glass_game_assets_folder.txt", &st) == -1){
                 FormattedError("Assets?", "Could not find assets directory, possibly running from inside archive");
             }
         }
@@ -538,7 +422,7 @@ int main(int argc, char* argv[]) {
 	int shader_3d_model = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/3D_model");
 
 	DrawScene draw_scene;
-    draw_scene.num_debug_draw_lines = 0;
+    draw_scene.lines.num_lines = 0;
     draw_scene.num_drawables = 0;
 	draw_scene.drawables[0].vert_vbo = street_lamp_vert_vbo;
 	draw_scene.drawables[0].index_vbo = street_lamp_index_vbo;
@@ -553,10 +437,10 @@ int main(int argc, char* argv[]) {
     draw_scene.drawables[0].shader_id = shader_3d_model;
     ++draw_scene.num_drawables;
 
-	draw_scene.debug_draw_shader = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/debug_draw");
-	draw_scene.debug_draw_lines_vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
+	draw_scene.lines.shader = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/debug_draw");
+	draw_scene.lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
 
-    DrawBoundingBox(&draw_scene, sep_transform.GetCombination(), lamp_bb);
+    DrawBoundingBox(&draw_scene.lines, sep_transform.GetCombination(), lamp_bb);
 
     for(int i=-10; i<10; ++i){
         sep_transform.translation = vec3(0.0f, floor_bb[1][2], 0.0f);
@@ -578,19 +462,6 @@ int main(int argc, char* argv[]) {
 	game_state.camera.translation = vec3(0.0f,0.0f,20.0f);
 	game_state.camera.rotation = angleAxis(0.0f,vec3(1.0f,0.0f,0.0f));
 	game_state.camera.scale = vec3(1.0f);
-
-    typedef struct SDL_MouseMotionEvent
-    {
-        Uint32 type;        /**< ::SDL_MOUSEMOTION */
-        Uint32 timestamp;
-        Uint32 windowID;    /**< The window with mouse focus, if any */
-        Uint32 which;       /**< The mouse instance id, or SDL_TOUCH_MOUSEID */
-        Uint32 state;       /**< The current button state */
-        Sint32 x;           /**< X coordinate, relative to window */
-        Sint32 y;           /**< Y coordinate, relative to window */
-        Sint32 xrel;        /**< The relative motion in the X direction */
-        Sint32 yrel;        /**< The relative motion in the Y direction */
-    } SDL_MouseMotionEvent;
 
 	int last_ticks = SDL_GetTicks();
 	bool game_running = true;
