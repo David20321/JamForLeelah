@@ -8,6 +8,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+//TODO: these should all be in a config or something
+static const int kMSAA = 4;
+static const float kMaxAnisotropy = 4.0f;
+
 using namespace glm;
 
 void CheckGLError(const char *file, int line) {
@@ -105,14 +109,13 @@ int CreateShader(int type, const char *src) {
  }
 
  void InitGraphicsContext(GraphicsContext *graphics_context) {
-
 	graphics_context->screen_dims[0] = 1280;
     graphics_context->screen_dims[1] = 720;
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4); // Why does this have to be before createwindow?
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (kMSAA==0)?0:1);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, kMSAA); // Why does this have to be before createwindow?
 	graphics_context->window = SDL_CreateWindow("Under Glass", 
 		SDL_WINDOWPOS_UNDEFINED, 
 		SDL_WINDOWPOS_UNDEFINED, 
@@ -231,8 +234,6 @@ static void TestPow2() {
     test_ret = GetPow2(130, &test_remainder);
     SDL_assert(test_ret == 7 && test_remainder == 2);
 }
-
-static const float kMaxAnisotropy = 4.0f; //TODO: this should be in a config or something
 
 int LoadImage(const char* path, FileLoadData* file_load_data){
 	int path_len = strlen(path);
