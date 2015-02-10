@@ -19,6 +19,7 @@ void CheckGLError(const char *file, int line) {
 		case GL_NO_ERROR: err_str = "GL_NO_ERROR"; break;
 		case GL_INVALID_ENUM: err_str = "GL_INVALID_ENUM"; break;
 		case GL_INVALID_VALUE: err_str = "GL_INVALID_VALUE"; break;
+		case GL_INVALID_OPERATION: err_str = "GL_INVALID_OPERATION"; break;
 		case GL_STACK_OVERFLOW: err_str = "GL_STACK_OVERFLOW"; break;
 		case GL_STACK_UNDERFLOW: err_str = "GL_STACK_UNDERFLOW"; break;
 		case GL_OUT_OF_MEMORY: err_str = "GL_OUT_OF_MEMORY"; break;
@@ -75,23 +76,30 @@ int CreateShader(int type, const char *src) {
 	return program;
 }
 
- int CreateStaticVBO(VBO_Type type, void* data, int num_data_elements) {
+ int CreateVBO(VBO_Type type, VBO_Hint hint, void* data, int num_data_elements) {
 	 int type_val;
 	 switch(type){
-	 case ARRAY_VBO:
-		 type_val = GL_ARRAY_BUFFER;
-		 break;
-	 case ELEMENT_VBO:
-		 type_val = GL_ELEMENT_ARRAY_BUFFER;
-		 break;
+	 case kArrayVBO: type_val = GL_ARRAY_BUFFER; break;
+	 case kElementVBO: type_val = GL_ELEMENT_ARRAY_BUFFER; break;
 	 default:
 		 FormattedError("Invalid VBO type", "CreateStaticVBO called with bad type");
+		 exit(1);
+	 }
+	 int hint_val;
+	 switch(hint){
+	 case kDynamicVBO: hint_val = GL_DYNAMIC_DRAW; break;
+	 case kStaticVBO: hint_val = GL_STATIC_DRAW; break;
+	 case kStreamVBO: hint_val = GL_STREAM_DRAW; break;
+	 default:
+		 FormattedError("Invalid VBO hint", "CreateStaticVBO called with bad hint");
 		 exit(1);
 	 }
 	 GLuint u_vbo;
 	 glGenBuffers(1, &u_vbo);
 	 glBindBuffer(type_val, u_vbo);
-	 glBufferData(type_val, num_data_elements, data, GL_STATIC_DRAW);
+	 if(num_data_elements > 0){
+		 glBufferData(type_val, num_data_elements, data, hint_val);
+	 }
 	 glBindBuffer(type_val, 0);
 	 return (int)u_vbo;
  }
@@ -156,8 +164,8 @@ void InitGraphicsData(int *triangle_vbo, int *index_vbo) {
 		0, 1, 2, 1, 3, 2
 	};
 
-	*triangle_vbo = CreateStaticVBO(ARRAY_VBO, (void*)verts, sizeof(verts));
-	*index_vbo = CreateStaticVBO(ELEMENT_VBO, (void*)indices, sizeof(indices));
+	*triangle_vbo = CreateVBO(kArrayVBO, kStaticVBO, (void*)verts, sizeof(verts));
+	*index_vbo = CreateVBO(kElementVBO, kStaticVBO, (void*)indices, sizeof(indices));
 
 	GLuint vao;
 	glGenVertexArrays(1, &vao);

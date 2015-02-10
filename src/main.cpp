@@ -72,8 +72,6 @@ enum DebugDrawLifetime {
 };
 
 struct DebugDrawLine {
-    vec3 points[2];
-    vec4 color;
     DebugDrawLifetime lifetime;
     int lifetime_int;
 };
@@ -84,19 +82,31 @@ struct DrawScene {
 	int num_drawables;
 
     int debug_draw_shader;
+	int debug_draw_lines_vbo;
     static const int kMaxDebugDrawLines = 10000;
     DebugDrawLine debug_draw_lines[kMaxDebugDrawLines];
+	GLfloat line_draw_data[14 * kMaxDebugDrawLines];
     int num_debug_draw_lines;
     bool AddDebugDrawLine(const vec3& start, const vec3& end, const vec4& color, DebugDrawLifetime lifetime, int lifetime_int);
 };
 
 bool DrawScene::AddDebugDrawLine(const vec3& start, const vec3& end, const vec4& color, DebugDrawLifetime lifetime, int lifetime_int) {
     if(num_debug_draw_lines < kMaxDebugDrawLines - 1){
-        DebugDrawLine& new_line = debug_draw_lines[num_debug_draw_lines];
+		DebugDrawLine& new_line = debug_draw_lines[num_debug_draw_lines];
+		int line_index = num_debug_draw_lines*14;
+		for(int k=0; k<3; ++k){
+			line_draw_data[line_index++] = start[k];
+		}
+		for(int k=0; k<4; ++k){
+			line_draw_data[line_index++] = color[k];
+		}
+		for(int k=0; k<3; ++k){
+			line_draw_data[line_index++] = end[k];
+		}
+		for(int k=0; k<4; ++k){
+			line_draw_data[line_index++] = color[k];
+		}
         ++num_debug_draw_lines;
-        new_line.points[0] = start;
-        new_line.points[1] = end;
-        new_line.color = color;
         new_line.lifetime = lifetime;
         new_line.lifetime_int = lifetime_int;
         return true;
@@ -172,7 +182,7 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
 
     float aspect_ratio = context->screen_dims[0] / (float)context->screen_dims[1];
     mat4 proj_mat = glm::perspective(45.0f, aspect_ratio, 0.1f, 100.0f);
-    mat4 view_mat = inverse(game_state->camera.GetCombination());
+	mat4 view_mat = inverse(game_state->camera.GetCombination());
 
 	for(int i=0; i<draw_scene->num_drawables; ++i){
 		Drawable* drawable = &draw_scene->drawables[i];
@@ -200,6 +210,7 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
 			glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
 			glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 			glDisableVertexAttribArray(0);
 			break;
 		case kInterleave_3V2T3N:
@@ -211,29 +222,50 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
 			glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)(5*sizeof(GLfloat)));
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
 			glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 			glDisableVertexAttribArray(0);
 			glDisableVertexAttribArray(1);
 			glDisableVertexAttribArray(2);
 			break;
 		}
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glUseProgram(0);
 		CHECK_GL_ERROR();
 	}
 
     DrawCoordinateGrid(draw_scene);
 
-    for(int i=0; i<draw_scene->num_debug_draw_lines; ++i){
-        // TODO: replace this with modern OpenGL (3.2+)
-        DebugDrawLine& line = draw_scene->debug_draw_lines[i];
-        glPushMatrix();
+	glBindBuffer(GL_ARRAY_BUFFER, draw_scene->debug_draw_lines_vbo);
+	glBufferData(GL_ARRAY_BUFFER, draw_scene->num_debug_draw_lines*sizeof(GLfloat)*14, draw_scene->line_draw_data, GL_STREAM_DRAW);
+	glUseProgram(draw_scene->debug_draw_shader);
+	GLuint modelview_matrix_uniform = glGetUniformLocation(draw_scene->debug_draw_shader, "mv_mat");
+	mat4 mat = proj_mat * view_mat;
+	glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), 0);
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
+	glDrawArrays(GL_LINES, 0, draw_scene->num_debug_draw_lines*2);
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glUseProgram(0);
+	
+    for(int i=0; i<draw_scene->num_debug_draw_lines; ++i){		
+		DebugDrawLine& line = draw_scene->debug_draw_lines[i];
+		/*vec3 line_points[2];
+		for(int j=0; j<2; ++j){
+			line_points[j] = draw_scene->line_points[i*2+j];
+		}
+		glPushMatrix();
             mat4 mat = proj_mat * view_mat;
-            glLoadMatrixf((GLfloat*)&mat);
-            glColor4f(line.color[0], line.color[1], line.color[2], line.color[3]);
-            glBegin(GL_LINES);
-            glVertex3f(line.points[0][0], line.points[0][1], line.points[0][2]);
-            glVertex3f(line.points[1][0], line.points[1][1], line.points[1][2]);
-            glEnd();
-        glPopMatrix();
+			glLoadMatrixf((GLfloat*)&mat);
+			glColor4f(line.color[0], line.color[1], line.color[2], line.color[3]);
+			glBegin(GL_LINES);
+			glVertex3f(line_points[0][0], line_points[0][1], line_points[0][2]);
+			glVertex3f(line_points[1][0], line_points[1][1], line_points[1][2]);
+			glEnd();
+        glPopMatrix();*/
         if(line.lifetime == kDraw){
             --line.lifetime_int;
         }
@@ -243,11 +275,16 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
         DebugDrawLine& line = draw_scene->debug_draw_lines[i];
         if(line.lifetime == kDraw && line.lifetime_int <= 0){
             line = draw_scene->debug_draw_lines[draw_scene->num_debug_draw_lines-1];
+			int dst_line_index = i*14;
+			int src_line_index = (draw_scene->num_debug_draw_lines-1)*14;
+			memcpy(&draw_scene->line_draw_data[dst_line_index],
+				   &draw_scene->line_draw_data[src_line_index],
+				   sizeof(GLfloat)*14);
             --draw_scene->num_debug_draw_lines;
         } else {
             ++i;
         }
-    }
+	}
 }
 
 void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadData* file_load_data) {
@@ -354,8 +391,8 @@ void VBOFromMesh(Mesh* mesh, int* vert_vbo, int* index_vbo) {
 		}
 		consecutive[i] = i;
 	}	
-	*vert_vbo = CreateStaticVBO(ARRAY_VBO, interleaved, interleaved_size);
-	*index_vbo = CreateStaticVBO(ELEMENT_VBO, consecutive, consecutive_size);
+	*vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, interleaved, interleaved_size);
+	*index_vbo = CreateVBO(kElementVBO, kStaticVBO, consecutive, consecutive_size);
 }
 
 void GetBoundingBox(const Mesh* mesh, vec3* bounding_box) {
@@ -515,6 +552,9 @@ int main(int argc, char* argv[]) {
 	draw_scene.drawables[0].texture_id = lamp_texture;
     draw_scene.drawables[0].shader_id = shader_3d_model;
     ++draw_scene.num_drawables;
+
+	draw_scene.debug_draw_shader = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/debug_draw");
+	draw_scene.debug_draw_lines_vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
 
     DrawBoundingBox(&draw_scene, sep_transform.GetCombination(), lamp_bb);
 

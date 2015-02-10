@@ -18,10 +18,16 @@ int CreateShader(int type, const char *src);
 int CreateProgram(const int shaders[], int num_shaders);
 
 enum VBO_Type {
-	ARRAY_VBO,
-	ELEMENT_VBO
+	kArrayVBO,
+	kElementVBO
 };
-int CreateStaticVBO(VBO_Type type, void* data, int num_data_elements);
+enum VBO_Hint {
+	kStaticVBO,
+	kDynamicVBO,
+	kStreamVBO
+};
+
+int CreateVBO(VBO_Type type, VBO_Hint hint, void* data, int num_data_elements);
 
 void CheckGLError(const char *file, int line);
 #ifdef _DEBUG
