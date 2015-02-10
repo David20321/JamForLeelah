@@ -13,7 +13,6 @@ private:
 	static const int kMaxBlocks = 100;
 	int stack_block_pts[kMaxBlocks];
 	int stack_blocks;
-	int stack_pt;
 	int size;
 };
 
