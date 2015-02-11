@@ -17,6 +17,7 @@
 #include "internal/memory.h"
 #include <cstring>
 #include <sys/stat.h>
+#include "platform_sdl/profiler.h"
 
 #ifdef WIN32
 #define ASSET_PATH "../assets/"
@@ -348,20 +349,29 @@ static void DrawBoundingBox(DebugDrawLines* lines, const mat4& mat, vec3 bb[]) {
 }
 
 int main(int argc, char* argv[]) {
-	// Allocate game memory block
+    Profiler profiler;
+    profiler.Init();
+
+    profiler.StartEvent("Allocate game memory block");
 	static const int kGameMemSize = 1024*1024*64;
 	StackMemoryBlock stack_memory_block(malloc(kGameMemSize), kGameMemSize);
 	if(!stack_memory_block.mem){
 		FormattedError("Malloc failed", "Could not allocate enough memory");
 		exit(1);
-	}
+    }
+    profiler.EndEvent();
 
+    profiler.StartEvent("Initializing SDL");
 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER | SDL_INIT_AUDIO) < 0) {
 		FormattedError("SDL_Init failed", "Could not initialize SDL: %s", SDL_GetError());
 		return 1;
     }
-    
-    { // Check for assets folder
+    profiler.EndEvent();
+
+    char* write_dir = SDL_GetPrefPath("Wolfire", "UnderGlass");
+
+    profiler.StartEvent("Checking for assets folder");
+    {
         struct stat st;
         if(stat(ASSET_PATH "under_glass_game_assets_folder.txt", &st) == -1){
             char *basePath = SDL_GetBasePath();
@@ -372,8 +382,9 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+    profiler.EndEvent();
 
-	// Set up file loader 
+    profiler.StartEvent("Set up file loader");
 	FileLoadData file_load_data;
 	file_load_data.wants_to_quit = false;
 	file_load_data.memory_len = 0;
@@ -391,35 +402,44 @@ int main(int argc, char* argv[]) {
 	if(!file_thread){
 		FormattedError("SDL_CreateThread failed", "Could not create file loader thread: %s", SDL_GetError());
 		return 1;
-	}
+    }
+    profiler.EndEvent();
 
-	// Init graphics
+    profiler.StartEvent("Set up graphics context");
 	GraphicsContext graphics_context;
 	InitGraphicsContext(&graphics_context);
+    profiler.EndEvent();
 
-	int texture = LoadImage(ASSET_PATH "cobbles_c.tga", &file_load_data);
+    profiler.StartEvent("Parsing lamp fbx and creating vbo");
 	FBXParseScene parse_scene;
-
 	int street_lamp_vert_vbo, street_lamp_index_vbo;
 	LoadFBX(&parse_scene, ASSET_PATH "street_lamp.fbx", &file_load_data, NULL);
 	int num_street_lamp_indices = parse_scene.meshes[0].num_tris*3;
     vec3 lamp_bb[2];
     GetBoundingBox(&parse_scene.meshes[0], lamp_bb);
 	VBOFromMesh(&parse_scene.meshes[0], &street_lamp_vert_vbo, &street_lamp_index_vbo);
-	parse_scene.Dispose();
+    parse_scene.Dispose();
+    profiler.EndEvent();
 
+    profiler.StartEvent("Parsing cobble fbx and creating vbo");
 	int cobble_floor_vert_vbo, cobble_floor_index_vbo;
 	LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", &file_load_data, NULL);	
     int num_cobble_floor_indices = parse_scene.meshes[0].num_tris*3;
     vec3 floor_bb[2];
     GetBoundingBox(&parse_scene.meshes[0], floor_bb);
 	VBOFromMesh(&parse_scene.meshes[0], &cobble_floor_vert_vbo, &cobble_floor_index_vbo);
-	parse_scene.Dispose();
+    parse_scene.Dispose();
+    profiler.EndEvent();
 
+    profiler.StartEvent("Loading textures");
 	int cobbles_texture = LoadImage(ASSET_PATH "cobbles_c.tga", &file_load_data);
 	int lamp_texture = LoadImage(ASSET_PATH "lamp_c.tga", &file_load_data);
-	int character_texture = LoadImage(ASSET_PATH "main_character_c.tga", &file_load_data);
-	int shader_3d_model = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/3D_model");
+    int character_texture = LoadImage(ASSET_PATH "main_character_c.tga", &file_load_data);
+    profiler.EndEvent();
+
+    profiler.StartEvent("Loading shader program");
+    int shader_3d_model = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/3D_model");
+    profiler.EndEvent();
 
 	DrawScene draw_scene;
     draw_scene.lines.num_lines = 0;
@@ -443,7 +463,9 @@ int main(int argc, char* argv[]) {
     DrawBoundingBox(&draw_scene.lines, sep_transform.GetCombination(), lamp_bb);
 
 	int character_vert_vbo, character_index_vbo, num_character_indices;
-	{
+    {
+        profiler.StartEvent("Parsing character fbx");
+        profiler.StartEvent("Loading file to RAM");
         FBXParseScene parse_scene;
         void* mem = malloc(1024*1024*64);
         int len;
@@ -455,12 +477,16 @@ int main(int argc, char* argv[]) {
             FormattedError(err_title, err_msg);
             exit(1);
         }
+        profiler.EndEvent();
 
-		ParseFBXFromRAM(&parse_scene, mem, len, "RiggedMesh");
+        profiler.StartEvent("Parsing mesh");
+        ParseFBXFromRAM(&parse_scene, mem, len, "RiggedMesh");
+        profiler.EndEvent();
+        profiler.StartEvent("Creating VBO and adding to scene");
 		vec3 char_bb[2];
 		GetBoundingBox(&parse_scene.meshes[0], char_bb);
 		VBOFromMesh(&parse_scene.meshes[0], &character_vert_vbo, &character_index_vbo);
-		num_character_indices = parse_scene.meshes[0].num_tris*3;
+        num_character_indices = parse_scene.meshes[0].num_tris*3;
 
 		draw_scene.drawables[draw_scene.num_drawables].vert_vbo = character_vert_vbo;
 		draw_scene.drawables[draw_scene.num_drawables].index_vbo = character_index_vbo;
@@ -474,10 +500,14 @@ int main(int argc, char* argv[]) {
 		draw_scene.drawables[draw_scene.num_drawables].texture_id = character_texture;
 		draw_scene.drawables[draw_scene.num_drawables].shader_id = shader_3d_model;
 		++draw_scene.num_drawables;
+        parse_scene.Dispose();
+        profiler.EndEvent();
 
-		parse_scene.Dispose();
+        profiler.StartEvent("Parsing rig");
         ParseFBXFromRAM(&parse_scene, mem, len, "rig");
         Skeleton& skeleton = parse_scene.skeletons[0];
+        profiler.EndEvent();
+        profiler.StartEvent("Adding rig lines");
         for(int i=0; i<skeleton.num_bones; ++i){
             Bone& bone = skeleton.bones[i];
             if(bone.parent != -1){
@@ -495,10 +525,17 @@ int main(int argc, char* argv[]) {
                 draw_scene.lines.Add(start, end, vec4(1.0f), kPersistent, 1);
             }
         }
+        profiler.EndEvent();
         parse_scene.Dispose();
+        profiler.EndEvent();
     }
 
-
+    {
+        static const int kMaxPathSize = 4096;
+        char path[kMaxPathSize];
+        FormatString(path, kMaxPathSize, "%sprofile_data.txt", write_dir);
+        profiler.Export(path);
+    }
 
     for(int i=-10; i<10; ++i){
         sep_transform.translation = vec3(0.0f, floor_bb[1][2], 0.0f);
@@ -549,6 +586,7 @@ int main(int argc, char* argv[]) {
 	// TODO: handle this better -- e.g. force audio fade immediately
 	SDL_Delay(200);
 
+    // We can probably just skip most of this if we want to quit faster
 	SDL_CloseAudioDevice(audio_context.device_id);
 	SDL_GL_DeleteContext(graphics_context.gl_context);  
 	SDL_DestroyWindow(graphics_context.window);
@@ -560,7 +598,8 @@ int main(int argc, char* argv[]) {
 	} else {
 		FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
 		exit(1);
-	}
+    }
+    SDL_free(write_dir);
 	SDL_Quit();
 	free(stack_memory_block.mem);
 	return 0;

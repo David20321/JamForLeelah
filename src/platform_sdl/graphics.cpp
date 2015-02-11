@@ -1,6 +1,7 @@
 #include "platform_sdl/graphics.h"
 #include "platform_sdl/error.h"
 #include "platform_sdl/file_io.h"
+#include "platform_sdl/profiler.h"
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <cstring>
@@ -109,6 +110,8 @@ int CreateShader(int type, const char *src) {
  }
 
  void InitGraphicsContext(GraphicsContext *graphics_context) {
+    Profiler profiler;
+    profiler.Init();
 	graphics_context->screen_dims[0] = 1280;
     graphics_context->screen_dims[1] = 720;
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -145,14 +148,15 @@ int CreateShader(int type, const char *src) {
 	if (err != GLEW_OK) {
 		FormattedError("glewInit failed", "Error: %s", glewGetErrorString(err));
 		exit(1);
-	}
+    }
+
 	if (!GLEW_VERSION_3_3) {
 		FormattedError("OpenGL 3.3 not supported", "OpenGL 3.3 is required");
 		exit(1);
 	}
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+    glBindVertexArray(vao);
 }
 
 void InitGraphicsData(int *triangle_vbo, int *index_vbo) {
