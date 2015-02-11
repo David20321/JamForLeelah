@@ -2,6 +2,8 @@
 #ifndef FBX_HPP
 #define FBX_HPP
 
+#include <cstdint>
+
 struct Mesh {
 	int num_verts;
 	float* vert_coords; // 3 per vert
@@ -12,7 +14,9 @@ struct Mesh {
 	float* tri_uvs; // 6 per tri
 	float* tri_normals; // 9 per tri
 
-	char* bone_names; 
+	// To attach to a skeleton
+	int num_bones;
+	uint64_t* bone_ids;
 
 	void Dispose();
 	~Mesh();
@@ -21,7 +25,8 @@ struct Mesh {
 struct Bone {
     float transform[16]; // matrix 4x4
     float size;
-    int parent;
+	int parent;
+	uint64_t bone_id; // To attach to a mesh
     static const int kMaxBoneNameSize = 256;
     char name[kMaxBoneNameSize]; 
 };

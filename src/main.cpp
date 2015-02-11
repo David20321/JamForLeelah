@@ -348,22 +348,6 @@ static void DrawBoundingBox(DebugDrawLines* lines, const mat4& mat, vec3 bb[]) {
 }
 
 int main(int argc, char* argv[]) {
-	{
-		FBXParseScene parse_scene;
-		void* mem = malloc(1024*1024*64);
-		int len;
-		char err_title[FileLoadData::kMaxErrMsgLen];
-		char err_msg[FileLoadData::kMaxErrMsgLen];
-		if(!FileLoadData::LoadFile(ASSET_PATH "main_character_rig.fbx", 
-			mem,  &len, err_title, err_msg))
-		{
-			FormattedError(err_title, err_msg);
-			exit(1);
-		}
-		ParseFBXFromRAM(&parse_scene, mem, len, "RiggedMesh");
-		exit(1);
-	}
-
 	// Allocate game memory block
 	static const int kGameMemSize = 1024*1024*64;
 	StackMemoryBlock stack_memory_block(malloc(kGameMemSize), kGameMemSize);
@@ -434,7 +418,7 @@ int main(int argc, char* argv[]) {
 
 	int cobbles_texture = LoadImage(ASSET_PATH "cobbles_c.tga", &file_load_data);
 	int lamp_texture = LoadImage(ASSET_PATH "lamp_c.tga", &file_load_data);
-	
+	int character_texture = LoadImage(ASSET_PATH "main_character_c.tga", &file_load_data);
 	int shader_3d_model = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/3D_model");
 
 	DrawScene draw_scene;
@@ -458,7 +442,8 @@ int main(int argc, char* argv[]) {
 
     DrawBoundingBox(&draw_scene.lines, sep_transform.GetCombination(), lamp_bb);
 
-    {
+	int character_vert_vbo, character_index_vbo, num_character_indices;
+	{
         FBXParseScene parse_scene;
         void* mem = malloc(1024*1024*64);
         int len;
@@ -470,7 +455,27 @@ int main(int argc, char* argv[]) {
             FormattedError(err_title, err_msg);
             exit(1);
         }
-        //ParseFBXFromRAM(&parse_scene, mem, len, "RiggedMesh");
+
+		ParseFBXFromRAM(&parse_scene, mem, len, "RiggedMesh");
+		vec3 char_bb[2];
+		GetBoundingBox(&parse_scene.meshes[0], char_bb);
+		VBOFromMesh(&parse_scene.meshes[0], &character_vert_vbo, &character_index_vbo);
+		num_character_indices = parse_scene.meshes[0].num_tris*3;
+
+		draw_scene.drawables[draw_scene.num_drawables].vert_vbo = character_vert_vbo;
+		draw_scene.drawables[draw_scene.num_drawables].index_vbo = character_index_vbo;
+		draw_scene.drawables[draw_scene.num_drawables].num_indices = num_character_indices;
+		draw_scene.drawables[draw_scene.num_drawables].vbo_layout = kInterleave_3V2T3N;
+		SeparableTransform char_transform;
+		char_transform.scale = vec3(0.007f); //TODO: check where this is in FBX
+		char_transform.translation[1] -= char_bb[0][1] * char_transform.scale[1];
+		char_transform.translation[2] -= 2.0f;
+		draw_scene.drawables[draw_scene.num_drawables].transform = char_transform.GetCombination();
+		draw_scene.drawables[draw_scene.num_drawables].texture_id = character_texture;
+		draw_scene.drawables[draw_scene.num_drawables].shader_id = shader_3d_model;
+		++draw_scene.num_drawables;
+
+		parse_scene.Dispose();
         ParseFBXFromRAM(&parse_scene, mem, len, "rig");
         Skeleton& skeleton = parse_scene.skeletons[0];
         for(int i=0; i<skeleton.num_bones; ++i){
@@ -492,6 +497,8 @@ int main(int argc, char* argv[]) {
         }
         parse_scene.Dispose();
     }
+
+
 
     for(int i=-10; i<10; ++i){
         sep_transform.translation = vec3(0.0f, floor_bb[1][2], 0.0f);
