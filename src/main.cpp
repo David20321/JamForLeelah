@@ -322,8 +322,8 @@ static void AddBBLine(DebugDrawLines* lines, const mat4& mat, vec3 bb[], int fla
     points[1][0] = (flags & e_pos_x)?bb[1][0]:bb[0][0];
     points[1][1] = (flags & e_pos_y)?bb[1][1]:bb[0][1];
     points[1][2] = (flags & e_pos_z)?bb[1][2]:bb[0][2];
-    lines->Add((mat*vec4(points[0],1.0f)).xyz, 
-		       (mat*vec4(points[1],1.0f)).xyz, 
+    lines->Add(vec3(mat*vec4(points[0],1.0f)), 
+		       vec3(mat*vec4(points[1],1.0f)), 
 		       vec4(1.0f), kPersistent, 1);
 }
 

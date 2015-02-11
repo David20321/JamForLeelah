@@ -1,6 +1,7 @@
 #include "platform_sdl/debug_draw.h"
 #include "glm/glm.hpp"
 #include "GL/glew.h"
+#include <cstring>
 
 using namespace glm;
 
