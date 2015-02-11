@@ -114,7 +114,8 @@ int CreateShader(int type, const char *src) {
     profiler.Init();
 	graphics_context->screen_dims[0] = 1280;
     graphics_context->screen_dims[1] = 720;
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (kMSAA==0)?0:1);
@@ -143,6 +144,11 @@ int CreateShader(int type, const char *src) {
     SDL_Log("Multisample buffers: %d Multisample samples: %d\n", multisample_buffers, multisample_samples);
 
     glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+
+    // Enable vSync
+    if(!SDL_GL_SetSwapInterval(-1)) {
+        SDL_GL_SetSwapInterval(1);
+    }
 
 	GLenum err = glewInit();
 	if (err != GLEW_OK) {
