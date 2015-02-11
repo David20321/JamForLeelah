@@ -369,6 +369,7 @@ int main(int argc, char* argv[]) {
             SDL_free(basePath);
             if(stat(ASSET_PATH "under_glass_game_assets_folder.txt", &st) == -1){
                 FormattedError("Assets?", "Could not find assets directory, possibly running from inside archive");
+                exit(1);
             }
         }
     }
