@@ -189,7 +189,7 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
 	draw_scene->lines.Draw(proj_view_mat);
 }
 
-void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadData* file_load_data) {
+void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadData* file_load_data, const char* specific_name) {
 	int path_len = strlen(path);
 	if(path_len > FileRequest::kMaxFileRequestPathLen){
 		FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
@@ -207,7 +207,7 @@ void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadData* file_lo
             FormattedError(file_load_data->err_title, file_load_data->err_msg);
             exit(1);
         }
-		ParseFBXFromRAM(parse_scene, file_load_data->memory, file_load_data->memory_len);
+		ParseFBXFromRAM(parse_scene, file_load_data->memory, file_load_data->memory_len, specific_name);
 		SDL_UnlockMutex(file_load_data->mutex);
 	} else {
 		FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
@@ -401,7 +401,7 @@ int main(int argc, char* argv[]) {
 	FBXParseScene parse_scene;
 
 	int street_lamp_vert_vbo, street_lamp_index_vbo;
-	LoadFBX(&parse_scene, ASSET_PATH "street_lamp.fbx", &file_load_data);
+	LoadFBX(&parse_scene, ASSET_PATH "street_lamp.fbx", &file_load_data, NULL);
 	int num_street_lamp_indices = parse_scene.meshes[0].num_tris*3;
     vec3 lamp_bb[2];
     GetBoundingBox(&parse_scene.meshes[0], lamp_bb);
@@ -409,7 +409,7 @@ int main(int argc, char* argv[]) {
 	parse_scene.Dispose();
 
 	int cobble_floor_vert_vbo, cobble_floor_index_vbo;
-	LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", &file_load_data);	
+	LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", &file_load_data, NULL);	
     int num_cobble_floor_indices = parse_scene.meshes[0].num_tris*3;
     vec3 floor_bb[2];
     GetBoundingBox(&parse_scene.meshes[0], floor_bb);
@@ -430,7 +430,7 @@ int main(int argc, char* argv[]) {
 	draw_scene.drawables[0].vbo_layout = kInterleave_3V2T3N;
     SeparableTransform sep_transform;
     sep_transform.rotation = angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f));
-    sep_transform.translation = vec3(0.0f, -lamp_bb[0][2], 0.0f);
+    sep_transform.translation = vec3(0.0f, -lamp_bb[0][2], 2.0f);
     sep_transform.scale = vec3(1.0f);
 	draw_scene.drawables[0].transform = sep_transform.GetCombination();
 	draw_scene.drawables[0].texture_id = lamp_texture;
@@ -441,6 +441,41 @@ int main(int argc, char* argv[]) {
 	draw_scene.lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
 
     DrawBoundingBox(&draw_scene.lines, sep_transform.GetCombination(), lamp_bb);
+
+    {
+        FBXParseScene parse_scene;
+        void* mem = malloc(1024*1024*64);
+        int len;
+        char err_title[FileLoadData::kMaxErrMsgLen];
+        char err_msg[FileLoadData::kMaxErrMsgLen];
+        if(!FileLoadData::LoadFile(ASSET_PATH "main_character_rig.fbx", 
+            mem,  &len, err_title, err_msg))
+        {
+            FormattedError(err_title, err_msg);
+            exit(1);
+        }
+        //ParseFBXFromRAM(&parse_scene, mem, len, "RiggedMesh");
+        ParseFBXFromRAM(&parse_scene, mem, len, "rig");
+        Skeleton& skeleton = parse_scene.skeletons[0];
+        for(int i=0; i<skeleton.num_bones; ++i){
+            Bone& bone = skeleton.bones[i];
+            if(bone.parent != -1){
+                mat4 temp;
+                for(int i=0; i<16; ++i){
+                    temp[i/4][i%4] = bone.transform[i];
+                }
+                Bone& parent_bone = skeleton.bones[bone.parent];
+                mat4 temp_parent;
+                for(int i=0; i<16; ++i){
+                    temp_parent[i/4][i%4] = parent_bone.transform[i];
+                }
+                vec3 start(temp * vec4(0,0,0,1));
+                vec3 end(temp_parent * vec4(0,0,0,1));
+                draw_scene.lines.Add(start, end, vec4(1.0f), kPersistent, 1);
+            }
+        }
+        parse_scene.Dispose();
+    }
 
     for(int i=-10; i<10; ++i){
         sep_transform.translation = vec3(0.0f, floor_bb[1][2], 0.0f);

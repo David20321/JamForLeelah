@@ -14,15 +14,33 @@ struct Mesh {
 	~Mesh();
 };
 
+struct Bone {
+    float transform[16]; // matrix 4x4
+    float size;
+    int parent;
+    static const int kMaxBoneNameSize = 256;
+    char name[kMaxBoneNameSize]; 
+};
+
+struct Skeleton {
+    int num_bones;
+    Bone* bones;
+
+    void Dispose();
+    ~Skeleton();
+};
+
 struct FBXParseScene {
 	int num_mesh;
 	Mesh* meshes;
+    int num_skeleton;
+    Skeleton* skeletons;
 
 	void Dispose();
 	~FBXParseScene();
 };
 
-void ParseFBXFromRAM(FBXParseScene* scene, void* file_memory, int file_size);
+void ParseFBXFromRAM(FBXParseScene* scene, void* file_memory, int file_size, const char* specific_name);
 void PrintFBXInfoFromRAM(void* file_memory, int file_size);
 
 #endif

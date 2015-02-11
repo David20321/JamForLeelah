@@ -18,6 +18,7 @@
 #include "fbx/ImportScene/DisplayGenericInfo.h"
 #include <SDL.h>
 #include "platform_sdl/error.h"
+#include "internal/common.h"
 #include <cstdlib>
 
 // Local function prototypes.
@@ -441,8 +442,47 @@ bool GetUV(FbxMesh* fbx_mesh, int tri_index, int tri_vert, int layer, FbxVector2
 	return ret;
 }
 
-void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass) {
+void ParseSkeleton(Skeleton* skeleton, FbxNode* node, FBXParsePass pass, int parent, FbxAnimEvaluator* eval) {
+    const char* name = node->GetName();
+    if(name[0] == 'D' && name[1] == 'E' && name[2] == 'F'){
+        int bone_id = skeleton->num_bones++;
+        if(pass == kStore){
+            FbxSkeleton* skeleton_node = (FbxSkeleton*)node->GetNodeAttribute();
+            const char* types[] = { "Root", "Limb", "Limb Node", "Effector" };
+            FbxSkeleton::EType e_type = skeleton_node->GetSkeletonType();
+            const char* type = types[e_type];
+            float size = 0.0f;
+            switch(e_type){
+            case FbxSkeleton::eLimb:{
+                size = (float)skeleton_node->LimbLength.Get();
+                } break;
+            case FbxSkeleton::eLimbNode:{
+                size = (float)skeleton_node->Size.Get();
+                } break;
+            case FbxSkeleton::eRoot: {
+                size = (float)skeleton_node->Size.Get();
+                } break;
+            }
+            const FbxAMatrix& transform = eval->GetNodeGlobalTransform(node);
+            Bone& bone = skeleton->bones[bone_id];
+            FormatString(bone.name, Bone::kMaxBoneNameSize,
+                         "%s", name);
+            for(int i=0; i<16; ++i){
+                bone.transform[i] = (float)transform[i/4][i%4];
+            }
+            bone.size = size;
+            bone.parent = parent;
+        }
+        parent = bone_id;
+    }
+    for(int i=0, len=node->GetChildCount(); i<len; ++i) {
+        ParseSkeleton(skeleton, node->GetChild(i), pass, parent, eval);
+    }
+}
+
+void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth, FbxAnimEvaluator* eval) {
 	FbxNodeAttribute* node_attribute = node->GetNodeAttribute();
+    bool check_children = true;
 	if(node_attribute) {
 		FbxNodeAttribute::EType type = node_attribute->GetAttributeType();
 		switch (type) {
@@ -487,35 +527,66 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass) {
 				++scene->num_mesh;
 				break;
 			}
-			} break;
+            } break;
+        case FbxNodeAttribute::eSkeleton: {
+            check_children = false;
+            switch(pass){
+            case kStore: {
+                Skeleton* skeleton = &scene->skeletons[scene->num_skeleton];
+                skeleton->num_bones = 0;
+                ++scene->num_skeleton;
+                ParseSkeleton(skeleton, node, kCount, -1, eval);
+                skeleton->bones = (Bone*)malloc(sizeof(Bone)*skeleton->num_bones);
+                skeleton->num_bones = 0;
+                ParseSkeleton(skeleton, node, kStore, -1, eval);
+                } break;
+            case kCount: {
+                ++scene->num_skeleton;
+                } break;
+            }
+            } break;
 		default:
 			SDL_Log("Unhandled node type\n");
 			break;
 		}   
 	} else {
-		SDL_Log("NULL Node Attribute\n");
+		SDL_Log("NULL Node Attribute (%s)\n", node->GetName());
 	}
-	for(int i=0, len=node->GetChildCount(); i<len; ++i) {
-		ParseNode(scene, node->GetChild(i), pass);
-	}
+    if(check_children){
+	    for(int i=0, len=node->GetChildCount(); i<len; ++i) {
+		    ParseNode(scene, node->GetChild(i), pass, depth+1, eval);
+	    }
+    }
 }
 
-void ParseScene(FbxScene* scene, FBXParseScene* parse_scene) {
+void ParseScene(FbxScene* scene, FBXParseScene* parse_scene, const char* specific_name) {
 	FbxNode* node = scene->GetRootNode();
-	parse_scene->num_mesh = 0;
+    FbxAnimEvaluator* eval = scene->GetAnimationEvaluator();
+    parse_scene->num_mesh = 0;
+    parse_scene->num_skeleton = 0;
 	if(node) {
 		for(int i=0, len=node->GetChildCount(); i<len; ++i) {
-			ParseNode(parse_scene, node->GetChild(i), kCount);
+            FbxNode* child = node->GetChild(i);
+            const char* child_name = child->GetName();
+            if(specific_name == NULL || strcmp(child_name, specific_name) == 0) {
+			    ParseNode(parse_scene, node->GetChild(i), kCount, 0, eval);
+            }
 		}
 		parse_scene->meshes = (Mesh*)malloc(sizeof(Mesh)*parse_scene->num_mesh);
-		parse_scene->num_mesh = 0;
-		for(int i=0, len=node->GetChildCount(); i<len; ++i) {
-			ParseNode(parse_scene, node->GetChild(i), kStore);
+        parse_scene->num_mesh = 0;
+        parse_scene->skeletons = (Skeleton*)malloc(sizeof(Skeleton)*parse_scene->num_skeleton);
+        parse_scene->num_skeleton = 0;
+        for(int i=0, len=node->GetChildCount(); i<len; ++i) {
+            FbxNode* child = node->GetChild(i);
+            const char* child_name = child->GetName();
+            if(specific_name == NULL || strcmp(child_name, specific_name) == 0) {
+                ParseNode(parse_scene, node->GetChild(i), kStore, 0, eval);
+            }
 		}
 	}
 }
 
-void ParseFBXFromRAM(FBXParseScene* parse_scene, void* file_memory, int file_size) {
+void ParseFBXFromRAM(FBXParseScene* parse_scene, void* file_memory, int file_size, const char* specific_name) {
 	// Create manager and scene
 	FbxManager* fbx_manager = FbxManager::Create();
 	if( !fbx_manager ) {
@@ -547,7 +618,7 @@ void ParseFBXFromRAM(FBXParseScene* parse_scene, void* file_memory, int file_siz
 		converter.Triangulate(scene, true, false);
 	}
 
-    ParseScene(scene, parse_scene);
+    ParseScene(scene, parse_scene, specific_name);
     static const bool print_description = false;
     if(print_description){
         DisplayContent(scene);
@@ -576,13 +647,26 @@ void Mesh::Dispose() {
 	FreeAndNull((void**)&tri_normals);
 }
 
+void Skeleton::Dispose() {
+    FreeAndNull((void**)&bones);
+}
+
+Skeleton::~Skeleton() {
+    SDL_assert(bones == NULL);
+}
+
 void FBXParseScene::Dispose() {
 	for(int i=0; i<num_mesh; ++i){
 		meshes[i].Dispose();
 	}
-	FreeAndNull((void**)&meshes);
+    FreeAndNull((void**)&meshes);
+    for(int i=0; i<num_skeleton; ++i){
+        skeletons[i].Dispose();
+    }
+    FreeAndNull((void**)&skeletons);
 }
 
 FBXParseScene::~FBXParseScene() {
-	SDL_assert(meshes == NULL);
+    SDL_assert(meshes == NULL);
+    SDL_assert(skeletons == NULL);
 }
