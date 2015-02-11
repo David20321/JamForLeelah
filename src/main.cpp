@@ -530,13 +530,6 @@ int main(int argc, char* argv[]) {
         profiler.EndEvent();
     }
 
-    {
-        static const int kMaxPathSize = 4096;
-        char path[kMaxPathSize];
-        FormatString(path, kMaxPathSize, "%sprofile_data.txt", write_dir);
-        profiler.Export(path);
-    }
-
     for(int i=-10; i<10; ++i){
         sep_transform.translation = vec3(0.0f, floor_bb[1][2], 0.0f);
         sep_transform.translation += vec3(0.0f,0.0f,-1.0f+(float)i*2.0f);
@@ -561,26 +554,43 @@ int main(int argc, char* argv[]) {
 	int last_ticks = SDL_GetTicks();
 	bool game_running = true;
 	while(game_running){
-		SDL_Event event;
-        vec2 mouse_rel;
-		while(SDL_PollEvent(&event)){
-			switch(event.type){
-			case SDL_QUIT:
-				game_running = false;
-				break;
-            case SDL_MOUSEMOTION:
-                mouse_rel[0] += event.motion.xrel;
-                mouse_rel[1] += event.motion.yrel;
-                break;
-			}
-		}
-		Draw(&graphics_context, &game_state, &draw_scene, SDL_GetTicks());
-		int ticks = SDL_GetTicks();
-		Update(&game_state, mouse_rel, (ticks - last_ticks) / 1000.0f);
-		last_ticks = ticks;
-		UpdateAudio(&audio_context);
-		SDL_GL_SwapWindow(graphics_context.window);
-	}
+        profiler.StartEvent("Game loop");
+		    SDL_Event event;
+            vec2 mouse_rel;
+		    while(SDL_PollEvent(&event)){
+			    switch(event.type){
+			    case SDL_QUIT:
+				    game_running = false;
+				    break;
+                case SDL_MOUSEMOTION:
+                    mouse_rel[0] += event.motion.xrel;
+                    mouse_rel[1] += event.motion.yrel;
+                    break;
+			    }
+            }
+            profiler.StartEvent("Draw");
+                Draw(&graphics_context, &game_state, &draw_scene, SDL_GetTicks());
+            profiler.EndEvent();
+            profiler.StartEvent("Update");
+		        int ticks = SDL_GetTicks();
+		        Update(&game_state, mouse_rel, (ticks - last_ticks) / 1000.0f);
+                last_ticks = ticks;
+            profiler.EndEvent();
+            profiler.StartEvent("Audio");
+                UpdateAudio(&audio_context);
+            profiler.EndEvent();
+            profiler.StartEvent("Swap");
+                SDL_GL_SwapWindow(graphics_context.window);
+            profiler.EndEvent();
+        profiler.EndEvent();
+    }
+
+    {
+        static const int kMaxPathSize = 4096;
+        char path[kMaxPathSize];
+        FormatString(path, kMaxPathSize, "%sprofile_data.txt", write_dir);
+        profiler.Export(path);
+    }
 
 	// Wait for the audio to fade out
 	// TODO: handle this better -- e.g. force audio fade immediately

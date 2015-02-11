@@ -10,8 +10,9 @@ void Profiler::Init() {
 }
 
 void Profiler::StartEvent(const char* txt) {
-    if(num_events < kMaxEvents){
+    if(num_events < kMaxEvents && event_stack_depth < kMaxEventStackDepth){
         curr_event = num_events;
+        event_stack[event_stack_depth] = curr_event;
         Event& event = events[num_events++];
         event.start_time = SDL_GetPerformanceCounter();
         event.label = txt;
@@ -20,11 +21,15 @@ void Profiler::StartEvent(const char* txt) {
 }
 
 void Profiler::EndEvent() {
-    if(event_stack_depth != 0 && curr_event != -1){
+    if(event_stack_depth > 0 && curr_event != -1){
         Event& event = events[curr_event];
         event.end_time = SDL_GetPerformanceCounter();
         --event_stack_depth;
-        curr_event = -1;
+        if(event_stack_depth > 0){
+            curr_event = event_stack[event_stack_depth-1];
+        } else {
+            curr_event = -1;
+        }
     }
 }
 

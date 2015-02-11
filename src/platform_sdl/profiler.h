@@ -20,6 +20,8 @@ private:
     static const int kMaxEvents = 1024;
     Event events[kMaxEvents];
     int num_events;
+    static const int kMaxEventStackDepth = 32;
+    int event_stack[kMaxEventStackDepth];
     int event_stack_depth;
     int curr_event;
 };
