@@ -2,7 +2,7 @@
 #ifndef FBX_HPP
 #define FBX_HPP
 
-#include <cstdint>
+#include <stdint.h>
 
 struct Mesh {
 	int num_verts;

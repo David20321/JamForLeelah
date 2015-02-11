@@ -20,7 +20,7 @@
 #include "platform_sdl/error.h"
 #include "internal/common.h"
 #include <cstdlib>
-#include <cstdint>
+#include <stdint.h>
 
 // Local function prototypes.
 void DisplayContent(FbxScene* pScene);
