@@ -480,6 +480,83 @@ void ParseSkeleton(Skeleton* skeleton, FbxNode* node, FBXParsePass pass, int par
     }
 }
 
+static const int kMaxWeightsPerVert = 4;
+static const float kWeightThreshold = 0.01f; // Don't bother storing vertex weights that are below this threshold
+
+void SetBoneWeights(int bone_id, int num_bone_verts, int* bone_verts, double* bone_vert_weights, int* vert_bone_indices, float* vert_bone_weights) {
+	int first_free_weight = 0;
+	for(int i=0; i<num_bone_verts; ++i){
+		float weight = bone_vert_weights[i];
+		if(weight > kWeightThreshold) {
+			int bone_vert = bone_verts[i];
+			int vert_bone_index = bone_vert * kMaxWeightsPerVert;
+			int first_free_slot = -1;
+			for(int j=0; j<kMaxWeightsPerVert; ++j){
+				if(vert_bone_indices[vert_bone_index+j] == -1){
+					first_free_slot = j;
+					break;
+				}
+			}
+			if(first_free_slot != -1){
+				vert_bone_indices[vert_bone_index+first_free_slot] = bone_id;
+				vert_bone_weights[vert_bone_index+first_free_slot] = weight;
+			}
+		}
+	}
+}
+
+void CheckMeshDeformer(FbxMesh* fbx_mesh) {
+	char* bone_names;
+	int num_bones = 0;
+	int total_name_len = 0;
+	const int num_verts = fbx_mesh->GetControlPointsCount();
+	const int total_weights = kMaxWeightsPerVert*num_verts;
+	int* vert_bone_indices = (int*)malloc(sizeof(int)*total_weights);
+	for(int i=0; i<total_weights; ++i){
+		vert_bone_indices[i] = -1;
+	}
+	float* vert_bone_weights = (float*)malloc(sizeof(float)*total_weights);
+#ifdef _DEBUG
+	for(int i=0; i<total_weights; ++i){
+		vert_bone_weights[i] = 0.0f;
+	}
+#endif
+	for(int pass=0; pass<2; ++pass){
+		if(pass == 1){
+			bone_names = (char*)malloc(total_name_len);
+			total_name_len = 0;
+		}
+		int num_skins = fbx_mesh->GetDeformerCount(FbxDeformer::eSkin);
+		for(int i=0; i<num_skins; ++i)	{
+			FbxSkin* skin = (FbxSkin *) fbx_mesh->GetDeformer(i, FbxDeformer::eSkin);
+			int num_clusters = skin->GetClusterCount();
+			for (int j=0; j<num_clusters; ++j) {
+				FbxCluster* cluster = skin->GetCluster(j);
+				int num_indices = cluster->GetControlPointIndicesCount();
+				if(num_indices){
+					const char* bone_name = cluster->GetLink()->GetName();
+					switch(pass) {
+					case 0: {
+						int* indices = cluster->GetControlPointIndices();
+						double* weights = cluster->GetControlPointWeights();
+						SetBoneWeights(num_bones, num_indices, indices, weights, vert_bone_indices, vert_bone_weights);
+						++num_bones; 
+						total_name_len+=strlen(bone_name)+1;
+						} break;
+					case 1: 
+						strcpy(&bone_names[total_name_len], bone_name);
+						total_name_len+=strlen(bone_name)+1;
+						break;
+					}
+				}
+			}
+		}
+	}
+	free(bone_names);
+	free(vert_bone_indices);
+	free(vert_bone_weights);
+}
+
 void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth, FbxAnimEvaluator* eval) {
 	FbxNodeAttribute* node_attribute = node->GetNodeAttribute();
     bool check_children = true;
@@ -490,6 +567,7 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
 			switch(pass){
 			case kStore: {
 				FbxMesh* fbx_mesh = (FbxMesh*)node_attribute;
+				CheckMeshDeformer(fbx_mesh);
 				Mesh* mesh = &scene->meshes[scene->num_mesh];
 				++scene->num_mesh;
 				mesh->num_verts = fbx_mesh->GetControlPointsCount();
@@ -633,6 +711,9 @@ Mesh::~Mesh() {
 	SDL_assert(tri_indices == NULL);
 	SDL_assert(tri_uvs == NULL);
 	SDL_assert(tri_normals == NULL);
+	SDL_assert(vert_bone_weights == NULL);
+	SDL_assert(vert_bone_indices == NULL);
+	SDL_assert(bone_names == NULL);
 }
 
 static void FreeAndNull(void** mem){
@@ -645,6 +726,9 @@ void Mesh::Dispose() {
 	FreeAndNull((void**)&tri_indices);
 	FreeAndNull((void**)&tri_uvs);
 	FreeAndNull((void**)&tri_normals);
+	FreeAndNull((void**)&vert_bone_weights);
+	FreeAndNull((void**)&vert_bone_indices);
+	FreeAndNull((void**)&bone_names);
 }
 
 void Skeleton::Dispose() {

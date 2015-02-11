@@ -5,10 +5,14 @@
 struct Mesh {
 	int num_verts;
 	float* vert_coords; // 3 per vert
+	float* vert_bone_weights; // 4 per vert
+	int* vert_bone_indices; // 4 per vert
 	int num_tris;
 	unsigned* tri_indices; // 3 per tri
 	float* tri_uvs; // 6 per tri
 	float* tri_normals; // 9 per tri
+
+	char* bone_names; 
 
 	void Dispose();
 	~Mesh();

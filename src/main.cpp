@@ -348,6 +348,22 @@ static void DrawBoundingBox(DebugDrawLines* lines, const mat4& mat, vec3 bb[]) {
 }
 
 int main(int argc, char* argv[]) {
+	{
+		FBXParseScene parse_scene;
+		void* mem = malloc(1024*1024*64);
+		int len;
+		char err_title[FileLoadData::kMaxErrMsgLen];
+		char err_msg[FileLoadData::kMaxErrMsgLen];
+		if(!FileLoadData::LoadFile(ASSET_PATH "main_character_rig.fbx", 
+			mem,  &len, err_title, err_msg))
+		{
+			FormattedError(err_title, err_msg);
+			exit(1);
+		}
+		ParseFBXFromRAM(&parse_scene, mem, len, "RiggedMesh");
+		exit(1);
+	}
+
 	// Allocate game memory block
 	static const int kGameMemSize = 1024*1024*64;
 	StackMemoryBlock stack_memory_block(malloc(kGameMemSize), kGameMemSize);
