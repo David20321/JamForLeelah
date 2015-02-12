@@ -7,7 +7,7 @@ void* StackMemoryBlock::Alloc(int requested_size) {
 	if(stack_block_pts[stack_blocks] + requested_size < size && stack_blocks < kMaxBlocks-2){
 		++stack_blocks;
 		stack_block_pts[stack_blocks] = stack_block_pts[stack_blocks-1] + requested_size;
-		return (void*)((int)mem + stack_block_pts[stack_blocks]);
+		return (void*)((int)mem + stack_block_pts[stack_blocks-1]);
 	} else {
 		return NULL;
 	}
