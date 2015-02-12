@@ -217,7 +217,7 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
 	draw_scene->lines.Draw(proj_view_mat);
 }
 
-void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadData* file_load_data, const char* specific_name) {
+void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* file_load_data, const char* specific_name) {
 	int path_len = strlen(path);
 	if(path_len > FileRequest::kMaxFileRequestPathLen){
 		FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
@@ -244,7 +244,7 @@ void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadData* file_lo
 	}
 }
 
-int CreateProgramFromFile(FileLoadData* file_load_data, const char* path){
+int CreateProgramFromFile(FileLoadThreadData* file_load_data, const char* path){
 	int path_len = strlen(path)+5;
 	if(path_len > FileRequest::kMaxFileRequestPathLen){
 		FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
@@ -343,7 +343,7 @@ void VBOFromSkinnedMesh(Mesh* mesh, int* vert_vbo, int* index_vbo) {
             interleaved[index++] = mesh->tri_normals[i*3+j];
         }
         for(int j=0; j<4; ++j){
-            interleaved[index++] = mesh->vert_bone_indices[vert*4+j];
+            interleaved[index++] = (float)mesh->vert_bone_indices[vert*4+j];
         }
         for(int j=0; j<4; ++j){
             interleaved[index++] = mesh->vert_bone_weights[vert*4+j];
@@ -489,7 +489,8 @@ int main(int argc, char* argv[]) {
 
     profiler.StartEvent("Allocate game memory block");
 	static const int kGameMemSize = 1024*1024*64;
-	StackMemoryBlock stack_memory_block(malloc(kGameMemSize), kGameMemSize);
+	StackMemoryBlock stack_memory_block;
+	stack_memory_block.Init(malloc(kGameMemSize), kGameMemSize);
 	if(!stack_memory_block.mem){
 		FormattedError("Malloc failed", "Could not allocate enough memory");
 		exit(1);
@@ -520,21 +521,21 @@ int main(int argc, char* argv[]) {
     }
     profiler.EndEvent();
 
-    profiler.StartEvent("Set up file loader");
-	FileLoadData file_load_data;
-	file_load_data.wants_to_quit = false;
-	file_load_data.memory_len = 0;
-	file_load_data.memory = stack_memory_block.Alloc(FileLoadData::kMaxFileLoadSize);
-	if(!file_load_data.memory){
+	profiler.StartEvent("Set up file loader");
+	FileLoadThreadData file_load_thread_data;
+	file_load_thread_data.memory_len = 0;
+	file_load_thread_data.memory = stack_memory_block.Alloc(FileLoadThreadData::kMaxFileLoadSize);
+	if(!file_load_thread_data.memory){
 		FormattedError("Alloc failed", "Could not allocate memory for FileLoadData");
 		return 1;
 	}
-	file_load_data.mutex = SDL_CreateMutex();
-	if (!file_load_data.mutex) {
+	file_load_thread_data.wants_to_quit = false;
+	file_load_thread_data.mutex = SDL_CreateMutex();
+	if (!file_load_thread_data.mutex) {
 		FormattedError("SDL_CreateMutex failed", "Could not create file load mutex: %s", SDL_GetError());
 		return 1;
 	}
-	SDL_Thread* file_thread = SDL_CreateThread(FileLoadAsync, "FileLoaderThread", &file_load_data);
+	SDL_Thread* file_thread = SDL_CreateThread(FileLoadAsync, "FileLoaderThread", &file_load_thread_data);
 	if(!file_thread){
 		FormattedError("SDL_CreateThread failed", "Could not create file loader thread: %s", SDL_GetError());
 		return 1;
@@ -544,12 +545,16 @@ int main(int argc, char* argv[]) {
     profiler.StartEvent("Set up graphics context");
 	GraphicsContext graphics_context;
 	InitGraphicsContext(&graphics_context);
-    profiler.EndEvent();
+	profiler.EndEvent();
 
+	AudioContext audio_context;
+	InitAudio(&audio_context, &stack_memory_block);
+
+	// Game code starts here
     profiler.StartEvent("Parsing lamp fbx and creating vbo");
 	FBXParseScene parse_scene;
 	int street_lamp_vert_vbo, street_lamp_index_vbo;
-	LoadFBX(&parse_scene, ASSET_PATH "street_lamp.fbx", &file_load_data, NULL);
+	LoadFBX(&parse_scene, ASSET_PATH "street_lamp.fbx", &file_load_thread_data, NULL);
 	int num_street_lamp_indices = parse_scene.meshes[0].num_tris*3;
     vec3 lamp_bb[2];
     GetBoundingBox(&parse_scene.meshes[0], lamp_bb);
@@ -559,7 +564,7 @@ int main(int argc, char* argv[]) {
 
     profiler.StartEvent("Parsing cobble fbx and creating vbo");
 	int cobble_floor_vert_vbo, cobble_floor_index_vbo;
-	LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", &file_load_data, NULL);	
+	LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", &file_load_thread_data, NULL);	
     int num_cobble_floor_indices = parse_scene.meshes[0].num_tris*3;
     vec3 floor_bb[2];
     GetBoundingBox(&parse_scene.meshes[0], floor_bb);
@@ -568,14 +573,14 @@ int main(int argc, char* argv[]) {
     profiler.EndEvent();
 
     profiler.StartEvent("Loading textures");
-	int cobbles_texture = LoadImage(ASSET_PATH "cobbles_c.tga", &file_load_data);
-	int lamp_texture = LoadImage(ASSET_PATH "lamp_c.tga", &file_load_data);
-    int character_texture = LoadImage(ASSET_PATH "main_character_c.tga", &file_load_data);
+	int cobbles_texture = LoadImage(ASSET_PATH "cobbles_c.tga", &file_load_thread_data);
+	int lamp_texture = LoadImage(ASSET_PATH "lamp_c.tga", &file_load_thread_data);
+    int character_texture = LoadImage(ASSET_PATH "main_character_c.tga", &file_load_thread_data);
     profiler.EndEvent();
 
     profiler.StartEvent("Loading shader program");
-    int shader_3d_model = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/3D_model");
-    int shader_3d_model_skinned = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/3D_model_skinned");
+    int shader_3d_model = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/3D_model");
+    int shader_3d_model_skinned = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/3D_model_skinned");
     profiler.EndEvent();
 
 	DrawScene draw_scene;
@@ -594,7 +599,7 @@ int main(int argc, char* argv[]) {
     draw_scene.drawables[0].shader_id = shader_3d_model;
     ++draw_scene.num_drawables;
 
-	draw_scene.lines.shader = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/debug_draw");
+	draw_scene.lines.shader = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/debug_draw");
 	draw_scene.lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
 
     DrawBoundingBox(&draw_scene.lines, sep_transform.GetCombination(), lamp_bb);
@@ -606,9 +611,9 @@ int main(int argc, char* argv[]) {
         FBXParseScene parse_scene;
         void* mem = malloc(1024*1024*64);
         int len;
-        char err_title[FileLoadData::kMaxErrMsgLen];
-        char err_msg[FileLoadData::kMaxErrMsgLen];
-        if(!FileLoadData::LoadFile(ASSET_PATH "main_character_rig.fbx", 
+        char err_title[FileLoadThreadData::kMaxErrMsgLen];
+        char err_msg[FileLoadThreadData::kMaxErrMsgLen];
+        if(!FileLoadThreadData::LoadFile(ASSET_PATH "main_character_rig.fbx", 
             mem,  &len, err_title, err_msg))
         {
             FormattedError(err_title, err_msg);
@@ -625,11 +630,11 @@ int main(int argc, char* argv[]) {
 
         AttachMeshToSkeleton(&mesh, &skeleton);
         profiler.StartEvent("Adding rig lines");
-        for(int i=0; i<skeleton.num_bones; ++i){
-            Bone& bone = skeleton.bones[i];
+        for(int bone_index=0; bone_index<skeleton.num_bones; ++bone_index){
+            Bone& bone = skeleton.bones[bone_index];
             mat4 temp;
-            for(int i=0; i<16; ++i){
-                temp[i/4][i%4] = bone.transform[i];
+            for(int matrix_element=0; matrix_element<16; ++matrix_element){
+                temp[matrix_element/4][matrix_element%4] = bone.transform[matrix_element];
             }
             if(bone.parent != -1){
                 Bone& parent_bone = skeleton.bones[bone.parent];
@@ -643,7 +648,7 @@ int main(int argc, char* argv[]) {
             }
             mat4 bind_mat;
             for(int j=0; j<16; ++j){
-                bind_mat[j/4][j%4] = mesh.bind_matrices[i*16+j];
+                bind_mat[j/4][j%4] = mesh.bind_matrices[bone_index*16+j];
             }
             mat4 rot_mat = toMat4(angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f)));
 
@@ -651,7 +656,7 @@ int main(int argc, char* argv[]) {
             mat4 test_b = temp * inverse(bind_mat * inverse(rot_mat));
             mat4 test_c = temp * inverse(rot_mat * bind_mat);
             mat4 test_d = temp * inverse(inverse(rot_mat) * bind_mat);
-            g_bone_transforms[i] = temp * inverse(bind_mat) * rot_mat;
+            g_bone_transforms[bone_index] = temp * inverse(bind_mat) * rot_mat;
         }
         profiler.EndEvent();
         
@@ -693,9 +698,6 @@ int main(int argc, char* argv[]) {
         ++draw_scene.num_drawables;
     }
 
-	AudioContext audio_context;
-	InitAudio(&audio_context, &stack_memory_block);
-
 	GameState game_state;
 	game_state.camera.translation = vec3(0.0f,0.0f,20.0f);
 	game_state.camera.rotation = angleAxis(0.0f,vec3(1.0f,0.0f,0.0f));
@@ -734,6 +736,8 @@ int main(int argc, char* argv[]) {
             profiler.EndEvent();
         profiler.EndEvent();
     }
+	
+	// Game code ends here
 
     {
         static const int kMaxPathSize = 4096;
@@ -751,9 +755,9 @@ int main(int argc, char* argv[]) {
 	SDL_GL_DeleteContext(graphics_context.gl_context);  
 	SDL_DestroyWindow(graphics_context.window);
 	// Cleanly shut down file load thread 
-	if (SDL_LockMutex(file_load_data.mutex) == 0) {
-		file_load_data.wants_to_quit = true;
-		SDL_UnlockMutex(file_load_data.mutex);
+	if (SDL_LockMutex(file_load_thread_data.mutex) == 0) {
+		file_load_thread_data.wants_to_quit = true;
+		SDL_UnlockMutex(file_load_thread_data.mutex);
 		SDL_WaitThread(file_thread, NULL);
 	} else {
 		FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());

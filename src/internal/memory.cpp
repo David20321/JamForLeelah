@@ -22,10 +22,9 @@ void StackMemoryBlock::Free() {
 	}
 }
 
-StackMemoryBlock::StackMemoryBlock(void* p_mem, int p_size)
-	:mem(p_mem),
-	 size(p_size),
-	 stack_blocks(0)
-{
+void StackMemoryBlock::Init(void* p_mem, int p_size) {
 	stack_block_pts[0] = 0;
+	mem = p_mem;
+	size = p_size;
+	stack_blocks = 0;
 }

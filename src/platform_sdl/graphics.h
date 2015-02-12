@@ -3,7 +3,7 @@
 #define PLATFORM_SDL_GRAPHICS_HPP
 
 #include <SDL.h>
-class FileLoadData;
+class FileLoadThreadData;
 
 struct GraphicsContext {
 	int screen_dims[2];
@@ -13,7 +13,7 @@ struct GraphicsContext {
 
 void InitGraphicsContext(GraphicsContext *graphics_context);
 void InitGraphicsData(int *triangle_vbo, int *index_vbo);
-int LoadImage(const char* path, FileLoadData* file_load_data);
+int LoadImage(const char* path, FileLoadThreadData* file_load_data);
 int CreateShader(int type, const char *src);
 int CreateProgram(const int shaders[], int num_shaders);
 

@@ -530,17 +530,17 @@ void CheckMeshDeformer(FbxMesh* fbx_mesh, int* vert_bone_indices,
 					case 0: {
 						int* indices = cluster->GetControlPointIndices();
 						double* weights = cluster->GetControlPointWeights();
-						SetBoneWeights(num_bones, num_indices, indices, weights, vert_bone_indices, vert_bone_weights);
+						SetBoneWeights(num_bones, num_indices, indices, weights,
+									   vert_bone_indices, vert_bone_weights);
                         ++num_bones; 
 						} break;
 					case 1: 
 						(*bone_ids)[num_bones] = cluster->GetLink()->GetUniqueID();
-                        FbxAMatrix transform_matrix, transform_link_matrix, transform_associate_model_Matrix;
-                        transform_matrix = cluster->GetTransformMatrix(transform_matrix);
-                        transform_link_matrix = cluster->GetTransformLinkMatrix(transform_link_matrix);
-                        transform_associate_model_Matrix = cluster->GetTransformAssociateModelMatrix(transform_associate_model_Matrix);
+                        FbxAMatrix transform_link_matrix;
+                        transform_link_matrix = 
+							cluster->GetTransformLinkMatrix(transform_link_matrix);
                         for(int matrix_element=0, matrix_index=num_bones*16; matrix_element<16; ++matrix_element){
-                            (*bind_matrices)[matrix_index++] = transform_link_matrix[matrix_element/4][matrix_element%4];
+                            (*bind_matrices)[matrix_index++] = (float)transform_link_matrix[matrix_element/4][matrix_element%4];
                         }
                         ++num_bones; 
 						break;

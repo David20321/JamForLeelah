@@ -21,31 +21,31 @@ static int GetFileSize(const char* path){
 	return st.st_size;
 }
 
-bool FileLoadData::LoadFile(const char* path, void* memory, int* memory_len, char* err_title, char* err_msg) {
+bool FileLoadThreadData::LoadFile(const char* path, void* memory, int* memory_len, char* err_title, char* err_msg) {
 	int file_size;
 	{
 		struct stat st;
         if(stat(path, &st) == -1){
-            FormatString(err_title, FileLoadData::kMaxErrMsgLen, 
+            FormatString(err_title, FileLoadThreadData::kMaxErrMsgLen, 
                 "stat failed");
-            FormatString(err_msg, FileLoadData::kMaxErrMsgLen, 
+            FormatString(err_msg, FileLoadThreadData::kMaxErrMsgLen, 
                 "Could not get stats of file: %s\nError: %s", path, strerror(errno));
             return false;
 		}
 		file_size = st.st_size;
 	}
     if(file_size > kMaxFileLoadSize){
-        FormatString(err_title, FileLoadData::kMaxErrMsgLen, 
+        FormatString(err_title, FileLoadThreadData::kMaxErrMsgLen, 
             "LoadFile failed");
-        FormatString(err_msg, FileLoadData::kMaxErrMsgLen, 
+        FormatString(err_msg, FileLoadThreadData::kMaxErrMsgLen, 
             "File %s is too big\nIt is %d bytes, max is %d", path, file_size, kMaxFileLoadSize);
         return false;
 	}
 	SDL_RWops *file = SDL_RWFromFile(path, "rb");
     if(!file){
-        FormatString(err_title, FileLoadData::kMaxErrMsgLen, 
+        FormatString(err_title, FileLoadThreadData::kMaxErrMsgLen, 
             "SDL_RWFromFile failed");
-        FormatString(err_msg, FileLoadData::kMaxErrMsgLen, 
+        FormatString(err_msg, FileLoadThreadData::kMaxErrMsgLen, 
             "Could not load %s\nError: %s", path, SDL_GetError());
         return false;
 	}
@@ -57,39 +57,39 @@ bool FileLoadData::LoadFile(const char* path, void* memory, int* memory_len, cha
     return true;
 }
 
-int FileLoadAsync(void* data) {
-	FileLoadData* file_load_data = (FileLoadData*)data;
+int FileLoadThreadData::Run() {
 	bool is_running = true;
 	while(is_running){
 		SDL_Delay(1);
-		if (SDL_LockMutex(file_load_data->mutex) == 0) {
-            file_load_data->err = false;
-			FileRequest* request = file_load_data->queue.PopFrontRequest();
+		if (SDL_LockMutex(mutex) == 0) {
+			err = false;
+			FileRequest* request = queue.PopFrontRequest();
 			if(request){
 				SDL_Log("File loader thread processing request \"%s\"", request->path);
-				file_load_data->err = 
-                    !FileLoadData::LoadFile(request->path, 
-                                            file_load_data->memory, 
-                                            &file_load_data->memory_len, 
-                                            file_load_data->err_title, 
-                                            file_load_data->err_msg);
+				err = !LoadFile(request->path, memory, &memory_len,
+							    err_title, err_msg);
 				SDL_CondSignal(request->condition);
-                if(!file_load_data->err){
-				    SDL_Log("File \"%s\" loaded into RAM", request->path);
-                }
+				if(!err){
+					SDL_Log("File \"%s\" loaded into RAM", request->path);
+				}
 			}
-			is_running = !file_load_data->err && !file_load_data->wants_to_quit;
-			SDL_UnlockMutex(file_load_data->mutex);
+			is_running = !err && !wants_to_quit;
+			SDL_UnlockMutex(mutex);
 		} else {
-            FormatString(file_load_data->err_title, FileLoadData::kMaxErrMsgLen, 
-                "SDL_LockMutex failed");
-            FormatString(file_load_data->err_msg, FileLoadData::kMaxErrMsgLen, 
-                "Could not lock file loader mutex: %s", SDL_GetError());
-			file_load_data->err = true;
-            exit(1);
+			FormatString(err_title, FileLoadThreadData::kMaxErrMsgLen, 
+				"SDL_LockMutex failed");
+			FormatString(err_msg, FileLoadThreadData::kMaxErrMsgLen, 
+				"Could not lock file loader mutex: %s", SDL_GetError());
+			err = true;
+			exit(1);
 		}
 	}
 	return 0;
+}
+
+int FileLoadAsync(void* data) {
+	FileLoadThreadData* file_load_data = (FileLoadThreadData*)data;
+	return file_load_data->Run();
 }
 
 FileRequest* FileRequestQueue::AddNewRequest() {

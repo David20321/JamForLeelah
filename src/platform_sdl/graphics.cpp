@@ -243,7 +243,7 @@ static void TestPow2() {
     SDL_assert(test_ret == 7 && test_remainder == 2);
 }
 
-int LoadImage(const char* path, FileLoadData* file_load_data){
+int LoadImage(const char* path, FileLoadThreadData* file_load_data){
 	int path_len = strlen(path);
 	if(path_len > FileRequest::kMaxFileRequestPathLen){
 		FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);

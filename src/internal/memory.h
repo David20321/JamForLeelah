@@ -4,7 +4,7 @@
 
 class StackMemoryBlock {
 public:
-	StackMemoryBlock(void* mem, int size);
+	void Init(void* mem, int size);
 	void* Alloc(int size);
 	void Free();
 	void* mem;
