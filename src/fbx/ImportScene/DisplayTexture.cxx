@@ -15,19 +15,19 @@
 
 void DisplayTextureInfo(FbxTexture* pTexture, int pBlendMode)
 {
-	FbxFileTexture *lFileTexture = FbxCast<FbxFileTexture>(pTexture);
-	FbxProceduralTexture *lProceduralTexture = FbxCast<FbxProceduralTexture>(pTexture);
+    FbxFileTexture *lFileTexture = FbxCast<FbxFileTexture>(pTexture);
+    FbxProceduralTexture *lProceduralTexture = FbxCast<FbxProceduralTexture>(pTexture);
 
     DisplayString("            Name: \"", (char *) pTexture->GetName(), "\"");
-	if (lFileTexture)
-	{
-		DisplayString("            Type: File Texture");
-		DisplayString("            File Name: \"", (char *) lFileTexture->GetFileName(), "\"");
-	}
-	else if (lProceduralTexture)
-	{
-		DisplayString("            Type: Procedural Texture");
-	}
+    if (lFileTexture)
+    {
+        DisplayString("            Type: File Texture");
+        DisplayString("            File Name: \"", (char *) lFileTexture->GetFileName(), "\"");
+    }
+    else if (lProceduralTexture)
+    {
+        DisplayString("            Type: Procedural Texture");
+    }
     DisplayDouble("            Scale U: ", pTexture->GetScaleU());
     DisplayDouble("            Scale V: ", pTexture->GetScaleV());
     DisplayDouble("            Translation U: ", pTexture->GetTranslationU());
@@ -62,11 +62,11 @@ void DisplayTextureInfo(FbxTexture* pTexture, int pBlendMode)
         DisplayString("            Blend Mode: ", lBlendModes[pBlendMode]);
     DisplayDouble("            Alpha: ", pTexture->GetDefaultAlpha());
 
-	if (lFileTexture)
-	{
-		const char* lMaterialUses[] = { "Model Material", "Default Material" };
-	    DisplayString("            Material Use: ", lMaterialUses[lFileTexture->GetMaterialUse()]);
-	}
+    if (lFileTexture)
+    {
+        const char* lMaterialUses[] = { "Model Material", "Default Material" };
+        DisplayString("            Material Use: ", lMaterialUses[lFileTexture->GetMaterialUse()]);
+    }
 
     const char* pTextureUses[] = { "Standard", "Shadow Map", "Light Map", 
         "Spherical Reflexion Map", "Sphere Reflexion Map", "Bump Normal Map" };
@@ -80,14 +80,14 @@ void FindAndDisplayTextureInfoByProperty(FbxProperty pProperty, bool& pDisplayHe
 
     if( pProperty.IsValid() )
     {
-		int lTextureCount = pProperty.GetSrcObjectCount<FbxTexture>();
+        int lTextureCount = pProperty.GetSrcObjectCount<FbxTexture>();
 
-		for (int j = 0; j < lTextureCount; ++j)
-		{
-			//Here we have to check if it's layeredtextures, or just textures:
-			FbxLayeredTexture *lLayeredTexture = pProperty.GetSrcObject<FbxLayeredTexture>(j);
-			if (lLayeredTexture)
-			{
+        for (int j = 0; j < lTextureCount; ++j)
+        {
+            //Here we have to check if it's layeredtextures, or just textures:
+            FbxLayeredTexture *lLayeredTexture = pProperty.GetSrcObject<FbxLayeredTexture>(j);
+            if (lLayeredTexture)
+            {
                 DisplayInt("    Layered Texture: ", j);
                 FbxLayeredTexture *lLayeredTexture = pProperty.GetSrcObject<FbxLayeredTexture>(j);
                 int lNbTextures = lLayeredTexture->GetSrcObjectCount<FbxTexture>();
@@ -115,9 +115,9 @@ void FindAndDisplayTextureInfoByProperty(FbxProperty pProperty, bool& pDisplayHe
 
                 }
             }
-			else
-			{
-				//no layered texture simply get on the property
+            else
+            {
+                //no layered texture simply get on the property
                 FbxTexture* lTexture = pProperty.GetSrcObject<FbxTexture>(j);
                 if(lTexture)
                 {

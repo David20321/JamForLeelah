@@ -133,5 +133,5 @@ void DisplayNurb(FbxNode* pNode)
     DisplayMaterial(lNurbs);
     DisplayLink(lNurbs);
     DisplayShape(lNurbs);
-	DisplayCache(lNurbs);
+    DisplayCache(lNurbs);
 }

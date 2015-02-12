@@ -17,48 +17,48 @@ void DisplayShape(FbxGeometry* pGeometry)
 {
     int lBlendShapeCount, lBlendShapeChannelCount, lTargetShapeCount;
     FbxBlendShape* lBlendShape;
-	FbxBlendShapeChannel* lBlendShapeChannel;
-	FbxShape* lShape;
+    FbxBlendShapeChannel* lBlendShapeChannel;
+    FbxShape* lShape;
 
     lBlendShapeCount = pGeometry->GetDeformerCount(FbxDeformer::eBlendShape);
 
     for (int lBlendShapeIndex = 0; lBlendShapeIndex < lBlendShapeCount; ++lBlendShapeIndex)
     {
-		lBlendShape = (FbxBlendShape*) pGeometry->GetDeformer(lBlendShapeIndex, FbxDeformer::eBlendShape);   
+        lBlendShape = (FbxBlendShape*) pGeometry->GetDeformer(lBlendShapeIndex, FbxDeformer::eBlendShape);   
         DisplayString("    BlendShape ", (char *) lBlendShape->GetName());
         
-		lBlendShapeChannelCount = lBlendShape->GetBlendShapeChannelCount();
-		for(int lBlendShapeChannelIndex = 0;  lBlendShapeChannelIndex < lBlendShapeChannelCount; ++lBlendShapeChannelIndex)
-		{
-			lBlendShapeChannel = lBlendShape->GetBlendShapeChannel(lBlendShapeChannelIndex);
-			DisplayString("    BlendShapeChannel ", (char *) lBlendShapeChannel->GetName());
-			DisplayDouble("    Default Deform Value: ", lBlendShapeChannel->DeformPercent.Get());
+        lBlendShapeChannelCount = lBlendShape->GetBlendShapeChannelCount();
+        for(int lBlendShapeChannelIndex = 0;  lBlendShapeChannelIndex < lBlendShapeChannelCount; ++lBlendShapeChannelIndex)
+        {
+            lBlendShapeChannel = lBlendShape->GetBlendShapeChannel(lBlendShapeChannelIndex);
+            DisplayString("    BlendShapeChannel ", (char *) lBlendShapeChannel->GetName());
+            DisplayDouble("    Default Deform Value: ", lBlendShapeChannel->DeformPercent.Get());
 
-			lTargetShapeCount = lBlendShapeChannel->GetTargetShapeCount();
-			for (int lTargetShapeIndex = 0; lTargetShapeIndex < lTargetShapeCount; ++lTargetShapeIndex)
-			{
-				lShape = lBlendShapeChannel->GetTargetShape(lTargetShapeIndex);
-				DisplayString("    TargetShape ", (char *) lShape->GetName());
+            lTargetShapeCount = lBlendShapeChannel->GetTargetShapeCount();
+            for (int lTargetShapeIndex = 0; lTargetShapeIndex < lTargetShapeCount; ++lTargetShapeIndex)
+            {
+                lShape = lBlendShapeChannel->GetTargetShape(lTargetShapeIndex);
+                DisplayString("    TargetShape ", (char *) lShape->GetName());
 
-				int j, lControlPointsCount = lShape->GetControlPointsCount();
-				FbxVector4* lControlPoints = lShape->GetControlPoints();
-				FbxLayerElementArrayTemplate<FbxVector4>* lNormals = NULL;    
-				bool lStatus = lShape->GetNormals(&lNormals); 
+                int j, lControlPointsCount = lShape->GetControlPointsCount();
+                FbxVector4* lControlPoints = lShape->GetControlPoints();
+                FbxLayerElementArrayTemplate<FbxVector4>* lNormals = NULL;    
+                bool lStatus = lShape->GetNormals(&lNormals); 
 
-				for(j = 0; j < lControlPointsCount; j++)
-				{
-					DisplayInt("        Control Point ", j);
-					Display3DVector("            Coordinates: ", lControlPoints[j]);
+                for(j = 0; j < lControlPointsCount; j++)
+                {
+                    DisplayInt("        Control Point ", j);
+                    Display3DVector("            Coordinates: ", lControlPoints[j]);
 
-					if (lStatus && lNormals && lNormals->GetCount() == lControlPointsCount)
-					{
-						Display3DVector("            Normal Vector: ", lNormals->GetAt(j));
-					}
-				}
+                    if (lStatus && lNormals && lNormals->GetCount() == lControlPointsCount)
+                    {
+                        Display3DVector("            Normal Vector: ", lNormals->GetAt(j));
+                    }
+                }
 
-				DisplayString("");
-			}
-		}
+                DisplayString("");
+            }
+        }
     }
 }
 

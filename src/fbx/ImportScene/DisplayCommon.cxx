@@ -19,7 +19,7 @@
 
 void DisplayMetaDataConnections(FbxObject* pObject)
 {
-	int nbMetaData = pObject->GetSrcObjectCount<FbxObjectMetaData>();
+    int nbMetaData = pObject->GetSrcObjectCount<FbxObjectMetaData>();
     if (nbMetaData > 0)
         DisplayString("    MetaData connections ");
 

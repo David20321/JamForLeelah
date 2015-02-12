@@ -46,51 +46,51 @@ void DisplayUserProperties(FbxObject* pObject)
             if (lProperty.HasMaxLimit()) DisplayDouble("            Max Limit: ", lProperty.GetMaxLimit());
             DisplayBool  ("            Is Animatable: ", lProperty.GetFlag(FbxPropertyFlags::eAnimatable));
             
-			FbxDataType lPropertyDataType=lProperty.GetPropertyDataType();
+            FbxDataType lPropertyDataType=lProperty.GetPropertyDataType();
 
-			// BOOL
-			if (lPropertyDataType.GetType() == eFbxBool)
+            // BOOL
+            if (lPropertyDataType.GetType() == eFbxBool)
             {
                 DisplayBool("            Default Value: ", lProperty.Get<FbxBool>());
-			}
-			// REAL
-			else if (lPropertyDataType.GetType() == eFbxDouble || lPropertyDataType.GetType() == eFbxFloat)
-			{
-                DisplayDouble("            Default Value: ", lProperty.Get<FbxDouble>());
-			}
-			// COLOR
-			else if (lPropertyDataType.Is(FbxColor3DT) || lPropertyDataType.Is(FbxColor4DT))
+            }
+            // REAL
+            else if (lPropertyDataType.GetType() == eFbxDouble || lPropertyDataType.GetType() == eFbxFloat)
             {
-				FbxColor lDefault;
+                DisplayDouble("            Default Value: ", lProperty.Get<FbxDouble>());
+            }
+            // COLOR
+            else if (lPropertyDataType.Is(FbxColor3DT) || lPropertyDataType.Is(FbxColor4DT))
+            {
+                FbxColor lDefault;
                 char      lBuf[64];
 
                 lDefault = lProperty.Get<FbxColor>();
                 FBXSDK_sprintf(lBuf, 64, "R=%f, G=%f, B=%f, A=%f", lDefault.mRed, lDefault.mGreen, lDefault.mBlue, lDefault.mAlpha);
                 DisplayString("            Default Value: ", lBuf);
             }
-			// INTEGER
-			else if (lPropertyDataType.GetType() == eFbxInt)
-			{
+            // INTEGER
+            else if (lPropertyDataType.GetType() == eFbxInt)
+            {
                 DisplayInt("            Default Value: ", lProperty.Get<FbxInt>());
-			}
-			// VECTOR
-			else if(lPropertyDataType.GetType() == eFbxDouble3 || lPropertyDataType.GetType() == eFbxDouble4)
-			{
-				FbxDouble3 lDefault;
+            }
+            // VECTOR
+            else if(lPropertyDataType.GetType() == eFbxDouble3 || lPropertyDataType.GetType() == eFbxDouble4)
+            {
+                FbxDouble3 lDefault;
                 char   lBuf[64];
 
                 lDefault = lProperty.Get<FbxDouble3>();
                 FBXSDK_sprintf(lBuf, 64, "X=%f, Y=%f, Z=%f", lDefault[0], lDefault[1], lDefault[2]);
                 DisplayString("            Default Value: ", lBuf);
             }
-			// LIST
-			else if (lPropertyDataType.GetType() == eFbxEnum)
-			{
+            // LIST
+            else if (lPropertyDataType.GetType() == eFbxEnum)
+            {
                 DisplayInt("            Default Value: ", lProperty.Get<FbxEnum>());
-			}
-			// UNIDENTIFIED
+            }
+            // UNIDENTIFIED
             else
-			{
+            {
                 DisplayString("            Default Value: UNIDENTIFIED");
             }
             i++;

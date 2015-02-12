@@ -255,25 +255,25 @@ void DisplayChannels(FbxNode* pNode, FbxAnimLayer* pAnimLayer, void (*DisplayCur
         {
             FbxGeometry* lGeometry = (FbxGeometry*) lNodeAttribute;
 
-			int lBlendShapeDeformerCount = lGeometry->GetDeformerCount(FbxDeformer::eBlendShape);
-			for(int lBlendShapeIndex = 0; lBlendShapeIndex<lBlendShapeDeformerCount; ++lBlendShapeIndex)
-			{
-				FbxBlendShape* lBlendShape = (FbxBlendShape*)lGeometry->GetDeformer(lBlendShapeIndex, FbxDeformer::eBlendShape);
+            int lBlendShapeDeformerCount = lGeometry->GetDeformerCount(FbxDeformer::eBlendShape);
+            for(int lBlendShapeIndex = 0; lBlendShapeIndex<lBlendShapeDeformerCount; ++lBlendShapeIndex)
+            {
+                FbxBlendShape* lBlendShape = (FbxBlendShape*)lGeometry->GetDeformer(lBlendShapeIndex, FbxDeformer::eBlendShape);
 
-				int lBlendShapeChannelCount = lBlendShape->GetBlendShapeChannelCount();
-				for(int lChannelIndex = 0; lChannelIndex<lBlendShapeChannelCount; ++lChannelIndex)
-				{
-					FbxBlendShapeChannel* lChannel = lBlendShape->GetBlendShapeChannel(lChannelIndex);
-					const char* lChannelName = lChannel->GetName();
+                int lBlendShapeChannelCount = lBlendShape->GetBlendShapeChannelCount();
+                for(int lChannelIndex = 0; lChannelIndex<lBlendShapeChannelCount; ++lChannelIndex)
+                {
+                    FbxBlendShapeChannel* lChannel = lBlendShape->GetBlendShapeChannel(lChannelIndex);
+                    const char* lChannelName = lChannel->GetName();
 
-					lAnimCurve = lGeometry->GetShapeChannel(lBlendShapeIndex, lChannelIndex, pAnimLayer, true);
-					if(lAnimCurve)
-					{
-						SDL_Log("        Shape %s\n", lChannelName);
-						DisplayCurve(lAnimCurve);
-					}
-				}
-			}
+                    lAnimCurve = lGeometry->GetShapeChannel(lBlendShapeIndex, lChannelIndex, pAnimLayer, true);
+                    if(lAnimCurve)
+                    {
+                        SDL_Log("        Shape %s\n", lChannelName);
+                        DisplayCurve(lAnimCurve);
+                    }
+                }
+            }
         }
     }
 
@@ -292,7 +292,7 @@ void DisplayChannels(FbxNode* pNode, FbxAnimLayer* pAnimLayer, void (*DisplayCur
             }
 
             FbxDataType lDataType = lProperty.GetPropertyDataType();
-			if (lDataType.GetType() == eFbxBool || lDataType.GetType() == eFbxDouble || lDataType.GetType() == eFbxFloat || lDataType.GetType() == eFbxInt)
+            if (lDataType.GetType() == eFbxBool || lDataType.GetType() == eFbxDouble || lDataType.GetType() == eFbxFloat || lDataType.GetType() == eFbxInt)
             {
                 FbxString lMessage;
 
@@ -314,14 +314,14 @@ void DisplayChannels(FbxNode* pNode, FbxAnimLayer* pAnimLayer, void (*DisplayCur
                         DisplayCurve(lAnimCurve);
                 }
             }
-			else if(lDataType.GetType() == eFbxDouble3 || lDataType.GetType() == eFbxDouble4 || lDataType.Is(FbxColor3DT) || lDataType.Is(FbxColor4DT))
+            else if(lDataType.GetType() == eFbxDouble3 || lDataType.GetType() == eFbxDouble4 || lDataType.Is(FbxColor3DT) || lDataType.Is(FbxColor4DT))
             {
-				char* lComponentName1 = (lDataType.Is(FbxColor3DT) ||lDataType.Is(FbxColor4DT)) ? (char*)FBXSDK_CURVENODE_COLOR_RED : (char*)"X";
+                char* lComponentName1 = (lDataType.Is(FbxColor3DT) ||lDataType.Is(FbxColor4DT)) ? (char*)FBXSDK_CURVENODE_COLOR_RED : (char*)"X";
                 char* lComponentName2 = (lDataType.Is(FbxColor3DT) ||lDataType.Is(FbxColor4DT)) ? (char*)FBXSDK_CURVENODE_COLOR_GREEN : (char*)"Y";
                 char* lComponentName3 = (lDataType.Is(FbxColor3DT) ||lDataType.Is(FbxColor4DT)) ? (char*)FBXSDK_CURVENODE_COLOR_BLUE  : (char*)"Z";
                 FbxString      lMessage;
                 
-				lMessage =  "        Property ";
+                lMessage =  "        Property ";
                 lMessage += lProperty.GetName();
                 if (lProperty.GetLabel().GetLen() > 0)
                 {
@@ -361,11 +361,11 @@ void DisplayChannels(FbxNode* pNode, FbxAnimLayer* pAnimLayer, void (*DisplayCur
                     }
                 }
             }
-			else if (lDataType.GetType() == eFbxEnum)
+            else if (lDataType.GetType() == eFbxEnum)
             {
                 FbxString lMessage;
 
-				lMessage =  "        Property ";
+                lMessage =  "        Property ";
                 lMessage += lProperty.GetName();
                 if (lProperty.GetLabel().GetLen() > 0)
                 {
@@ -392,9 +392,9 @@ void DisplayChannels(FbxNode* pNode, FbxAnimLayer* pAnimLayer, void (*DisplayCur
 
 static int InterpolationFlagToIndex(int flags)
 {
-	if( (flags & FbxAnimCurveDef::eInterpolationConstant) == FbxAnimCurveDef::eInterpolationConstant ) return 1;
+    if( (flags & FbxAnimCurveDef::eInterpolationConstant) == FbxAnimCurveDef::eInterpolationConstant ) return 1;
     if( (flags & FbxAnimCurveDef::eInterpolationLinear) == FbxAnimCurveDef::eInterpolationLinear ) return 2;
-	if( (flags & FbxAnimCurveDef::eInterpolationCubic) == FbxAnimCurveDef::eInterpolationCubic ) return 3;
+    if( (flags & FbxAnimCurveDef::eInterpolationCubic) == FbxAnimCurveDef::eInterpolationCubic ) return 3;
     return 0;
 }
 
@@ -468,9 +468,9 @@ void DisplayCurveKeys(FbxAnimCurve* pCurve)
             lOutputString += " | ";
             lOutputString += cubicMode[ TangentmodeFlagToIndex(pCurve->KeyGetTangentMode(lCount)) ];
             lOutputString += " | ";
-			lOutputString += tangentWVMode[ TangentweightFlagToIndex(pCurve->KeyGet(lCount).GetTangentWeightMode()) ];
+            lOutputString += tangentWVMode[ TangentweightFlagToIndex(pCurve->KeyGet(lCount).GetTangentWeightMode()) ];
             lOutputString += " | ";
-			lOutputString += tangentWVMode[ TangentVelocityFlagToIndex(pCurve->KeyGet(lCount).GetTangentVelocityMode()) ];
+            lOutputString += tangentWVMode[ TangentVelocityFlagToIndex(pCurve->KeyGet(lCount).GetTangentVelocityMode()) ];
         }
         lOutputString += " ]";
         lOutputString += "\n";

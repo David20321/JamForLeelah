@@ -25,11 +25,11 @@ void DisplayGenericInfo(FbxScene* pScene)
         DisplayGenericInfo(lRootNode->GetChild(i), 0);
     }
 
-	//Other objects directly connected onto the scene
-	for( i = 0; i < pScene->GetSrcObjectCount(); ++i )
-	{
-		DisplayProperties(pScene->GetSrcObject(i));
-	}
+    //Other objects directly connected onto the scene
+    for( i = 0; i < pScene->GetSrcObjectCount(); ++i )
+    {
+        DisplayProperties(pScene->GetSrcObject(i));
+    }
 }
 
 
@@ -79,7 +79,7 @@ void DisplayProperties(FbxObject* pObject)
     DisplayInt(lTitleStr.Buffer(), lCount);
 
     i=0;
-	lProperty = pObject->GetFirstProperty();
+    lProperty = pObject->GetFirstProperty();
     while (lProperty.IsValid())
     {
         // exclude user properties

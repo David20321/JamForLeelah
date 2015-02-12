@@ -7,12 +7,12 @@
 class StackMemoryBlock;
 
 struct AudioContext {
-	SDL_AudioDeviceID device_id;
-	SDL_AudioSpec audio_spec;
-	void* curr_buffer;
-	void* back_buffer;
-	int buffer_read_byte;
-	int buffer_size;
+    SDL_AudioDeviceID device_id;
+    SDL_AudioSpec audio_spec;
+    void* curr_buffer;
+    void* back_buffer;
+    int buffer_read_byte;
+    int buffer_size;
 };
 
 void UpdateAudio(AudioContext* audio_context);

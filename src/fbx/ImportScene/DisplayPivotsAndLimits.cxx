@@ -46,21 +46,21 @@ void DisplayPivotsAndLimits(FbxNode* pNode)
     //
     // Limits
     //
-    bool		lIsActive, lMinXActive, lMinYActive, lMinZActive;
-    bool		lMaxXActive, lMaxYActive, lMaxZActive;
-    FbxDouble3	lMinValues, lMaxValues;
+    bool        lIsActive, lMinXActive, lMinYActive, lMinZActive;
+    bool        lMaxXActive, lMaxYActive, lMaxZActive;
+    FbxDouble3    lMinValues, lMaxValues;
 
     SDL_Log("    Limits Information\n");
 
-	lIsActive = pNode->TranslationActive;
-	lMinXActive = pNode->TranslationMinX;
-	lMinYActive = pNode->TranslationMinY;
-	lMinZActive = pNode->TranslationMinZ;
-	lMaxXActive = pNode->TranslationMaxX;
-	lMaxYActive = pNode->TranslationMaxY;
-	lMaxZActive = pNode->TranslationMaxZ;
-	lMinValues = pNode->TranslationMin;
-	lMaxValues = pNode->TranslationMax;
+    lIsActive = pNode->TranslationActive;
+    lMinXActive = pNode->TranslationMinX;
+    lMinYActive = pNode->TranslationMinY;
+    lMinZActive = pNode->TranslationMinZ;
+    lMaxXActive = pNode->TranslationMaxX;
+    lMaxYActive = pNode->TranslationMaxY;
+    lMaxZActive = pNode->TranslationMaxZ;
+    lMinValues = pNode->TranslationMin;
+    lMaxValues = pNode->TranslationMax;
 
     SDL_Log("        Translation limits: %s\n", lIsActive ? "Active" : "Inactive");
     SDL_Log("            X\n");
@@ -79,15 +79,15 @@ void DisplayPivotsAndLimits(FbxNode* pNode)
     SDL_Log("                Max Limit: %s\n", lMaxZActive ? "Active" : "Inactive");
     SDL_Log("                Max Limit Value: %f\n", lMaxValues[2]);
 
-	lIsActive = pNode->RotationActive;
-	lMinXActive = pNode->RotationMinX;
-	lMinYActive = pNode->RotationMinY;
-	lMinZActive = pNode->RotationMinZ;
-	lMaxXActive = pNode->RotationMaxX;
-	lMaxYActive = pNode->RotationMaxY;
-	lMaxZActive = pNode->RotationMaxZ;
-	lMinValues = pNode->RotationMin;
-	lMaxValues = pNode->RotationMax;
+    lIsActive = pNode->RotationActive;
+    lMinXActive = pNode->RotationMinX;
+    lMinYActive = pNode->RotationMinY;
+    lMinZActive = pNode->RotationMinZ;
+    lMaxXActive = pNode->RotationMaxX;
+    lMaxYActive = pNode->RotationMaxY;
+    lMaxZActive = pNode->RotationMaxZ;
+    lMinValues = pNode->RotationMin;
+    lMaxValues = pNode->RotationMax;
 
     SDL_Log("        Rotation limits: %s\n", lIsActive ? "Active" : "Inactive");
     SDL_Log("            X\n");
@@ -106,15 +106,15 @@ void DisplayPivotsAndLimits(FbxNode* pNode)
     SDL_Log("                Max Limit: %s\n", lMaxZActive ? "Active" : "Inactive");
     SDL_Log("                Max Limit Value: %f\n", lMaxValues[2]);
 
-	lIsActive = pNode->ScalingActive;
-	lMinXActive = pNode->ScalingMinX;
-	lMinYActive = pNode->ScalingMinY;
-	lMinZActive = pNode->ScalingMinZ;
-	lMaxXActive = pNode->ScalingMaxX;
-	lMaxYActive = pNode->ScalingMaxY;
-	lMaxZActive = pNode->ScalingMaxZ;
-	lMinValues = pNode->ScalingMin;
-	lMaxValues = pNode->ScalingMax;
+    lIsActive = pNode->ScalingActive;
+    lMinXActive = pNode->ScalingMinX;
+    lMinYActive = pNode->ScalingMinY;
+    lMinZActive = pNode->ScalingMinZ;
+    lMaxXActive = pNode->ScalingMaxX;
+    lMaxYActive = pNode->ScalingMaxY;
+    lMaxZActive = pNode->ScalingMaxZ;
+    lMinValues = pNode->ScalingMin;
+    lMaxValues = pNode->ScalingMax;
 
     SDL_Log("        Scaling limits: %s\n", lIsActive ? "Active" : "Inactive");
     SDL_Log("            X\n");

@@ -69,7 +69,7 @@ void DisplayPose(FbxScene* pScene)
 
         if (!lCharacter) break;
 
-		DisplayString("Character Pose Name: ", lCharacter->GetName());
+        DisplayString("Character Pose Name: ", lCharacter->GetName());
 
         FbxCharacterLink lCharacterLink;
         FbxCharacter::ENodeId  lNodeId = FbxCharacter::eHips;
