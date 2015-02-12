@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 struct Mesh {
+    static const int kMaxWeightsPerVert = 4;
+
 	int num_verts;
 	float* vert_coords; // 3 per vert
 	float* vert_bone_weights; // 4 per vert
@@ -17,6 +19,7 @@ struct Mesh {
 	// To attach to a skeleton
 	int num_bones;
 	uint64_t* bone_ids;
+    float* bind_matrices;
 
 	void Dispose();
 	~Mesh();
@@ -49,7 +52,7 @@ struct FBXParseScene {
 	~FBXParseScene();
 };
 
-void ParseFBXFromRAM(FBXParseScene* scene, void* file_memory, int file_size, const char* specific_name);
+void ParseFBXFromRAM(FBXParseScene* scene, void* file_memory, int file_size, const char** specific_names, int num_names);
 void PrintFBXInfoFromRAM(void* file_memory, int file_size);
 
 #endif

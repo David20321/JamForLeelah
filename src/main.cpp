@@ -28,9 +28,12 @@
 using namespace glm;
 
 enum VBO_Setup {
-	kSimple_4V,
-	kInterleave_3V2T3N
+	kSimple_4V, // 4 vert
+    kInterleave_3V2T3N, // 3 vert, 2 tex coord, 3 normal
+    kInterleave_3V2T3N4I4W // 3 vert, 2 tex coord, 3 normal, 4 bone index, 4 bone weight
 };
+
+mat4 g_bone_transforms[128];
 
 struct Drawable {
 	int texture_id;
@@ -131,7 +134,6 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
 	mat4 model_mat = drawable->transform;
 	mat4 mat = proj_view_mat * model_mat;
 	mat3 normal_mat = mat3(model_mat);
-	glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
 	glUniformMatrix3fv(normal_matrix_uniform, 1, false, (GLfloat*)&normal_mat);
 
 	GLuint texture_uniform = glGetUniformLocation(drawable->shader_id, "texture_id");
@@ -142,7 +144,8 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, drawable->vert_vbo);
 	switch(drawable->vbo_layout){
-	case kSimple_4V:
+    case kSimple_4V:
+        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
@@ -150,7 +153,8 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glDisableVertexAttribArray(0);
 		break;
-	case kInterleave_3V2T3N:
+    case kInterleave_3V2T3N:
+        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
 		glEnableVertexAttribArray(0);
 		glEnableVertexAttribArray(1);
 		glEnableVertexAttribArray(2);
@@ -163,7 +167,30 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
 		glDisableVertexAttribArray(2);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(0);
-		break;
+        break;
+    case kInterleave_3V2T3N4I4W: {
+        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
+        GLuint bone_transforms_uniform = glGetUniformLocation(drawable->shader_id, "bone_matrices");
+	    glUniformMatrix4fv(bone_transforms_uniform, 128, false, (GLfloat*)&g_bone_transforms);
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glEnableVertexAttribArray(2);
+        glEnableVertexAttribArray(3);
+        glEnableVertexAttribArray(4);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), 0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(5*sizeof(GLfloat)));
+        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(8*sizeof(GLfloat)));
+        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(12*sizeof(GLfloat)));
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
+        glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glDisableVertexAttribArray(4);
+        glDisableVertexAttribArray(3);
+        glDisableVertexAttribArray(2);
+        glDisableVertexAttribArray(1);
+        glDisableVertexAttribArray(0);
+        } break;
 	}
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glUseProgram(0);
@@ -208,7 +235,8 @@ void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadData* file_lo
             FormattedError(file_load_data->err_title, file_load_data->err_msg);
             exit(1);
         }
-		ParseFBXFromRAM(parse_scene, file_load_data->memory, file_load_data->memory_len, specific_name);
+        const char** names = &specific_name;
+		ParseFBXFromRAM(parse_scene, file_load_data->memory, file_load_data->memory_len, names, specific_name?1:0);
 		SDL_UnlockMutex(file_load_data->mutex);
 	} else {
 		FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
@@ -298,6 +326,34 @@ void VBOFromMesh(Mesh* mesh, int* vert_vbo, int* index_vbo) {
 	*index_vbo = CreateVBO(kElementVBO, kStaticVBO, consecutive, consecutive_size);
 }
 
+void VBOFromSkinnedMesh(Mesh* mesh, int* vert_vbo, int* index_vbo) {
+    int interleaved_size = sizeof(float)*mesh->num_tris*3*(3+2+3+4+4);
+    float* interleaved = (float*)malloc(interleaved_size);
+    int consecutive_size = sizeof(unsigned)*mesh->num_tris*3;
+    unsigned* consecutive = (unsigned*)malloc(consecutive_size);
+    for(int i=0, index=0, len=mesh->num_tris*3; i<len; ++i){
+        int vert = mesh->tri_indices[i];
+        for(int j=0; j<3; ++j){
+            interleaved[index++] = mesh->vert_coords[vert*3+j];
+        }
+        for(int j=0; j<2; ++j){
+            interleaved[index++] = mesh->tri_uvs[i*2+j];
+        }
+        for(int j=0; j<3; ++j){
+            interleaved[index++] = mesh->tri_normals[i*3+j];
+        }
+        for(int j=0; j<4; ++j){
+            interleaved[index++] = mesh->vert_bone_indices[vert*4+j];
+        }
+        for(int j=0; j<4; ++j){
+            interleaved[index++] = mesh->vert_bone_weights[vert*4+j];
+        }
+        consecutive[i] = i;
+    }	
+    *vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, interleaved, interleaved_size);
+    *index_vbo = CreateVBO(kElementVBO, kStaticVBO, consecutive, consecutive_size);
+}
+
 void GetBoundingBox(const Mesh* mesh, vec3* bounding_box) {
     SDL_assert(mesh);
     SDL_assert(mesh->num_verts > 0);
@@ -346,6 +402,85 @@ static void DrawBoundingBox(DebugDrawLines* lines, const mat4& mat, vec3 bb[]) {
     AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_neg_z | e_pos_x | e_pos_y | e_neg_z);
     AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_pos_z | e_pos_x | e_pos_y | e_pos_z);
     AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_pos_z | e_neg_x | e_pos_y | e_pos_z);
+}
+
+struct BoneIDSort {
+    uint64_t unique_id;
+    int num;
+};
+
+int BoneIDSortCompare(const void* a_ptr, const void* b_ptr){
+    const BoneIDSort* a = (const BoneIDSort*)a_ptr;
+    const BoneIDSort* b = (const BoneIDSort*)b_ptr;
+    if(a->unique_id > b->unique_id) {
+        return 1;
+    } else if(a->unique_id == b->unique_id){
+        return 0;
+    } else {
+        return -1;
+    }
+} 
+
+void AttachMeshToSkeleton(Mesh* mesh, Skeleton* skeleton) {
+    // rearrange mesh bone indices so they correspond to skeleton bones
+    BoneIDSort* mesh_bone_ids = (BoneIDSort*)malloc(sizeof(BoneIDSort) * mesh->num_bones);
+    for(int i=0; i<mesh->num_bones; ++i){
+        mesh_bone_ids[i].num = i;
+        mesh_bone_ids[i].unique_id = mesh->bone_ids[i];
+    }
+    qsort(mesh_bone_ids, mesh->num_bones, sizeof(BoneIDSort), BoneIDSortCompare);
+    BoneIDSort* skeleton_bone_ids = (BoneIDSort*)malloc(sizeof(BoneIDSort) * skeleton->num_bones);
+    for(int i=0; i<skeleton->num_bones; ++i){
+        skeleton_bone_ids[i].num = i;
+        skeleton_bone_ids[i].unique_id = skeleton->bones[i].bone_id;
+    }
+    qsort(skeleton_bone_ids, skeleton->num_bones, sizeof(BoneIDSort), BoneIDSortCompare);
+    int* new_bone_ids = (int*)malloc(sizeof(int) * mesh->num_bones);
+    for(int i=0; i<mesh->num_bones; ++i){
+        new_bone_ids[i] = -1;
+    }
+    for(int mesh_index=0, skeleton_index=0; 
+        mesh_index < mesh->num_bones && skeleton_index < skeleton->num_bones;)
+    {
+        BoneIDSort& skel = skeleton_bone_ids[skeleton_index];
+        BoneIDSort& mesh = mesh_bone_ids[mesh_index];
+        if(skel.unique_id == mesh.unique_id){
+            new_bone_ids[mesh.num] = skel.num;
+            ++mesh_index;
+            ++skeleton_index;
+        } else if(skel.unique_id > mesh.unique_id) {
+            ++mesh_index;
+        } else {
+            ++skeleton_index;
+        }
+    }
+    for(int i=0, index=0; i<mesh->num_verts*4; ++i){
+        int& vert_bone_index = mesh->vert_bone_indices[index++];
+        if(vert_bone_index != -1){
+            vert_bone_index = new_bone_ids[vert_bone_index];
+        }
+    }
+
+    // What to do with mesh->bind_matrices
+    float* bind_matrices = (float*)malloc(16 * sizeof(float) * skeleton->num_bones);
+    for(int i=0, index=0; i<skeleton->num_bones; ++i){
+        for(int j=0; j<16; ++j){
+            bind_matrices[index++] = (j/4 == j%4)?1.0f:0.0f;
+        }
+    }
+    for(int i=0; i<mesh->num_bones; ++i){
+        if(new_bone_ids[i] != -1){
+            void *dst = &bind_matrices[new_bone_ids[i]*16];
+            void *src = &mesh->bind_matrices[i*16];
+            memcpy(dst, src, sizeof(float) * 16);
+        }
+    }
+    free(mesh->bind_matrices);
+    mesh->bind_matrices = bind_matrices;
+
+    free(new_bone_ids);
+    free(skeleton_bone_ids);
+    free(mesh_bone_ids);
 }
 
 int main(int argc, char* argv[]) {
@@ -440,6 +575,7 @@ int main(int argc, char* argv[]) {
 
     profiler.StartEvent("Loading shader program");
     int shader_3d_model = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/3D_model");
+    int shader_3d_model_skinned = CreateProgramFromFile(&file_load_data, ASSET_PATH "shaders/3D_model_skinned");
     profiler.EndEvent();
 
 	DrawScene draw_scene;
@@ -463,7 +599,7 @@ int main(int argc, char* argv[]) {
 
     DrawBoundingBox(&draw_scene.lines, sep_transform.GetCombination(), lamp_bb);
 
-	int character_vert_vbo, character_index_vbo, num_character_indices;
+    int character_vert_vbo, character_index_vbo, num_character_indices;
     {
         profiler.StartEvent("Parsing character fbx");
         profiler.StartEvent("Loading file to RAM");
@@ -480,42 +616,22 @@ int main(int argc, char* argv[]) {
         }
         profiler.EndEvent();
 
-        profiler.StartEvent("Parsing mesh");
-        ParseFBXFromRAM(&parse_scene, mem, len, "RiggedMesh");
-        profiler.EndEvent();
-        profiler.StartEvent("Creating VBO and adding to scene");
-		vec3 char_bb[2];
-		GetBoundingBox(&parse_scene.meshes[0], char_bb);
-		VBOFromMesh(&parse_scene.meshes[0], &character_vert_vbo, &character_index_vbo);
-        num_character_indices = parse_scene.meshes[0].num_tris*3;
-
-		draw_scene.drawables[draw_scene.num_drawables].vert_vbo = character_vert_vbo;
-		draw_scene.drawables[draw_scene.num_drawables].index_vbo = character_index_vbo;
-		draw_scene.drawables[draw_scene.num_drawables].num_indices = num_character_indices;
-		draw_scene.drawables[draw_scene.num_drawables].vbo_layout = kInterleave_3V2T3N;
-		SeparableTransform char_transform;
-		char_transform.scale = vec3(0.007f); //TODO: check where this is in FBX
-		char_transform.translation[1] -= char_bb[0][1] * char_transform.scale[1];
-		char_transform.translation[2] -= 2.0f;
-		draw_scene.drawables[draw_scene.num_drawables].transform = char_transform.GetCombination();
-		draw_scene.drawables[draw_scene.num_drawables].texture_id = character_texture;
-		draw_scene.drawables[draw_scene.num_drawables].shader_id = shader_3d_model;
-		++draw_scene.num_drawables;
-        parse_scene.Dispose();
-        profiler.EndEvent();
-
-        profiler.StartEvent("Parsing rig");
-        ParseFBXFromRAM(&parse_scene, mem, len, "rig");
+        profiler.StartEvent("Parsing character fbx");
+        const char* names[] = {"RiggedMesh", "rig"};
+        ParseFBXFromRAM(&parse_scene, mem, len, names, 2);
+        Mesh& mesh = parse_scene.meshes[0];
         Skeleton& skeleton = parse_scene.skeletons[0];
         profiler.EndEvent();
+
+        AttachMeshToSkeleton(&mesh, &skeleton);
         profiler.StartEvent("Adding rig lines");
         for(int i=0; i<skeleton.num_bones; ++i){
             Bone& bone = skeleton.bones[i];
+            mat4 temp;
+            for(int i=0; i<16; ++i){
+                temp[i/4][i%4] = bone.transform[i];
+            }
             if(bone.parent != -1){
-                mat4 temp;
-                for(int i=0; i<16; ++i){
-                    temp[i/4][i%4] = bone.transform[i];
-                }
                 Bone& parent_bone = skeleton.bones[bone.parent];
                 mat4 temp_parent;
                 for(int i=0; i<16; ++i){
@@ -525,8 +641,41 @@ int main(int argc, char* argv[]) {
                 vec3 end(temp_parent * vec4(0,0,0,1));
                 draw_scene.lines.Add(start, end, vec4(1.0f), kPersistent, 1);
             }
+            mat4 bind_mat;
+            for(int j=0; j<16; ++j){
+                bind_mat[j/4][j%4] = mesh.bind_matrices[i*16+j];
+            }
+            mat4 rot_mat = toMat4(angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f)));
+
+            mat4 test_a = temp * inverse(bind_mat * rot_mat);
+            mat4 test_b = temp * inverse(bind_mat * inverse(rot_mat));
+            mat4 test_c = temp * inverse(rot_mat * bind_mat);
+            mat4 test_d = temp * inverse(inverse(rot_mat) * bind_mat);
+            g_bone_transforms[i] = temp * inverse(bind_mat) * rot_mat;
         }
         profiler.EndEvent();
+        
+        profiler.StartEvent("Creating VBO and adding to scene");
+        vec3 char_bb[2];
+        GetBoundingBox(&mesh, char_bb);
+        VBOFromSkinnedMesh(&mesh, &character_vert_vbo, &character_index_vbo);
+        num_character_indices = mesh.num_tris*3;
+
+        draw_scene.drawables[draw_scene.num_drawables].vert_vbo = character_vert_vbo;
+        draw_scene.drawables[draw_scene.num_drawables].index_vbo = character_index_vbo;
+        draw_scene.drawables[draw_scene.num_drawables].num_indices = num_character_indices;
+        draw_scene.drawables[draw_scene.num_drawables].vbo_layout = kInterleave_3V2T3N4I4W;
+        SeparableTransform char_transform;
+        char_transform.scale = vec3(0.007f); //TODO: check where this is in FBX
+        char_transform.translation[1] -= char_bb[0][1] * char_transform.scale[1];
+        char_transform.translation[2] -= 2.0f;
+        draw_scene.drawables[draw_scene.num_drawables].transform = char_transform.GetCombination();
+        draw_scene.drawables[draw_scene.num_drawables].texture_id = character_texture;
+        draw_scene.drawables[draw_scene.num_drawables].shader_id = shader_3d_model_skinned;
+        ++draw_scene.num_drawables;
+        profiler.EndEvent();
+
+        draw_scene.lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
         parse_scene.Dispose();
         profiler.EndEvent();
     }

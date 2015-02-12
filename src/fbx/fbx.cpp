@@ -473,7 +473,7 @@ void ParseSkeleton(Skeleton* skeleton, FbxNode* node, FBXParsePass pass, int par
             }
             bone.size = size;
             bone.parent = parent;
-			bone.bone_id = skeleton_node->GetUniqueID();
+            bone.bone_id = node->GetUniqueID();
         }
         parent = bone_id;
     }
@@ -482,18 +482,17 @@ void ParseSkeleton(Skeleton* skeleton, FbxNode* node, FBXParsePass pass, int par
     }
 }
 
-static const int kMaxWeightsPerVert = 4;
-static const float kWeightThreshold = 0.01f; // Don't bother storing vertex weights that are below this threshold
 
 void SetBoneWeights(int bone_id, int num_bone_verts, int* bone_verts, double* bone_vert_weights, int* vert_bone_indices, float* vert_bone_weights) {
-	int first_free_weight = 0;
+    static const float kWeightThreshold = 0.01f; // Don't bother storing vertex weights that are below this threshold
+    int first_free_weight = 0;
 	for(int i=0; i<num_bone_verts; ++i){
 		float weight = (float)bone_vert_weights[i];
 		if(weight > kWeightThreshold) {
 			int bone_vert = bone_verts[i];
-			int vert_bone_index = bone_vert * kMaxWeightsPerVert;
+			int vert_bone_index = bone_vert * Mesh::kMaxWeightsPerVert;
 			int first_free_slot = -1;
-			for(int j=0; j<kMaxWeightsPerVert; ++j){
+			for(int j=0; j<Mesh::kMaxWeightsPerVert; ++j){
 				if(vert_bone_indices[vert_bone_index+j] == -1){
 					first_free_slot = j;
 					break;
@@ -509,13 +508,14 @@ void SetBoneWeights(int bone_id, int num_bone_verts, int* bone_verts, double* bo
 
 void CheckMeshDeformer(FbxMesh* fbx_mesh, int* vert_bone_indices, 
 					   float* vert_bone_weights, uint64_t** bone_ids, 
-					   int* num_bones_ptr) 
+					   int* num_bones_ptr, float** bind_matrices) 
 {
 	int num_bones;
 	for(int pass=0; pass<2; ++pass){
 		if(pass == 1){
 			*num_bones_ptr = num_bones;
 			*bone_ids = (uint64_t*)malloc(num_bones*sizeof(uint64_t));
+            *bind_matrices = (float*)malloc(num_bones*sizeof(float)*16);
 		}
 		num_bones = 0;
 		int num_skins = fbx_mesh->GetDeformerCount(FbxDeformer::eSkin);
@@ -531,11 +531,18 @@ void CheckMeshDeformer(FbxMesh* fbx_mesh, int* vert_bone_indices,
 						int* indices = cluster->GetControlPointIndices();
 						double* weights = cluster->GetControlPointWeights();
 						SetBoneWeights(num_bones, num_indices, indices, weights, vert_bone_indices, vert_bone_weights);
-						++num_bones; 
+                        ++num_bones; 
 						} break;
 					case 1: 
 						(*bone_ids)[num_bones] = cluster->GetLink()->GetUniqueID();
-						++num_bones; 
+                        FbxAMatrix transform_matrix, transform_link_matrix, transform_associate_model_Matrix;
+                        transform_matrix = cluster->GetTransformMatrix(transform_matrix);
+                        transform_link_matrix = cluster->GetTransformLinkMatrix(transform_link_matrix);
+                        transform_associate_model_Matrix = cluster->GetTransformAssociateModelMatrix(transform_associate_model_Matrix);
+                        for(int matrix_element=0, matrix_index=num_bones*16; matrix_element<16; ++matrix_element){
+                            (*bind_matrices)[matrix_index++] = transform_link_matrix[matrix_element/4][matrix_element%4];
+                        }
+                        ++num_bones; 
 						break;
 					}
 				}
@@ -586,7 +593,7 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
 						}
 					}
 				}
-				const int total_weights = kMaxWeightsPerVert*mesh->num_verts;
+				const int total_weights = Mesh::kMaxWeightsPerVert*mesh->num_verts;
 				mesh->vert_bone_indices = (int*)malloc(sizeof(int)*total_weights);
 				for(int i=0; i<total_weights; ++i){
 					mesh->vert_bone_indices[i] = -1;
@@ -597,7 +604,7 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
 					mesh->vert_bone_weights[i] = 0.0f;
 				}
 #endif
-				CheckMeshDeformer(fbx_mesh, mesh->vert_bone_indices, mesh->vert_bone_weights, &mesh->bone_ids, &mesh->num_bones);
+				CheckMeshDeformer(fbx_mesh, mesh->vert_bone_indices, mesh->vert_bone_weights, &mesh->bone_ids, &mesh->num_bones, &mesh->bind_matrices);
 			    } break;
 			case kCount:
 				++scene->num_mesh;
@@ -625,9 +632,7 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
 			SDL_Log("Unhandled node type\n");
 			break;
 		}   
-	} else {
-		SDL_Log("NULL Node Attribute (%s)\n", node->GetName());
-	}
+	} 
     if(check_children){
 	    for(int i=0, len=node->GetChildCount(); i<len; ++i) {
 		    ParseNode(scene, node->GetChild(i), pass, depth+1, eval);
@@ -635,7 +640,16 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
     }
 }
 
-void ParseScene(FbxScene* scene, FBXParseScene* parse_scene, const char* specific_name) {
+bool MatchName(const char* name, const char** match_names, int num_names) {
+    for(int i=0; i<num_names; ++i){
+        if(strcmp(name, match_names[i]) == 0){
+            return true;
+        }
+    }
+    return (num_names == 0);
+}
+
+void ParseScene(FbxScene* scene, FBXParseScene* parse_scene, const char** specific_names, int num_names) {
 	FbxNode* node = scene->GetRootNode();
     FbxAnimEvaluator* eval = scene->GetAnimationEvaluator();
     parse_scene->num_mesh = 0;
@@ -643,9 +657,8 @@ void ParseScene(FbxScene* scene, FBXParseScene* parse_scene, const char* specifi
 	if(node) {
 		for(int i=0, len=node->GetChildCount(); i<len; ++i) {
             FbxNode* child = node->GetChild(i);
-            const char* child_name = child->GetName();
-            if(specific_name == NULL || strcmp(child_name, specific_name) == 0) {
-			    ParseNode(parse_scene, node->GetChild(i), kCount, 0, eval);
+            if(MatchName(child->GetName(), specific_names, num_names)) {
+			    ParseNode(parse_scene, child, kCount, 0, eval);
             }
 		}
 		parse_scene->meshes = (Mesh*)malloc(sizeof(Mesh)*parse_scene->num_mesh);
@@ -654,15 +667,14 @@ void ParseScene(FbxScene* scene, FBXParseScene* parse_scene, const char* specifi
         parse_scene->num_skeleton = 0;
         for(int i=0, len=node->GetChildCount(); i<len; ++i) {
             FbxNode* child = node->GetChild(i);
-            const char* child_name = child->GetName();
-            if(specific_name == NULL || strcmp(child_name, specific_name) == 0) {
-                ParseNode(parse_scene, node->GetChild(i), kStore, 0, eval);
+            if(MatchName(child->GetName(), specific_names, num_names)) {
+                ParseNode(parse_scene, child, kStore, 0, eval);
             }
 		}
 	}
 }
 
-void ParseFBXFromRAM(FBXParseScene* parse_scene, void* file_memory, int file_size, const char* specific_name) {
+void ParseFBXFromRAM(FBXParseScene* parse_scene, void* file_memory, int file_size, const char** specific_names, int num_names) {
 	// Create manager and scene
 	FbxManager* fbx_manager = FbxManager::Create();
 	if( !fbx_manager ) {
@@ -694,7 +706,7 @@ void ParseFBXFromRAM(FBXParseScene* parse_scene, void* file_memory, int file_siz
 		converter.Triangulate(scene, true, false);
 	}
 
-    ParseScene(scene, parse_scene, specific_name);
+    ParseScene(scene, parse_scene, specific_names, num_names);
     static const bool print_description = false;
     if(print_description){
         DisplayContent(scene);
@@ -711,7 +723,8 @@ Mesh::~Mesh() {
 	SDL_assert(tri_normals == NULL);
 	SDL_assert(vert_bone_weights == NULL);
 	SDL_assert(vert_bone_indices == NULL);
-	SDL_assert(bone_ids == NULL);
+    SDL_assert(bone_ids == NULL);
+    SDL_assert(bind_matrices == NULL);
 }
 
 static void FreeAndNull(void** mem){
@@ -726,7 +739,8 @@ void Mesh::Dispose() {
 	FreeAndNull((void**)&tri_normals);
 	FreeAndNull((void**)&vert_bone_weights);
 	FreeAndNull((void**)&vert_bone_indices);
-	FreeAndNull((void**)&bone_ids);
+    FreeAndNull((void**)&bone_ids);
+    FreeAndNull((void**)&bind_matrices);
 }
 
 void Skeleton::Dispose() {
