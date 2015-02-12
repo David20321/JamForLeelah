@@ -4,11 +4,11 @@
 #include <SDL.h>
 
 void FormattedError(const char* title, const char* msg_fmt, ...) {
-	static const int kBufSize = 512;
-	char error_msg[kBufSize];
-	va_list args;
-	va_start(args, msg_fmt);
-	VFormatString(error_msg, kBufSize, msg_fmt, args);
-	va_end(args);
-	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, error_msg, NULL);
+    static const int kBufSize = 512;
+    char error_msg[kBufSize];
+    va_list args;
+    va_start(args, msg_fmt);
+    VFormatString(error_msg, kBufSize, msg_fmt, args);
+    va_end(args);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, error_msg, NULL);
 }

@@ -6,9 +6,9 @@
 class FileLoadThreadData;
 
 struct GraphicsContext {
-	int screen_dims[2];
-	SDL_Window* window;
-	SDL_GLContext gl_context;
+    int screen_dims[2];
+    SDL_Window* window;
+    SDL_GLContext gl_context;
 };
 
 void InitGraphicsContext(GraphicsContext *graphics_context);
@@ -18,13 +18,13 @@ int CreateShader(int type, const char *src);
 int CreateProgram(const int shaders[], int num_shaders);
 
 enum VBO_Type {
-	kArrayVBO,
-	kElementVBO
+    kArrayVBO,
+    kElementVBO
 };
 enum VBO_Hint {
-	kStaticVBO,
-	kDynamicVBO,
-	kStreamVBO
+    kStaticVBO,
+    kDynamicVBO,
+    kStreamVBO
 };
 
 int CreateVBO(VBO_Type type, VBO_Hint hint, void* data, int num_data_elements);

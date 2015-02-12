@@ -14,8 +14,8 @@ include(BoilerPlate)
 include(UtilityFunctions)
 
 list(APPEND CMAKE_PREFIX_PATH
-	lib/SDL2
-	lib/FBX_SDK_2015.1
+    lib/SDL2
+    lib/FBX_SDK_2015.1
 )
 
 ### Find Libraries
@@ -27,24 +27,24 @@ add_subdirectory(lib/glew glew)
 
 CreateProgram(${PROJECT_NAME}
 DIRS
-	src
-	src/fbx/**
-	src/internal
-	src/platform_sdl
+    src
+    src/fbx/**
+    src/internal
+    src/platform_sdl
 DEFINES
-	$<$<BOOL:${WIN32}>:_CRT_SECURE_NO_WARNINGS>
+    $<$<BOOL:${WIN32}>:_CRT_SECURE_NO_WARNINGS>
 INCLUDES
-	src
+    src
 
-	lib/glm/
-	lib/stb-master
-	${SDL2_INCLUDE_DIRS}
-	${FBXSDK_INCLUDE_DIRS}
+    lib/glm/
+    lib/stb-master
+    ${SDL2_INCLUDE_DIRS}
+    ${FBXSDK_INCLUDE_DIRS}
 LINK
-	${SDL2_LIBRARIES}
-	glew
-	${OPENGL_gl_LIBRARY}
-	${FBXSDK_LIBRARIES}
+    ${SDL2_LIBRARIES}
+    glew
+    ${OPENGL_gl_LIBRARY}
+    ${FBXSDK_LIBRARIES}
 )
 
 CopyDependentLibs(${PROJECT_NAME})
