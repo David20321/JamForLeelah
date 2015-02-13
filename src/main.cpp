@@ -81,6 +81,9 @@ mat4 SeparableTransform::GetCombination() {
 struct TextAtlas {
     stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
     int texture;
+    int shader;
+    int vert_vbo;
+    int index_vbo;
 };
 
 struct DrawScene {
@@ -275,30 +278,84 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
     CHECK_GL_ERROR();
 }
 
-void my_stbtt_print(TextAtlas *text_atlas, float x, float y, char *text) {
-    // assume orthographic projection with units = screen pixels, origin at top left
-    glBindTexture(GL_TEXTURE_2D, text_atlas->texture);
-    glBegin(GL_QUADS);
-    while (*text) {
-        if (*text >= 32 && *text < 128) {
+void my_stbtt_print(TextAtlas *text_atlas, GraphicsContext* context, float x, float y, char *text) {
+    CHECK_GL_ERROR();
+    static const int kMaxDrawStringLength = 1024;
+    GLfloat vert_data[kMaxDrawStringLength*16]; // Four verts per character, 2V 2T per vert
+    GLuint index_data[kMaxDrawStringLength*6]; // Two tris per character
+    int num_draw_chars = 0;
+    int vert_index=0, index_index=0;
+    for(char* text_iter = text; *text_iter != '\0'; ++text_iter) {
+        if (*text_iter >= 32 && *text_iter < 128 && num_draw_chars < kMaxDrawStringLength) {
+            int vert_ref = num_draw_chars*4;
+            ++num_draw_chars;
             stbtt_aligned_quad q;
-            stbtt_GetBakedQuad(text_atlas->cdata, 512, 512, *text-32, &x, &y, &q, 1); //1=opengl & d3d10+,0=d3d9
-            glTexCoord2f(q.s0,q.t0); glVertex2f(q.x0,q.y0);
-            glTexCoord2f(q.s1,q.t0); glVertex2f(q.x1,q.y0);
-            glTexCoord2f(q.s1,q.t1); glVertex2f(q.x1,q.y1);
-            glTexCoord2f(q.s0,q.t1); glVertex2f(q.x0,q.y1);
+            stbtt_GetBakedQuad(text_atlas->cdata, 512, 512, *text_iter-32, &x, &y, &q, 1);
+            vert_data[vert_index++] = q.x0;
+            vert_data[vert_index++] = q.y0;
+            vert_data[vert_index++] = q.s0;
+            vert_data[vert_index++] = q.t0;
+
+            vert_data[vert_index++] = q.x1;
+            vert_data[vert_index++] = q.y0;
+            vert_data[vert_index++] = q.s1;
+            vert_data[vert_index++] = q.t0;
+
+            vert_data[vert_index++] = q.x1;
+            vert_data[vert_index++] = q.y1;
+            vert_data[vert_index++] = q.s1;
+            vert_data[vert_index++] = q.t1;
+
+            vert_data[vert_index++] = q.x0;
+            vert_data[vert_index++] = q.y1;
+            vert_data[vert_index++] = q.s0;
+            vert_data[vert_index++] = q.t1;
+
+            index_data[index_index++] = vert_ref + 0;
+            index_data[index_index++] = vert_ref + 1;
+            index_data[index_index++] = vert_ref + 2;
+
+            index_data[index_index++] = vert_ref + 0;
+            index_data[index_index++] = vert_ref + 2;
+            index_data[index_index++] = vert_ref + 3;
         }
-        ++text;
     }
-    glEnd();
+
+    glm::mat4 proj_mat = glm::ortho(0.0f, (float)context->screen_dims[0], 
+                                    (float)context->screen_dims[1], 0.0f, -1.0f, 1.0f);
+    GLuint proj_mat_uniform = glGetUniformLocation(text_atlas->shader, "proj_mat");
+    GLuint texture_uniform = glGetUniformLocation(text_atlas->shader, "texture_id");
+    glUseProgram(text_atlas->shader);
+    glUniformMatrix4fv(proj_mat_uniform, 1, false, (GLfloat*)&proj_mat);
+    glUniform1i(texture_uniform, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, text_atlas->texture);
+
+    glBindBuffer(GL_ARRAY_BUFFER, text_atlas->vert_vbo);
+    glBufferData(GL_ARRAY_BUFFER, num_draw_chars*sizeof(GLfloat)*16, vert_data, GL_STREAM_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, text_atlas->index_vbo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, num_draw_chars*sizeof(GLuint)*6, index_data, GL_STREAM_DRAW);
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2*sizeof(GLfloat)));
+    glDrawElements(GL_TRIANGLES, num_draw_chars*6, GL_UNSIGNED_INT, 0);
+    glDisableVertexAttribArray(1);
+    glDisableVertexAttribArray(0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glUseProgram(0);
+    CHECK_GL_ERROR();
 }
 
 void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene, int ticks) {
+    CHECK_GL_ERROR();
     glViewport(0, 0, context->screen_dims[0], context->screen_dims[1]);
     glClearColor(0.5,0.5,0.5,1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 
+    CHECK_GL_ERROR();
     float aspect_ratio = context->screen_dims[0] / (float)context->screen_dims[1];
     mat4 proj_mat = glm::perspective(game_state->camera_fov, aspect_ratio, 0.1f, 100.0f);
     mat4 view_mat = inverse(game_state->camera.GetCombination());
@@ -307,25 +364,32 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
     draw_scene->drawables[game_state->char_drawable].transform = 
         game_state->character.GetCombination();
 
+    CHECK_GL_ERROR();
     for(int i=0; i<draw_scene->num_drawables; ++i){
         Drawable* drawable = &draw_scene->drawables[i];
+        CHECK_GL_ERROR();
         DrawDrawable(proj_view_mat, drawable);
+        CHECK_GL_ERROR();
     }
+    CHECK_GL_ERROR();
 
     static const bool draw_coordinate_grid = false;
     if(draw_coordinate_grid){
         DrawCoordinateGrid(draw_scene);
     }
     draw_scene->lines.Draw(proj_view_mat);
-
+    /*
     glEnable(GL_ALPHA_TEST);
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glLoadIdentity();
-    glOrtho(0,context->screen_dims[0],context->screen_dims[1],0,-1.0f,1.0f);
-    my_stbtt_print(&draw_scene->text_atlas, 40, 40, "I can draw whatever text I want to the screen using stb_truetype");
+    glOrtho(0,context->screen_dims[0],context->screen_dims[1],0,-1.0f,1.0f);*/
+    my_stbtt_print(&draw_scene->text_atlas, context, 40, 40, 
+                   "I can draw whatever text I want to the screen using stb_truetype");
+
+    CHECK_GL_ERROR();
 }
 
 void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* file_load_data, const char* specific_name) {
@@ -378,16 +442,23 @@ void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_l
 
         static const int kAtlasSize = 512;
         unsigned char temp_bitmap[kAtlasSize*kAtlasSize];
+        CHECK_GL_ERROR();
         stbtt_BakeFontBitmap((const unsigned char*)file_load_data->memory, 0, 
                              32.0, temp_bitmap, 512, 512, 32, 96, text_atlas->cdata); // no guarantee this fits!
+        CHECK_GL_ERROR();
         SDL_UnlockMutex(file_load_data->mutex);
         GLuint tmp_texture;
+        CHECK_GL_ERROR();
         glGenTextures(1, &tmp_texture);
+        CHECK_GL_ERROR();
         text_atlas->texture = tmp_texture;
         glBindTexture(GL_TEXTURE_2D, text_atlas->texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, kAtlasSize, kAtlasSize, 0,
-                     GL_ALPHA, GL_UNSIGNED_BYTE, temp_bitmap);
+        CHECK_GL_ERROR();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, kAtlasSize, kAtlasSize, 0,
+            GL_RED, GL_UNSIGNED_BYTE, temp_bitmap);
+        CHECK_GL_ERROR();
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        CHECK_GL_ERROR();
     } else {
         FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
         exit(1);
@@ -712,6 +783,7 @@ int main(int argc, char* argv[]) {
     parse_scene.Dispose();
     profiler.EndEvent();
 
+    CHECK_GL_ERROR();
     profiler.StartEvent("Parsing cobble fbx and creating vbo");
     int cobble_floor_vert_vbo, cobble_floor_index_vbo;
     LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", &file_load_thread_data, NULL);    
@@ -728,9 +800,12 @@ int main(int argc, char* argv[]) {
     int character_texture = LoadImage(ASSET_PATH "main_character_c.tga", &file_load_thread_data);
     profiler.EndEvent();
 
-    profiler.StartEvent("Loading shader program");
+    CHECK_GL_ERROR();
+    profiler.StartEvent("Loading shaders");
     int shader_3d_model = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/3D_model");
     int shader_3d_model_skinned = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/3D_model_skinned");
+    int shader_debug_draw = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/debug_draw");
+    int shader_debug_draw_text = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/debug_draw_text");
     profiler.EndEvent();
 
     GameState game_state;
@@ -740,7 +815,16 @@ int main(int argc, char* argv[]) {
     game_state.editor_mode = false;
 
     DrawScene draw_scene;
+    draw_scene.lines.shader = shader_debug_draw;
+
+    CHECK_GL_ERROR();
     LoadTTF(ASSET_PATH "arial.ttf", &draw_scene.text_atlas, &file_load_thread_data);
+    CHECK_GL_ERROR();
+    draw_scene.text_atlas.shader = shader_debug_draw_text;
+    draw_scene.text_atlas.vert_vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
+    draw_scene.text_atlas.index_vbo = CreateVBO(kElementVBO, kStreamVBO, NULL, 0);
+    CHECK_GL_ERROR();
+
     draw_scene.lines.num_lines = 0;
     draw_scene.num_drawables = 0;
     draw_scene.drawables[0].vert_vbo = street_lamp_vert_vbo;
@@ -756,9 +840,11 @@ int main(int argc, char* argv[]) {
     draw_scene.drawables[0].shader_id = shader_3d_model;
     ++draw_scene.num_drawables;
 
-    draw_scene.lines.shader = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/debug_draw");
+    CHECK_GL_ERROR();
     draw_scene.lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
+    CHECK_GL_ERROR();
 
+    CHECK_GL_ERROR();
     int character_vert_vbo, character_index_vbo, num_character_indices;
     {
         profiler.StartEvent("Parsing character fbx");
@@ -821,6 +907,7 @@ int main(int argc, char* argv[]) {
         parse_scene.Dispose();
         profiler.EndEvent();
     }
+    CHECK_GL_ERROR();
 
     for(int i=-10; i<10; ++i){
         for(int j=-10; j<10; ++j){
@@ -839,7 +926,9 @@ int main(int argc, char* argv[]) {
 
     int last_ticks = SDL_GetTicks();
     bool game_running = true;
+    CHECK_GL_ERROR();
     while(game_running){
+        CHECK_GL_ERROR();
         profiler.StartEvent("Game loop");
         SDL_Event event;
         vec2 mouse_rel;
@@ -855,18 +944,26 @@ int main(int argc, char* argv[]) {
             }
         }
         profiler.StartEvent("Draw");
+        CHECK_GL_ERROR();
         Draw(&graphics_context, &game_state, &draw_scene, SDL_GetTicks());
+        CHECK_GL_ERROR();
         profiler.EndEvent();
         profiler.StartEvent("Update");
         int ticks = SDL_GetTicks();
+        CHECK_GL_ERROR();
         Update(&game_state, mouse_rel, (ticks - last_ticks) / 1000.0f);
+        CHECK_GL_ERROR();
         last_ticks = ticks;
         profiler.EndEvent();
         profiler.StartEvent("Audio");
+        CHECK_GL_ERROR();
         UpdateAudio(&audio_context);
+        CHECK_GL_ERROR();
         profiler.EndEvent();
         profiler.StartEvent("Swap");
+        CHECK_GL_ERROR();
         SDL_GL_SwapWindow(graphics_context.window);
+        CHECK_GL_ERROR();
         profiler.EndEvent();
         profiler.EndEvent();
     }
