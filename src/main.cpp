@@ -275,11 +275,9 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
     }
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
-    CHECK_GL_ERROR();
 }
 
 void my_stbtt_print(TextAtlas *text_atlas, GraphicsContext* context, float x, float y, char *text) {
-    CHECK_GL_ERROR();
     static const int kMaxDrawStringLength = 1024;
     GLfloat vert_data[kMaxDrawStringLength*16]; // Four verts per character, 2V 2T per vert
     GLuint index_data[kMaxDrawStringLength*6]; // Two tris per character
@@ -345,17 +343,14 @@ void my_stbtt_print(TextAtlas *text_atlas, GraphicsContext* context, float x, fl
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
-    CHECK_GL_ERROR();
 }
 
 void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene, int ticks) {
-    CHECK_GL_ERROR();
     glViewport(0, 0, context->screen_dims[0], context->screen_dims[1]);
     glClearColor(0.5,0.5,0.5,1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 
-    CHECK_GL_ERROR();
     float aspect_ratio = context->screen_dims[0] / (float)context->screen_dims[1];
     mat4 proj_mat = glm::perspective(game_state->camera_fov, aspect_ratio, 0.1f, 100.0f);
     mat4 view_mat = inverse(game_state->camera.GetCombination());
@@ -364,14 +359,10 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
     draw_scene->drawables[game_state->char_drawable].transform = 
         game_state->character.GetCombination();
 
-    CHECK_GL_ERROR();
     for(int i=0; i<draw_scene->num_drawables; ++i){
         Drawable* drawable = &draw_scene->drawables[i];
-        CHECK_GL_ERROR();
         DrawDrawable(proj_view_mat, drawable);
-        CHECK_GL_ERROR();
     }
-    CHECK_GL_ERROR();
 
     static const bool draw_coordinate_grid = false;
     if(draw_coordinate_grid){
@@ -388,7 +379,6 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
     glOrtho(0,context->screen_dims[0],context->screen_dims[1],0,-1.0f,1.0f);*/
     my_stbtt_print(&draw_scene->text_atlas, context, 40, 40, 
                    "I can draw whatever text I want to the screen using stb_truetype");
-
     CHECK_GL_ERROR();
 }
 
@@ -442,23 +432,16 @@ void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_l
 
         static const int kAtlasSize = 512;
         unsigned char temp_bitmap[kAtlasSize*kAtlasSize];
-        CHECK_GL_ERROR();
         stbtt_BakeFontBitmap((const unsigned char*)file_load_data->memory, 0, 
                              32.0, temp_bitmap, 512, 512, 32, 96, text_atlas->cdata); // no guarantee this fits!
-        CHECK_GL_ERROR();
         SDL_UnlockMutex(file_load_data->mutex);
         GLuint tmp_texture;
-        CHECK_GL_ERROR();
         glGenTextures(1, &tmp_texture);
-        CHECK_GL_ERROR();
         text_atlas->texture = tmp_texture;
         glBindTexture(GL_TEXTURE_2D, text_atlas->texture);
-        CHECK_GL_ERROR();
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, kAtlasSize, kAtlasSize, 0,
             GL_RED, GL_UNSIGNED_BYTE, temp_bitmap);
-        CHECK_GL_ERROR();
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        CHECK_GL_ERROR();
     } else {
         FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
         exit(1);
@@ -783,7 +766,6 @@ int main(int argc, char* argv[]) {
     parse_scene.Dispose();
     profiler.EndEvent();
 
-    CHECK_GL_ERROR();
     profiler.StartEvent("Parsing cobble fbx and creating vbo");
     int cobble_floor_vert_vbo, cobble_floor_index_vbo;
     LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", &file_load_thread_data, NULL);    
@@ -800,7 +782,6 @@ int main(int argc, char* argv[]) {
     int character_texture = LoadImage(ASSET_PATH "main_character_c.tga", &file_load_thread_data);
     profiler.EndEvent();
 
-    CHECK_GL_ERROR();
     profiler.StartEvent("Loading shaders");
     int shader_3d_model = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/3D_model");
     int shader_3d_model_skinned = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/3D_model_skinned");
@@ -817,13 +798,10 @@ int main(int argc, char* argv[]) {
     DrawScene draw_scene;
     draw_scene.lines.shader = shader_debug_draw;
 
-    CHECK_GL_ERROR();
     LoadTTF(ASSET_PATH "arial.ttf", &draw_scene.text_atlas, &file_load_thread_data);
-    CHECK_GL_ERROR();
     draw_scene.text_atlas.shader = shader_debug_draw_text;
     draw_scene.text_atlas.vert_vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
     draw_scene.text_atlas.index_vbo = CreateVBO(kElementVBO, kStreamVBO, NULL, 0);
-    CHECK_GL_ERROR();
 
     draw_scene.lines.num_lines = 0;
     draw_scene.num_drawables = 0;
@@ -840,11 +818,8 @@ int main(int argc, char* argv[]) {
     draw_scene.drawables[0].shader_id = shader_3d_model;
     ++draw_scene.num_drawables;
 
-    CHECK_GL_ERROR();
     draw_scene.lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
-    CHECK_GL_ERROR();
 
-    CHECK_GL_ERROR();
     int character_vert_vbo, character_index_vbo, num_character_indices;
     {
         profiler.StartEvent("Parsing character fbx");
@@ -907,7 +882,6 @@ int main(int argc, char* argv[]) {
         parse_scene.Dispose();
         profiler.EndEvent();
     }
-    CHECK_GL_ERROR();
 
     for(int i=-10; i<10; ++i){
         for(int j=-10; j<10; ++j){
@@ -926,9 +900,7 @@ int main(int argc, char* argv[]) {
 
     int last_ticks = SDL_GetTicks();
     bool game_running = true;
-    CHECK_GL_ERROR();
     while(game_running){
-        CHECK_GL_ERROR();
         profiler.StartEvent("Game loop");
         SDL_Event event;
         vec2 mouse_rel;
@@ -944,26 +916,18 @@ int main(int argc, char* argv[]) {
             }
         }
         profiler.StartEvent("Draw");
-        CHECK_GL_ERROR();
         Draw(&graphics_context, &game_state, &draw_scene, SDL_GetTicks());
-        CHECK_GL_ERROR();
         profiler.EndEvent();
         profiler.StartEvent("Update");
         int ticks = SDL_GetTicks();
-        CHECK_GL_ERROR();
         Update(&game_state, mouse_rel, (ticks - last_ticks) / 1000.0f);
-        CHECK_GL_ERROR();
         last_ticks = ticks;
         profiler.EndEvent();
         profiler.StartEvent("Audio");
-        CHECK_GL_ERROR();
         UpdateAudio(&audio_context);
-        CHECK_GL_ERROR();
         profiler.EndEvent();
         profiler.StartEvent("Swap");
-        CHECK_GL_ERROR();
         SDL_GL_SwapWindow(graphics_context.window);
-        CHECK_GL_ERROR();
         profiler.EndEvent();
         profiler.EndEvent();
     }
