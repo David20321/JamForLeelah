@@ -78,11 +78,17 @@ mat4 SeparableTransform::GetCombination() {
     return mat;
 }
 
+struct TextAtlas {
+    stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
+    int texture;
+};
+
 struct DrawScene {
     static const int kMaxDrawables = 1000;
     Drawable drawables[kMaxDrawables];
     int num_drawables;
     DebugDrawLines lines;
+    TextAtlas text_atlas;
 };
 
 void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
@@ -269,33 +275,14 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
     CHECK_GL_ERROR();
 }
 
-char ttf_buffer[1<<20];
-unsigned char temp_bitmap[512*512];
-
-stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
-stbtt_uint32 ftex;
-
-void my_stbtt_initfont(void)
-{
-    fread(ttf_buffer, 1, 1<<20, fopen("c:/windows/fonts/times.ttf", "rb"));
-    stbtt_BakeFontBitmap((const unsigned char*)ttf_buffer, 0, 32.0, temp_bitmap,512,512, 32,96, cdata); // no guarantee this fits!
-    // can free ttf_buffer at this point
-    glGenTextures(1, &ftex);
-    glBindTexture(GL_TEXTURE_2D, ftex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, 512,512, 0, GL_ALPHA, GL_UNSIGNED_BYTE, temp_bitmap);
-    // can free temp_bitmap at this point
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-}
-
-void my_stbtt_print(float x, float y, char *text)
-{
+void my_stbtt_print(TextAtlas *text_atlas, float x, float y, char *text) {
     // assume orthographic projection with units = screen pixels, origin at top left
-    glBindTexture(GL_TEXTURE_2D, ftex);
+    glBindTexture(GL_TEXTURE_2D, text_atlas->texture);
     glBegin(GL_QUADS);
     while (*text) {
         if (*text >= 32 && *text < 128) {
             stbtt_aligned_quad q;
-            stbtt_GetBakedQuad(cdata, 512,512, *text-32, &x,&y,&q,1);//1=opengl & d3d10+,0=d3d9
+            stbtt_GetBakedQuad(text_atlas->cdata, 512, 512, *text-32, &x, &y, &q, 1); //1=opengl & d3d10+,0=d3d9
             glTexCoord2f(q.s0,q.t0); glVertex2f(q.x0,q.y0);
             glTexCoord2f(q.s1,q.t0); glVertex2f(q.x1,q.y0);
             glTexCoord2f(q.s1,q.t1); glVertex2f(q.x1,q.y1);
@@ -338,7 +325,7 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glLoadIdentity();
     glOrtho(0,context->screen_dims[0],context->screen_dims[1],0,-1.0f,1.0f);
-    my_stbtt_print(40,40, "I can draw whatever text I want to the screen using stb_truetype");
+    my_stbtt_print(&draw_scene->text_atlas, 40, 40, "I can draw whatever text I want to the screen using stb_truetype");
 }
 
 void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* file_load_data, const char* specific_name) {
@@ -362,6 +349,45 @@ void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* f
         const char** names = &specific_name;
         ParseFBXFromRAM(parse_scene, file_load_data->memory, file_load_data->memory_len, names, specific_name?1:0);
         SDL_UnlockMutex(file_load_data->mutex);
+    } else {
+        FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
+        exit(1);
+    }
+}
+
+
+
+void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_load_data) {
+    int path_len = strlen(path);
+    if(path_len > FileRequest::kMaxFileRequestPathLen){
+        FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
+        exit(1);
+    }
+    int texture = -1;
+    if (SDL_LockMutex(file_load_data->mutex) == 0) {
+        FileRequest* request = file_load_data->queue.AddNewRequest();
+        for(int i=0; i<path_len + 1; ++i){
+            request->path[i] = path[i];
+        }
+        request->condition = SDL_CreateCond();
+        SDL_CondWait(request->condition, file_load_data->mutex);
+        if(file_load_data->err){
+            FormattedError(file_load_data->err_title, file_load_data->err_msg);
+            exit(1);
+        }
+
+        static const int kAtlasSize = 512;
+        unsigned char temp_bitmap[kAtlasSize*kAtlasSize];
+        stbtt_BakeFontBitmap((const unsigned char*)file_load_data->memory, 0, 
+                             32.0, temp_bitmap, 512, 512, 32, 96, text_atlas->cdata); // no guarantee this fits!
+        SDL_UnlockMutex(file_load_data->mutex);
+        GLuint tmp_texture;
+        glGenTextures(1, &tmp_texture);
+        text_atlas->texture = tmp_texture;
+        glBindTexture(GL_TEXTURE_2D, text_atlas->texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, kAtlasSize, kAtlasSize, 0,
+                     GL_ALPHA, GL_UNSIGNED_BYTE, temp_bitmap);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     } else {
         FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
         exit(1);
@@ -671,8 +697,6 @@ int main(int argc, char* argv[]) {
     InitGraphicsContext(&graphics_context);
     profiler.EndEvent();
 
-    my_stbtt_initfont();
-
     AudioContext audio_context;
     InitAudio(&audio_context, &stack_memory_block);
 
@@ -716,6 +740,7 @@ int main(int argc, char* argv[]) {
     game_state.editor_mode = false;
 
     DrawScene draw_scene;
+    LoadTTF(ASSET_PATH "arial.ttf", &draw_scene.text_atlas, &file_load_thread_data);
     draw_scene.lines.num_lines = 0;
     draw_scene.num_drawables = 0;
     draw_scene.drawables[0].vert_vbo = street_lamp_vert_vbo;
