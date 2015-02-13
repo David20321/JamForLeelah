@@ -114,9 +114,9 @@ int CreateShader(int type, const char *src) {
     profiler.Init();
     graphics_context->screen_dims[0] = 1280;
     graphics_context->screen_dims[1] = 720;
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (kMSAA==0)?0:1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, kMSAA); // Why does this have to be before createwindow?
     graphics_context->window = SDL_CreateWindow("Under Glass", 
@@ -141,10 +141,10 @@ int CreateShader(int type, const char *src) {
         FormattedError("glewInit failed", "Error: %s", glewGetErrorString(err));
         exit(1);
     }
-    if (!GLEW_VERSION_3_2) {
+    /*if (!GLEW_VERSION_3_2) {
         FormattedError("OpenGL 3.2 not supported", "OpenGL 3.2 is required");
         exit(1);
-    }
+    }*/
 
     int multisample_buffers, multisample_samples;
     SDL_GL_GetAttribute(SDL_GL_MULTISAMPLEBUFFERS, &multisample_buffers);

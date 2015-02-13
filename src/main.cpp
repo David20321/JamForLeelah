@@ -18,6 +18,8 @@
 #include <cstring>
 #include <sys/stat.h>
 #include "platform_sdl/profiler.h"
+#define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
+#include "stb_truetype.h"
 
 #ifdef WIN32
 #define ASSET_PATH "../assets/"
@@ -267,6 +269,43 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
     CHECK_GL_ERROR();
 }
 
+char ttf_buffer[1<<20];
+unsigned char temp_bitmap[512*512];
+
+stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
+stbtt_uint32 ftex;
+
+void my_stbtt_initfont(void)
+{
+    fread(ttf_buffer, 1, 1<<20, fopen("c:/windows/fonts/times.ttf", "rb"));
+    stbtt_BakeFontBitmap((const unsigned char*)ttf_buffer, 0, 32.0, temp_bitmap,512,512, 32,96, cdata); // no guarantee this fits!
+    // can free ttf_buffer at this point
+    glGenTextures(1, &ftex);
+    glBindTexture(GL_TEXTURE_2D, ftex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, 512,512, 0, GL_ALPHA, GL_UNSIGNED_BYTE, temp_bitmap);
+    // can free temp_bitmap at this point
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+}
+
+void my_stbtt_print(float x, float y, char *text)
+{
+    // assume orthographic projection with units = screen pixels, origin at top left
+    glBindTexture(GL_TEXTURE_2D, ftex);
+    glBegin(GL_QUADS);
+    while (*text) {
+        if (*text >= 32 && *text < 128) {
+            stbtt_aligned_quad q;
+            stbtt_GetBakedQuad(cdata, 512,512, *text-32, &x,&y,&q,1);//1=opengl & d3d10+,0=d3d9
+            glTexCoord2f(q.s0,q.t0); glVertex2f(q.x0,q.y0);
+            glTexCoord2f(q.s1,q.t0); glVertex2f(q.x1,q.y0);
+            glTexCoord2f(q.s1,q.t1); glVertex2f(q.x1,q.y1);
+            glTexCoord2f(q.s0,q.t1); glVertex2f(q.x0,q.y1);
+        }
+        ++text;
+    }
+    glEnd();
+}
+
 void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene, int ticks) {
     glViewport(0, 0, context->screen_dims[0], context->screen_dims[1]);
     glClearColor(0.5,0.5,0.5,1);
@@ -291,6 +330,15 @@ void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene
         DrawCoordinateGrid(draw_scene);
     }
     draw_scene->lines.Draw(proj_view_mat);
+
+    glEnable(GL_ALPHA_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glLoadIdentity();
+    glOrtho(0,context->screen_dims[0],context->screen_dims[1],0,-1.0f,1.0f);
+    my_stbtt_print(40,40, "I can draw whatever text I want to the screen using stb_truetype");
 }
 
 void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* file_load_data, const char* specific_name) {
@@ -623,6 +671,8 @@ int main(int argc, char* argv[]) {
     InitGraphicsContext(&graphics_context);
     profiler.EndEvent();
 
+    my_stbtt_initfont();
+
     AudioContext audio_context;
     InitAudio(&audio_context, &stack_memory_block);
 
@@ -808,7 +858,6 @@ int main(int argc, char* argv[]) {
     // Wait for the audio to fade out
     // TODO: handle this better -- e.g. force audio fade immediately
     SDL_Delay(200);
-
     // We can probably just skip most of this if we want to quit faster
     SDL_CloseAudioDevice(audio_context.device_id);
     SDL_GL_DeleteContext(graphics_context.gl_context);  
