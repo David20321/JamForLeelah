@@ -20,6 +20,14 @@ inline double min(double a, double b){
     return a<b?a:b;
 }
 
+inline float max(float a, float b){
+    return a>b?a:b;
+}
+
+inline float min(float a, float b){
+    return a<b?a:b;
+}
+
 inline void swap(void* &a, void* &b){
     void* temp = a;
     a = b;

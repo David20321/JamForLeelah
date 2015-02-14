@@ -3,6 +3,7 @@
 #define FBX_HPP
 
 #include <stdint.h>
+#include "glm/fwd.hpp"
 
 struct Mesh {
     static const int kMaxWeightsPerVert = 4;
@@ -54,5 +55,8 @@ struct FBXParseScene {
 
 void ParseFBXFromRAM(FBXParseScene* scene, void* file_memory, int file_size, const char** specific_names, int num_names);
 void PrintFBXInfoFromRAM(void* file_memory, int file_size);
+void AttachMeshToSkeleton(Mesh* mesh, Skeleton* skeleton);
+void GetBoundingBox(const Mesh* mesh, glm::vec3* bounding_box);
+
 
 #endif

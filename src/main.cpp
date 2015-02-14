@@ -34,236 +34,21 @@ mat4 g_bone_transforms[128];
 mat4 g_anim_bone_transforms[128];
 
 struct GameState {
-    SeparableTransform camera;
-    float camera_fov;
-    SeparableTransform character;
-    int char_drawable;
-    bool editor_mode;
-};
-
-struct DrawScene {
     static const int kMaxDrawables = 1000;
     Drawable drawables[kMaxDrawables];
     int num_drawables;
     DebugDrawLines lines;
     DebugText debug_text;
+    SeparableTransform camera;
+    float camera_fov;
+    SeparableTransform character;
+    int char_drawable;
+    bool editor_mode;
+    TextAtlas text_atlas;
+
+    void Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data);
 };
 
-void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
-    float cam_speed = 10.0f;
-    float char_speed = 4.0f;
-    const Uint8 *state = SDL_GetKeyboardState(NULL);
-    if (state[SDL_SCANCODE_SPACE]) {
-        cam_speed *= 0.1f;
-    }
-    static float cam_x = 0.0f;
-    static float cam_y = 0.0f;
-    if(game_state->editor_mode){
-        if (state[SDL_SCANCODE_W]) {
-            game_state->camera.translation -= game_state->camera.rotation * vec3(0,0,1) * cam_speed * time_step;
-        }
-        if (state[SDL_SCANCODE_S]) {
-            game_state->camera.translation += game_state->camera.rotation * vec3(0,0,1) * cam_speed * time_step;
-        }
-        if (state[SDL_SCANCODE_A]) {
-            game_state->camera.translation -= game_state->camera.rotation * vec3(1,0,0) * cam_speed * time_step;
-        }
-        if (state[SDL_SCANCODE_D]) {
-            game_state->camera.translation += game_state->camera.rotation * vec3(1,0,0) * cam_speed * time_step;
-        }
-        const float kMouseSensitivity = 0.003f;
-        Uint32 mouse_button_bitmask = SDL_GetMouseState(NULL, NULL);
-        if(mouse_button_bitmask & SDL_BUTTON_LEFT){
-            cam_x -= mouse_rel.y * kMouseSensitivity;
-            cam_y -= mouse_rel.x * kMouseSensitivity;
-        }
-        quat xRot = angleAxis(cam_x,vec3(1,0,0));
-        quat yRot = angleAxis(cam_y,vec3(0,1,0));
-        game_state->camera.rotation = yRot * xRot;
-        game_state->camera_fov = 1.02f;
-    } else {
-        cam_x = -0.75f;
-        cam_y = 1.0f;
-        quat xRot = angleAxis(cam_x,vec3(1,0,0));
-        quat yRot = angleAxis(cam_y,vec3(0,1,0));
-        game_state->camera.rotation = yRot * xRot;
-
-        vec3 temp = game_state->camera.rotation * vec3(0,0,-1);
-        vec3 cam_north = normalize(vec3(temp[0], 0.0f, temp[1]));
-        vec3 cam_east = normalize(vec3(-cam_north[2], 0.0f, cam_north[0]));
-
-        vec3 target_dir;
-        float target_speed = 0.0f;
-        if (state[SDL_SCANCODE_W]) {
-            target_dir += cam_north;
-            target_speed = 1.0f;
-        }
-        if (state[SDL_SCANCODE_S]) {
-            target_dir -= cam_north;
-            target_speed = 1.0f;
-        }
-        if (state[SDL_SCANCODE_D]) {
-            target_dir += cam_east;
-            target_speed = 1.0f;
-        }
-        if (state[SDL_SCANCODE_A]) {
-            target_dir -= cam_east;
-            target_speed = 1.0f;
-        }
-
-        static float char_rotation = 0.0f;
-        static const float turn_speed = 10.0f;
-        if(target_speed > 0.0f && length(target_dir) > 0.0f){
-            game_state->character.translation += normalize(target_dir) * 
-                target_speed * char_speed * time_step;
-
-            float target_rotation = -atan2f(target_dir[2], target_dir[0])+half_pi<float>();
-            /*float rel_rotation = target_rotation - char_rotation;
-            float temp;
-            rel_rotation = modf<float>(rel_rotation / pi<float>(), temp) * pi<float>();
-            if(fabsf(rel_rotation) < turn_speed * time_step){
-                char_rotation += rel_rotation;
-            } else {
-                char_rotation += rel_rotation>0.0f?1.0f:-1.0f * turn_speed * time_step;
-            }*/
-            game_state->character.rotation = angleAxis(target_rotation, vec3(0,1,0)); 
-        }
-
-        game_state->camera.translation = game_state->character.translation +
-            game_state->camera.rotation * vec3(0,0,1) * 10.0f;
-        game_state->camera_fov = 0.8f;
-    }
-    static bool old_tab = false;
-    if (state[SDL_SCANCODE_TAB] && !old_tab) {
-        game_state->editor_mode = !game_state->editor_mode;
-    }
-    old_tab = (state[SDL_SCANCODE_TAB] != 0);
-
-    game_state->camera.scale = vec3(1.0f);
-}
-
-void DrawCoordinateGrid(DrawScene* draw_scene){
-    static const float opac = 0.25f;
-    static const vec4 basic_grid_color(1.0f, 1.0f, 1.0f, opac);
-    static const vec4 x_axis_color(1.0f, 0.0f, 0.0f, opac);
-    static const vec4 y_axis_color(0.0f, 1.0f, 0.0f, opac);
-    static const vec4 z_axis_color(0.0f, 0.0f, 1.0f, opac);
-    for(int i=-10; i<11; ++i){
-        draw_scene->lines.Add(vec3(-10.0f, 0.0f, i), vec3(10.0f, 0.0f, i),
-                              i==0?x_axis_color:basic_grid_color, kDraw, 1);
-        draw_scene->lines.Add(vec3(i, 0.0f, -10.0f), vec3(i, 0.0f, 10.0f),
-                              i==0?z_axis_color:basic_grid_color, kDraw, 1);
-    }
-    draw_scene->lines.Add(vec3(0.0f, -10.0f, 0.0f), vec3(0.0f, 10.0f,  0.0f),
-                          y_axis_color, kDraw, 1);
-}
-
-void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
-    glUseProgram(drawable->shader_id);
-
-    GLuint modelview_matrix_uniform = glGetUniformLocation(drawable->shader_id, "mv_mat");
-    GLuint normal_matrix_uniform = glGetUniformLocation(drawable->shader_id, "norm_mat");
-
-    mat4 model_mat = drawable->transform;
-    mat4 mat = proj_view_mat * model_mat;
-    mat3 normal_mat = mat3(model_mat);
-    glUniformMatrix3fv(normal_matrix_uniform, 1, false, (GLfloat*)&normal_mat);
-
-    GLuint texture_uniform = glGetUniformLocation(drawable->shader_id, "texture_id");
-    glUniform1i(texture_uniform, 0);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, drawable->texture_id);
-
-    glBindBuffer(GL_ARRAY_BUFFER, drawable->vert_vbo);
-    switch(drawable->vbo_layout){
-    case kSimple_4V:
-        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
-        glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        glDisableVertexAttribArray(0);
-        break;
-    case kInterleave_3V2T3N:
-        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
-        glEnableVertexAttribArray(0);
-        glEnableVertexAttribArray(1);
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), 0);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)(5*sizeof(GLfloat)));
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
-        glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        glDisableVertexAttribArray(2);
-        glDisableVertexAttribArray(1);
-        glDisableVertexAttribArray(0);
-        break;
-    case kInterleave_3V2T3N4I4W: {
-        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
-        GLuint bone_transforms_uniform = glGetUniformLocation(drawable->shader_id, "bone_matrices");
-        for(int i=0; i<128; ++i){
-            g_bone_transforms[i] = model_mat * g_anim_bone_transforms[i];
-        }
-        glUniformMatrix4fv(bone_transforms_uniform, 128, false, (GLfloat*)&g_bone_transforms);
-        glEnableVertexAttribArray(0);
-        glEnableVertexAttribArray(1);
-        glEnableVertexAttribArray(2);
-        glEnableVertexAttribArray(3);
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), 0);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(5*sizeof(GLfloat)));
-        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(8*sizeof(GLfloat)));
-        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(12*sizeof(GLfloat)));
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
-        glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        glDisableVertexAttribArray(4);
-        glDisableVertexAttribArray(3);
-        glDisableVertexAttribArray(2);
-        glDisableVertexAttribArray(1);
-        glDisableVertexAttribArray(0);
-        } break;
-    }
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glUseProgram(0);
-}
-
-void Draw(GraphicsContext* context, GameState* game_state, DrawScene* draw_scene, int ticks) {
-    static int txt_handle = draw_scene->debug_text.GetDebugTextHandle();
-    static int txt_handle2 = draw_scene->debug_text.GetDebugTextHandle();
-    draw_scene->debug_text.UpdateDebugText(txt_handle, "Test test test", 1.0f);
-    draw_scene->debug_text.UpdateDebugText(txt_handle2, "Test2 line", 1.0f);
-
-    glViewport(0, 0, context->screen_dims[0], context->screen_dims[1]);
-    glClearColor(0.5,0.5,0.5,1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
-
-    float aspect_ratio = context->screen_dims[0] / (float)context->screen_dims[1];
-    mat4 proj_mat = glm::perspective(game_state->camera_fov, aspect_ratio, 0.1f, 100.0f);
-    mat4 view_mat = inverse(game_state->camera.GetCombination());
-    mat4 proj_view_mat = proj_mat * view_mat;
-
-    draw_scene->drawables[game_state->char_drawable].transform = 
-        game_state->character.GetCombination();
-
-    for(int i=0; i<draw_scene->num_drawables; ++i){
-        Drawable* drawable = &draw_scene->drawables[i];
-        DrawDrawable(proj_view_mat, drawable);
-    }
-
-    static const bool draw_coordinate_grid = false;
-    if(draw_coordinate_grid){
-        DrawCoordinateGrid(draw_scene);
-    }
-    draw_scene->lines.Draw(proj_view_mat);
-    draw_scene->debug_text.Draw(context);
-    CHECK_GL_ERROR();
-}
 
 void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* file_load_data, const char* specific_name) {
     int path_len = strlen(path);
@@ -292,7 +77,7 @@ void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* f
     }
 }
 
-void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_load_data) {
+void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_load_data, float pixel_height) {
     int path_len = strlen(path);
     if(path_len > FileRequest::kMaxFileRequestPathLen){
         FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
@@ -314,7 +99,7 @@ void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_l
         static const int kAtlasSize = 512;
         unsigned char temp_bitmap[kAtlasSize*kAtlasSize];
         stbtt_BakeFontBitmap((const unsigned char*)file_load_data->memory, 0, 
-                             32.0, temp_bitmap, 512, 512, 32, 96, text_atlas->cdata); // no guarantee this fits!
+            pixel_height, temp_bitmap, 512, 512, 32, 96, text_atlas->cdata); // no guarantee this fits!
         SDL_UnlockMutex(file_load_data->mutex);
         GLuint tmp_texture;
         glGenTextures(1, &tmp_texture);
@@ -439,133 +224,368 @@ void VBOFromSkinnedMesh(Mesh* mesh, int* vert_vbo, int* index_vbo) {
     *index_vbo = CreateVBO(kElementVBO, kStaticVBO, consecutive, consecutive_size);
 }
 
-void GetBoundingBox(const Mesh* mesh, vec3* bounding_box) {
-    SDL_assert(mesh);
-    SDL_assert(mesh->num_verts > 0);
-    bounding_box[0] = vec3(FLT_MAX);
-    bounding_box[1] = vec3(-FLT_MAX);
-    for(int i=0, vert_index=0; i<mesh->num_verts; ++i){
-        for(int k=0; k<3; ++k){
-            bounding_box[0][k] = min(mesh->vert_coords[vert_index], bounding_box[0][k]);
-            bounding_box[1][k] = max(mesh->vert_coords[vert_index], bounding_box[1][k]);
-            ++vert_index;
-        }
-    }
-}
 
-static const int s_pos_x = 1 << 0, s_pos_y = 1 << 1, s_pos_z = 1 << 2;
-static const int e_pos_x = 1 << 3, e_pos_y = 1 << 4, e_pos_z = 1 << 5;
+void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data) {
+    profiler->StartEvent("Parsing lamp fbx and creating vbo");
+    FBXParseScene parse_scene;
+    int street_lamp_vert_vbo, street_lamp_index_vbo;
+    LoadFBX(&parse_scene, ASSET_PATH "street_lamp.fbx", file_load_thread_data, NULL);
+    int num_street_lamp_indices = parse_scene.meshes[0].num_tris*3;
+    vec3 lamp_bb[2];
+    GetBoundingBox(&parse_scene.meshes[0], lamp_bb);
+    VBOFromMesh(&parse_scene.meshes[0], &street_lamp_vert_vbo, &street_lamp_index_vbo);
+    parse_scene.Dispose();
+    profiler->EndEvent();
 
-static void AddBBLine(DebugDrawLines* lines, const mat4& mat, vec3 bb[], int flags) {
-    vec3 points[2];
-    points[0][0] = (flags & s_pos_x)?bb[1][0]:bb[0][0];
-    points[0][1] = (flags & s_pos_y)?bb[1][1]:bb[0][1];
-    points[0][2] = (flags & s_pos_z)?bb[1][2]:bb[0][2];
-    points[1][0] = (flags & e_pos_x)?bb[1][0]:bb[0][0];
-    points[1][1] = (flags & e_pos_y)?bb[1][1]:bb[0][1];
-    points[1][2] = (flags & e_pos_z)?bb[1][2]:bb[0][2];
-    lines->Add(vec3(mat*vec4(points[0],1.0f)), 
-               vec3(mat*vec4(points[1],1.0f)), 
-               vec4(1.0f), kPersistent, 1);
-}
+    profiler->StartEvent("Parsing cobble fbx and creating vbo");
+    int cobble_floor_vert_vbo, cobble_floor_index_vbo;
+    LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", file_load_thread_data, NULL);    
+    int num_cobble_floor_indices = parse_scene.meshes[0].num_tris*3;
+    vec3 floor_bb[2];
+    GetBoundingBox(&parse_scene.meshes[0], floor_bb);
+    VBOFromMesh(&parse_scene.meshes[0], &cobble_floor_vert_vbo, &cobble_floor_index_vbo);
+    parse_scene.Dispose();
+    profiler->EndEvent();
 
-static void DrawBoundingBox(DebugDrawLines* lines, const mat4& mat, vec3 bb[]) {
-    static const int s_neg_x = 0, s_neg_y = 0, s_neg_z = 0;
-    static const int e_neg_x = 0, e_neg_y = 0, e_neg_z = 0;
-    // Neg Y square
-    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_neg_z | e_pos_x | e_neg_y | e_neg_z);
-    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_neg_z | e_pos_x | e_neg_y | e_pos_z);
-    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_pos_z | e_neg_x | e_neg_y | e_pos_z);
-    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_pos_z | e_neg_x | e_neg_y | e_neg_z);
-    // Pos Y square
-    AddBBLine(lines, mat, bb, s_neg_x | s_pos_y | s_neg_z | e_pos_x | e_pos_y | e_neg_z);
-    AddBBLine(lines, mat, bb, s_pos_x | s_pos_y | s_neg_z | e_pos_x | e_pos_y | e_pos_z);
-    AddBBLine(lines, mat, bb, s_pos_x | s_pos_y | s_pos_z | e_neg_x | e_pos_y | e_pos_z);
-    AddBBLine(lines, mat, bb, s_neg_x | s_pos_y | s_pos_z | e_neg_x | e_pos_y | e_neg_z);
-    // Neg Y to Pos Y
-    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_neg_z | e_neg_x | e_pos_y | e_neg_z);
-    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_neg_z | e_pos_x | e_pos_y | e_neg_z);
-    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_pos_z | e_pos_x | e_pos_y | e_pos_z);
-    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_pos_z | e_neg_x | e_pos_y | e_pos_z);
-}
+    profiler->StartEvent("Loading textures");
+    int cobbles_texture = LoadImage(ASSET_PATH "cobbles_c.tga", file_load_thread_data);
+    int lamp_texture = LoadImage(ASSET_PATH "lamp_c.tga", file_load_thread_data);
+    int character_texture = LoadImage(ASSET_PATH "main_character_c.tga", file_load_thread_data);
+    profiler->EndEvent();
 
-struct BoneIDSort {
-    uint64_t unique_id;
-    int num;
-};
+    profiler->StartEvent("Loading shaders");
+    int shader_3d_model = CreateProgramFromFile(file_load_thread_data, ASSET_PATH "shaders/3D_model");
+    int shader_3d_model_skinned = CreateProgramFromFile(file_load_thread_data, ASSET_PATH "shaders/3D_model_skinned");
+    int shader_debug_draw = CreateProgramFromFile(file_load_thread_data, ASSET_PATH "shaders/debug_draw");
+    int shader_debug_draw_text = CreateProgramFromFile(file_load_thread_data, ASSET_PATH "shaders/debug_draw_text");
+    profiler->EndEvent();
 
-int BoneIDSortCompare(const void* a_ptr, const void* b_ptr){
-    const BoneIDSort* a = (const BoneIDSort*)a_ptr;
-    const BoneIDSort* b = (const BoneIDSort*)b_ptr;
-    if(a->unique_id > b->unique_id) {
-        return 1;
-    } else if(a->unique_id == b->unique_id){
-        return 0;
-    } else {
-        return -1;
-    }
-} 
+    camera.translation = vec3(0.0f,0.0f,20.0f);
+    camera.rotation = angleAxis(0.0f,vec3(1.0f,0.0f,0.0f));
+    camera.scale = vec3(1.0f);
+    editor_mode = false;
 
-void AttachMeshToSkeleton(Mesh* mesh, Skeleton* skeleton) {
-    // rearrange mesh bone indices so they correspond to skeleton bones
-    BoneIDSort* mesh_bone_ids = (BoneIDSort*)malloc(sizeof(BoneIDSort) * mesh->num_bones);
-    for(int i=0; i<mesh->num_bones; ++i){
-        mesh_bone_ids[i].num = i;
-        mesh_bone_ids[i].unique_id = mesh->bone_ids[i];
-    }
-    qsort(mesh_bone_ids, mesh->num_bones, sizeof(BoneIDSort), BoneIDSortCompare);
-    BoneIDSort* skeleton_bone_ids = (BoneIDSort*)malloc(sizeof(BoneIDSort) * skeleton->num_bones);
-    for(int i=0; i<skeleton->num_bones; ++i){
-        skeleton_bone_ids[i].num = i;
-        skeleton_bone_ids[i].unique_id = skeleton->bones[i].bone_id;
-    }
-    qsort(skeleton_bone_ids, skeleton->num_bones, sizeof(BoneIDSort), BoneIDSortCompare);
-    int* new_bone_ids = (int*)malloc(sizeof(int) * mesh->num_bones);
-    for(int i=0; i<mesh->num_bones; ++i){
-        new_bone_ids[i] = -1;
-    }
-    for(int mesh_index=0, skeleton_index=0; 
-        mesh_index < mesh->num_bones && skeleton_index < skeleton->num_bones;)
+    lines.shader = shader_debug_draw;
+
+    LoadTTF(ASSET_PATH "arial.ttf", &text_atlas, file_load_thread_data, 18.0f);
+    text_atlas.shader = shader_debug_draw_text;
+    text_atlas.vert_vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
+    text_atlas.index_vbo = CreateVBO(kElementVBO, kStreamVBO, NULL, 0);
+    debug_text.Init(&text_atlas);
+
+    lines.num_lines = 0;
+    num_drawables = 0;
+    drawables[0].vert_vbo = street_lamp_vert_vbo;
+    drawables[0].index_vbo = street_lamp_index_vbo;
+    drawables[0].num_indices = num_street_lamp_indices;
+    drawables[0].vbo_layout = kInterleave_3V2T3N;
+    SeparableTransform sep_transform;
+    sep_transform.rotation = angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f));
+    sep_transform.translation = vec3(0.0f, -lamp_bb[0][2], 2.0f);
+    sep_transform.scale = vec3(1.0f);
+    drawables[0].transform = sep_transform.GetCombination();
+    drawables[0].texture_id = lamp_texture;
+    drawables[0].shader_id = shader_3d_model;
+    ++num_drawables;
+
+    lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
+
+    int character_vert_vbo, character_index_vbo, num_character_indices;
     {
-        BoneIDSort& skel = skeleton_bone_ids[skeleton_index];
-        BoneIDSort& mesh = mesh_bone_ids[mesh_index];
-        if(skel.unique_id == mesh.unique_id){
-            new_bone_ids[mesh.num] = skel.num;
-            ++mesh_index;
-            ++skeleton_index;
-        } else if(skel.unique_id > mesh.unique_id) {
-            ++mesh_index;
-        } else {
-            ++skeleton_index;
+        profiler->StartEvent("Parsing character fbx");
+        profiler->StartEvent("Loading file to RAM");
+        FBXParseScene parse_scene;
+        void* mem = malloc(1024*1024*64);
+        int len;
+        char err_title[FileLoadThreadData::kMaxErrMsgLen];
+        char err_msg[FileLoadThreadData::kMaxErrMsgLen];
+        if(!FileLoadThreadData::LoadFile(ASSET_PATH "main_character_rig.fbx", 
+            mem,  &len, err_title, err_msg))
+        {
+            FormattedError(err_title, err_msg);
+            exit(1);
         }
-    }
-    for(int i=0, index=0; i<mesh->num_verts*4; ++i){
-        int& vert_bone_index = mesh->vert_bone_indices[index++];
-        if(vert_bone_index != -1){
-            vert_bone_index = new_bone_ids[vert_bone_index];
+        profiler->EndEvent();
+
+        profiler->StartEvent("Parsing character fbx");
+        const char* names[] = {"RiggedMesh", "rig"};
+        ParseFBXFromRAM(&parse_scene, mem, len, names, 2);
+        Mesh& mesh = parse_scene.meshes[0];
+        Skeleton& skeleton = parse_scene.skeletons[0];
+        profiler->EndEvent();
+
+        AttachMeshToSkeleton(&mesh, &skeleton);
+        for(int bone_index=0; bone_index<skeleton.num_bones; ++bone_index){
+            Bone& bone = skeleton.bones[bone_index];
+            mat4 temp;
+            for(int matrix_element=0; matrix_element<16; ++matrix_element){
+                temp[matrix_element/4][matrix_element%4] = bone.transform[matrix_element];
+            }
+            mat4 bind_mat;
+            for(int j=0; j<16; ++j){
+                bind_mat[j/4][j%4] = mesh.bind_matrices[bone_index*16+j];
+            }
+            mat4 rot_mat = toMat4(angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f)));
+            g_anim_bone_transforms[bone_index] = temp * inverse(bind_mat) * rot_mat;
         }
+
+        profiler->StartEvent("Creating VBO and adding to scene");
+        vec3 char_bb[2];
+        GetBoundingBox(&mesh, char_bb);
+        VBOFromSkinnedMesh(&mesh, &character_vert_vbo, &character_index_vbo);
+        num_character_indices = mesh.num_tris*3;
+
+        char_drawable = num_drawables;
+        drawables[num_drawables].vert_vbo = character_vert_vbo;
+        drawables[num_drawables].index_vbo = character_index_vbo;
+        drawables[num_drawables].num_indices = num_character_indices;
+        drawables[num_drawables].vbo_layout = kInterleave_3V2T3N4I4W;
+        SeparableTransform char_transform;
+        char_transform.scale = vec3(1.0f);
+        drawables[num_drawables].transform = mat4();//char_transform.GetCombination();
+        drawables[num_drawables].texture_id = character_texture;
+        drawables[num_drawables].shader_id = shader_3d_model_skinned;
+        ++num_drawables;
+        profiler->EndEvent();
+
+        lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
+        parse_scene.Dispose();
+        profiler->EndEvent();
     }
 
-    // What to do with mesh->bind_matrices
-    float* bind_matrices = (float*)malloc(16 * sizeof(float) * skeleton->num_bones);
-    for(int i=0, index=0; i<skeleton->num_bones; ++i){
-        for(int j=0; j<16; ++j){
-            bind_matrices[index++] = (j/4 == j%4)?1.0f:0.0f;
+    for(int i=-10; i<10; ++i){
+        for(int j=-10; j<10; ++j){
+            sep_transform.translation = vec3(0.0f, floor_bb[1][2], 0.0f);
+            sep_transform.translation += vec3(-1.0f+(float)j*2.0f,0.0f,-1.0f+(float)i*2.0f);
+            drawables[num_drawables].vert_vbo = cobble_floor_vert_vbo;
+            drawables[num_drawables].index_vbo = cobble_floor_index_vbo;
+            drawables[num_drawables].num_indices = num_cobble_floor_indices;
+            drawables[num_drawables].vbo_layout = kInterleave_3V2T3N;
+            drawables[num_drawables].transform = sep_transform.GetCombination();
+            drawables[num_drawables].texture_id = cobbles_texture;
+            drawables[num_drawables].shader_id = shader_3d_model;
+            ++num_drawables;
         }
     }
-    for(int i=0; i<mesh->num_bones; ++i){
-        if(new_bone_ids[i] != -1){
-            void *dst = &bind_matrices[new_bone_ids[i]*16];
-            void *src = &mesh->bind_matrices[i*16];
-            memcpy(dst, src, sizeof(float) * 16);
-        }
-    }
-    free(mesh->bind_matrices);
-    mesh->bind_matrices = bind_matrices;
+}
 
-    free(new_bone_ids);
-    free(skeleton_bone_ids);
-    free(mesh_bone_ids);
+void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
+    float cam_speed = 10.0f;
+    float char_speed = 4.0f;
+    const Uint8 *state = SDL_GetKeyboardState(NULL);
+    if (state[SDL_SCANCODE_SPACE]) {
+        cam_speed *= 0.1f;
+    }
+    static float cam_x = 0.0f;
+    static float cam_y = 0.0f;
+    if(game_state->editor_mode){
+        if (state[SDL_SCANCODE_W]) {
+            game_state->camera.translation -= game_state->camera.rotation * vec3(0,0,1) * cam_speed * time_step;
+        }
+        if (state[SDL_SCANCODE_S]) {
+            game_state->camera.translation += game_state->camera.rotation * vec3(0,0,1) * cam_speed * time_step;
+        }
+        if (state[SDL_SCANCODE_A]) {
+            game_state->camera.translation -= game_state->camera.rotation * vec3(1,0,0) * cam_speed * time_step;
+        }
+        if (state[SDL_SCANCODE_D]) {
+            game_state->camera.translation += game_state->camera.rotation * vec3(1,0,0) * cam_speed * time_step;
+        }
+        const float kMouseSensitivity = 0.003f;
+        Uint32 mouse_button_bitmask = SDL_GetMouseState(NULL, NULL);
+        if(mouse_button_bitmask & SDL_BUTTON_LEFT){
+            cam_x -= mouse_rel.y * kMouseSensitivity;
+            cam_y -= mouse_rel.x * kMouseSensitivity;
+        }
+        quat xRot = angleAxis(cam_x,vec3(1,0,0));
+        quat yRot = angleAxis(cam_y,vec3(0,1,0));
+        game_state->camera.rotation = yRot * xRot;
+        game_state->camera_fov = 1.02f;
+    } else {
+        cam_x = -0.75f;
+        cam_y = 1.0f;
+        quat xRot = angleAxis(cam_x,vec3(1,0,0));
+        quat yRot = angleAxis(cam_y,vec3(0,1,0));
+        game_state->camera.rotation = yRot * xRot;
+
+        vec3 temp = game_state->camera.rotation * vec3(0,0,-1);
+        vec3 cam_north = normalize(vec3(temp[0], 0.0f, temp[1]));
+        vec3 cam_east = normalize(vec3(-cam_north[2], 0.0f, cam_north[0]));
+
+        vec3 target_dir;
+        float target_speed = 0.0f;
+        if (state[SDL_SCANCODE_W]) {
+            target_dir += cam_north;
+            target_speed = 1.0f;
+        }
+        if (state[SDL_SCANCODE_S]) {
+            target_dir -= cam_north;
+            target_speed = 1.0f;
+        }
+        if (state[SDL_SCANCODE_D]) {
+            target_dir += cam_east;
+            target_speed = 1.0f;
+        }
+        if (state[SDL_SCANCODE_A]) {
+            target_dir -= cam_east;
+            target_speed = 1.0f;
+        }
+
+        static float char_rotation = 0.0f;
+        static const float turn_speed = 10.0f;
+        if(target_speed > 0.0f && length(target_dir) > 0.0f){
+            game_state->character.translation += normalize(target_dir) * 
+                target_speed * char_speed * time_step;
+
+            float target_rotation = -atan2f(target_dir[2], target_dir[0])+half_pi<float>();
+            /*float rel_rotation = target_rotation - char_rotation;
+            float temp;
+            rel_rotation = modf<float>(rel_rotation / pi<float>(), temp) * pi<float>();
+            if(fabsf(rel_rotation) < turn_speed * time_step){
+                char_rotation += rel_rotation;
+            } else {
+                char_rotation += rel_rotation>0.0f?1.0f:-1.0f * turn_speed * time_step;
+            }*/
+            game_state->character.rotation = angleAxis(target_rotation, vec3(0,1,0)); 
+        }
+
+        game_state->camera.translation = game_state->character.translation +
+            game_state->camera.rotation * vec3(0,0,1) * 10.0f;
+        game_state->camera_fov = 0.8f;
+    }
+    static bool old_tab = false;
+    if (state[SDL_SCANCODE_TAB] && !old_tab) {
+        game_state->editor_mode = !game_state->editor_mode;
+    }
+    old_tab = (state[SDL_SCANCODE_TAB] != 0);
+
+    game_state->camera.scale = vec3(1.0f);
+}
+
+void DrawCoordinateGrid(GameState* game_state){
+    static const float opac = 0.25f;
+    static const vec4 basic_grid_color(1.0f, 1.0f, 1.0f, opac);
+    static const vec4 x_axis_color(1.0f, 0.0f, 0.0f, opac);
+    static const vec4 y_axis_color(0.0f, 1.0f, 0.0f, opac);
+    static const vec4 z_axis_color(0.0f, 0.0f, 1.0f, opac);
+    for(int i=-10; i<11; ++i){
+        game_state->lines.Add(vec3(-10.0f, 0.0f, i), vec3(10.0f, 0.0f, i),
+                              i==0?x_axis_color:basic_grid_color, kDraw, 1);
+        game_state->lines.Add(vec3(i, 0.0f, -10.0f), vec3(i, 0.0f, 10.0f),
+                              i==0?z_axis_color:basic_grid_color, kDraw, 1);
+    }
+    game_state->lines.Add(vec3(0.0f, -10.0f, 0.0f), vec3(0.0f, 10.0f,  0.0f),
+                          y_axis_color, kDraw, 1);
+}
+
+void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
+    glUseProgram(drawable->shader_id);
+
+    GLuint modelview_matrix_uniform = glGetUniformLocation(drawable->shader_id, "mv_mat");
+    GLuint normal_matrix_uniform = glGetUniformLocation(drawable->shader_id, "norm_mat");
+
+    mat4 model_mat = drawable->transform;
+    mat4 mat = proj_view_mat * model_mat;
+    mat3 normal_mat = mat3(model_mat);
+    glUniformMatrix3fv(normal_matrix_uniform, 1, false, (GLfloat*)&normal_mat);
+
+    GLuint texture_uniform = glGetUniformLocation(drawable->shader_id, "texture_id");
+    glUniform1i(texture_uniform, 0);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, drawable->texture_id);
+
+    glBindBuffer(GL_ARRAY_BUFFER, drawable->vert_vbo);
+    switch(drawable->vbo_layout){
+    case kSimple_4V:
+        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
+        glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glDisableVertexAttribArray(0);
+        break;
+    case kInterleave_3V2T3N:
+        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), 0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)(5*sizeof(GLfloat)));
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
+        glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glDisableVertexAttribArray(2);
+        glDisableVertexAttribArray(1);
+        glDisableVertexAttribArray(0);
+        break;
+    case kInterleave_3V2T3N4I4W: {
+        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
+        GLuint bone_transforms_uniform = glGetUniformLocation(drawable->shader_id, "bone_matrices");
+        for(int i=0; i<128; ++i){
+            g_bone_transforms[i] = model_mat * g_anim_bone_transforms[i];
+        }
+        glUniformMatrix4fv(bone_transforms_uniform, 128, false, (GLfloat*)&g_bone_transforms);
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glEnableVertexAttribArray(2);
+        glEnableVertexAttribArray(3);
+        glEnableVertexAttribArray(4);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), 0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(5*sizeof(GLfloat)));
+        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(8*sizeof(GLfloat)));
+        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(12*sizeof(GLfloat)));
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
+        glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glDisableVertexAttribArray(4);
+        glDisableVertexAttribArray(3);
+        glDisableVertexAttribArray(2);
+        glDisableVertexAttribArray(1);
+        glDisableVertexAttribArray(0);
+        } break;
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glUseProgram(0);
+}
+
+void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
+    CHECK_GL_ERROR();
+    static int txt_handle = game_state->debug_text.GetDebugTextHandle();
+    static int txt_handle2 = game_state->debug_text.GetDebugTextHandle();
+    game_state->debug_text.UpdateDebugText(txt_handle, "Test test test", 1.0f);
+    game_state->debug_text.UpdateDebugText(txt_handle2, "Test2 line", 1.0f);
+
+    glViewport(0, 0, context->screen_dims[0], context->screen_dims[1]);
+    glClearColor(0.5,0.5,0.5,1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+
+    float aspect_ratio = context->screen_dims[0] / (float)context->screen_dims[1];
+    mat4 proj_mat = glm::perspective(game_state->camera_fov, aspect_ratio, 0.1f, 100.0f);
+    mat4 view_mat = inverse(game_state->camera.GetCombination());
+    mat4 proj_view_mat = proj_mat * view_mat;
+
+    game_state->drawables[game_state->char_drawable].transform = 
+        game_state->character.GetCombination();
+
+    for(int i=0; i<game_state->num_drawables; ++i){
+        Drawable* drawable = &game_state->drawables[i];
+        DrawDrawable(proj_view_mat, drawable);
+    }
+
+    static const bool draw_coordinate_grid = false;
+    if(draw_coordinate_grid){
+        DrawCoordinateGrid(game_state);
+    }
+    CHECK_GL_ERROR();
+    game_state->lines.Draw(proj_view_mat);
+    CHECK_GL_ERROR();
+    game_state->debug_text.Draw(context);
+    CHECK_GL_ERROR();
 }
 
 int main(int argc, char* argv[]) {
@@ -635,151 +655,8 @@ int main(int argc, char* argv[]) {
     AudioContext audio_context;
     InitAudio(&audio_context, &stack_memory_block);
 
-    // Game code starts here
-    profiler.StartEvent("Parsing lamp fbx and creating vbo");
-    FBXParseScene parse_scene;
-    int street_lamp_vert_vbo, street_lamp_index_vbo;
-    LoadFBX(&parse_scene, ASSET_PATH "street_lamp.fbx", &file_load_thread_data, NULL);
-    int num_street_lamp_indices = parse_scene.meshes[0].num_tris*3;
-    vec3 lamp_bb[2];
-    GetBoundingBox(&parse_scene.meshes[0], lamp_bb);
-    VBOFromMesh(&parse_scene.meshes[0], &street_lamp_vert_vbo, &street_lamp_index_vbo);
-    parse_scene.Dispose();
-    profiler.EndEvent();
-
-    profiler.StartEvent("Parsing cobble fbx and creating vbo");
-    int cobble_floor_vert_vbo, cobble_floor_index_vbo;
-    LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", &file_load_thread_data, NULL);    
-    int num_cobble_floor_indices = parse_scene.meshes[0].num_tris*3;
-    vec3 floor_bb[2];
-    GetBoundingBox(&parse_scene.meshes[0], floor_bb);
-    VBOFromMesh(&parse_scene.meshes[0], &cobble_floor_vert_vbo, &cobble_floor_index_vbo);
-    parse_scene.Dispose();
-    profiler.EndEvent();
-
-    profiler.StartEvent("Loading textures");
-    int cobbles_texture = LoadImage(ASSET_PATH "cobbles_c.tga", &file_load_thread_data);
-    int lamp_texture = LoadImage(ASSET_PATH "lamp_c.tga", &file_load_thread_data);
-    int character_texture = LoadImage(ASSET_PATH "main_character_c.tga", &file_load_thread_data);
-    profiler.EndEvent();
-
-    profiler.StartEvent("Loading shaders");
-    int shader_3d_model = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/3D_model");
-    int shader_3d_model_skinned = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/3D_model_skinned");
-    int shader_debug_draw = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/debug_draw");
-    int shader_debug_draw_text = CreateProgramFromFile(&file_load_thread_data, ASSET_PATH "shaders/debug_draw_text");
-    profiler.EndEvent();
-
     GameState game_state;
-    game_state.camera.translation = vec3(0.0f,0.0f,20.0f);
-    game_state.camera.rotation = angleAxis(0.0f,vec3(1.0f,0.0f,0.0f));
-    game_state.camera.scale = vec3(1.0f);
-    game_state.editor_mode = false;
-
-    DrawScene draw_scene;
-    draw_scene.lines.shader = shader_debug_draw;
-    
-    TextAtlas text_atlas;
-    LoadTTF(ASSET_PATH "arial.ttf", &text_atlas, &file_load_thread_data);
-    text_atlas.shader = shader_debug_draw_text;
-    text_atlas.vert_vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
-    text_atlas.index_vbo = CreateVBO(kElementVBO, kStreamVBO, NULL, 0);
-    draw_scene.debug_text.Init(&text_atlas);
-
-    draw_scene.lines.num_lines = 0;
-    draw_scene.num_drawables = 0;
-    draw_scene.drawables[0].vert_vbo = street_lamp_vert_vbo;
-    draw_scene.drawables[0].index_vbo = street_lamp_index_vbo;
-    draw_scene.drawables[0].num_indices = num_street_lamp_indices;
-    draw_scene.drawables[0].vbo_layout = kInterleave_3V2T3N;
-    SeparableTransform sep_transform;
-    sep_transform.rotation = angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f));
-    sep_transform.translation = vec3(0.0f, -lamp_bb[0][2], 2.0f);
-    sep_transform.scale = vec3(1.0f);
-    draw_scene.drawables[0].transform = sep_transform.GetCombination();
-    draw_scene.drawables[0].texture_id = lamp_texture;
-    draw_scene.drawables[0].shader_id = shader_3d_model;
-    ++draw_scene.num_drawables;
-
-    draw_scene.lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
-
-    int character_vert_vbo, character_index_vbo, num_character_indices;
-    {
-        profiler.StartEvent("Parsing character fbx");
-        profiler.StartEvent("Loading file to RAM");
-        FBXParseScene parse_scene;
-        void* mem = malloc(1024*1024*64);
-        int len;
-        char err_title[FileLoadThreadData::kMaxErrMsgLen];
-        char err_msg[FileLoadThreadData::kMaxErrMsgLen];
-        if(!FileLoadThreadData::LoadFile(ASSET_PATH "main_character_rig.fbx", 
-            mem,  &len, err_title, err_msg))
-        {
-            FormattedError(err_title, err_msg);
-            exit(1);
-        }
-        profiler.EndEvent();
-
-        profiler.StartEvent("Parsing character fbx");
-        const char* names[] = {"RiggedMesh", "rig"};
-        ParseFBXFromRAM(&parse_scene, mem, len, names, 2);
-        Mesh& mesh = parse_scene.meshes[0];
-        Skeleton& skeleton = parse_scene.skeletons[0];
-        profiler.EndEvent();
-
-        AttachMeshToSkeleton(&mesh, &skeleton);
-        for(int bone_index=0; bone_index<skeleton.num_bones; ++bone_index){
-            Bone& bone = skeleton.bones[bone_index];
-            mat4 temp;
-            for(int matrix_element=0; matrix_element<16; ++matrix_element){
-                temp[matrix_element/4][matrix_element%4] = bone.transform[matrix_element];
-            }
-            mat4 bind_mat;
-            for(int j=0; j<16; ++j){
-                bind_mat[j/4][j%4] = mesh.bind_matrices[bone_index*16+j];
-            }
-            mat4 rot_mat = toMat4(angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f)));
-            g_anim_bone_transforms[bone_index] = temp * inverse(bind_mat) * rot_mat;
-        }
-        
-        profiler.StartEvent("Creating VBO and adding to scene");
-        vec3 char_bb[2];
-        GetBoundingBox(&mesh, char_bb);
-        VBOFromSkinnedMesh(&mesh, &character_vert_vbo, &character_index_vbo);
-        num_character_indices = mesh.num_tris*3;
-
-        game_state.char_drawable = draw_scene.num_drawables;
-        draw_scene.drawables[draw_scene.num_drawables].vert_vbo = character_vert_vbo;
-        draw_scene.drawables[draw_scene.num_drawables].index_vbo = character_index_vbo;
-        draw_scene.drawables[draw_scene.num_drawables].num_indices = num_character_indices;
-        draw_scene.drawables[draw_scene.num_drawables].vbo_layout = kInterleave_3V2T3N4I4W;
-        SeparableTransform char_transform;
-        char_transform.scale = vec3(1.0f);
-        draw_scene.drawables[draw_scene.num_drawables].transform = mat4();//char_transform.GetCombination();
-        draw_scene.drawables[draw_scene.num_drawables].texture_id = character_texture;
-        draw_scene.drawables[draw_scene.num_drawables].shader_id = shader_3d_model_skinned;
-        ++draw_scene.num_drawables;
-        profiler.EndEvent();
-
-        draw_scene.lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
-        parse_scene.Dispose();
-        profiler.EndEvent();
-    }
-
-    for(int i=-10; i<10; ++i){
-        for(int j=-10; j<10; ++j){
-            sep_transform.translation = vec3(0.0f, floor_bb[1][2], 0.0f);
-            sep_transform.translation += vec3(-1.0f+(float)j*2.0f,0.0f,-1.0f+(float)i*2.0f);
-            draw_scene.drawables[draw_scene.num_drawables].vert_vbo = cobble_floor_vert_vbo;
-            draw_scene.drawables[draw_scene.num_drawables].index_vbo = cobble_floor_index_vbo;
-            draw_scene.drawables[draw_scene.num_drawables].num_indices = num_cobble_floor_indices;
-            draw_scene.drawables[draw_scene.num_drawables].vbo_layout = kInterleave_3V2T3N;
-            draw_scene.drawables[draw_scene.num_drawables].transform = sep_transform.GetCombination();
-            draw_scene.drawables[draw_scene.num_drawables].texture_id = cobbles_texture;
-            draw_scene.drawables[draw_scene.num_drawables].shader_id = shader_3d_model;
-            ++draw_scene.num_drawables;
-        }
-    }
+    game_state.Init(&profiler, &file_load_thread_data);
 
     int last_ticks = SDL_GetTicks();
     bool game_running = true;
@@ -799,7 +676,7 @@ int main(int argc, char* argv[]) {
             }
         }
         profiler.StartEvent("Draw");
-        Draw(&graphics_context, &game_state, &draw_scene, SDL_GetTicks());
+        Draw(&graphics_context, &game_state, SDL_GetTicks());
         profiler.EndEvent();
         profiler.StartEvent("Update");
         int ticks = SDL_GetTicks();

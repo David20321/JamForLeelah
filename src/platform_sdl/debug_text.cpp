@@ -9,6 +9,7 @@
 #include "internal/common.h"
 
 void DrawText(TextAtlas *text_atlas, GraphicsContext* context, float x, float y, char *text) {
+    CHECK_GL_ERROR();
     static const int kMaxDrawStringLength = 1024;
     GLfloat vert_data[kMaxDrawStringLength*16]; // Four verts per character, 2V 2T per vert
     GLuint index_data[kMaxDrawStringLength*6]; // Two tris per character
@@ -49,16 +50,25 @@ void DrawText(TextAtlas *text_atlas, GraphicsContext* context, float x, float y,
             index_data[index_index++] = vert_ref + 3;
         }
     }
+    CHECK_GL_ERROR();
 
     glm::mat4 proj_mat = glm::ortho(0.0f, (float)context->screen_dims[0], 
         (float)context->screen_dims[1], 0.0f, -1.0f, 1.0f);
+    CHECK_GL_ERROR();
     GLuint proj_mat_uniform = glGetUniformLocation(text_atlas->shader, "proj_mat");
+    CHECK_GL_ERROR();
     GLuint texture_uniform = glGetUniformLocation(text_atlas->shader, "texture_id");
+    CHECK_GL_ERROR();
     glUseProgram(text_atlas->shader);
+    CHECK_GL_ERROR();
     glUniformMatrix4fv(proj_mat_uniform, 1, false, (GLfloat*)&proj_mat);
+    CHECK_GL_ERROR();
     glUniform1i(texture_uniform, 0);
+    CHECK_GL_ERROR();
     glActiveTexture(GL_TEXTURE0);
+    CHECK_GL_ERROR();
     glBindTexture(GL_TEXTURE_2D, text_atlas->texture);
+    CHECK_GL_ERROR();
 
     glBindBuffer(GL_ARRAY_BUFFER, text_atlas->vert_vbo);
     glBufferData(GL_ARRAY_BUFFER, num_draw_chars*sizeof(GLfloat)*16, vert_data, GL_STREAM_DRAW);
@@ -74,6 +84,7 @@ void DrawText(TextAtlas *text_atlas, GraphicsContext* context, float x, float y,
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
+    CHECK_GL_ERROR();
 }
 
 void DebugText::Draw(GraphicsContext* context) {

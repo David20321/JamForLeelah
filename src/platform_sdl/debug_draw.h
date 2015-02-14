@@ -28,4 +28,6 @@ struct DebugDrawLines {
     void Draw(const glm::mat4& proj_view_mat);
 };
 
+void DrawBoundingBox(DebugDrawLines* lines, const glm::mat4& mat, glm::vec3 bb[]);
+
 #endif

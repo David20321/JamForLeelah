@@ -21,6 +21,7 @@
 #include "internal/common.h"
 #include <cstdlib>
 #include <stdint.h>
+#include "glm/glm.hpp"
 
 // Local function prototypes.
 void DisplayContent(FbxScene* pScene);
@@ -765,4 +766,97 @@ void FBXParseScene::Dispose() {
 FBXParseScene::~FBXParseScene() {
     SDL_assert(meshes == NULL);
     SDL_assert(skeletons == NULL);
+}
+
+struct BoneIDSort {
+    uint64_t unique_id;
+    int num;
+};
+
+static int BoneIDSortCompare(const void* a_ptr, const void* b_ptr){
+    const BoneIDSort* a = (const BoneIDSort*)a_ptr;
+    const BoneIDSort* b = (const BoneIDSort*)b_ptr;
+    if(a->unique_id > b->unique_id) {
+        return 1;
+    } else if(a->unique_id == b->unique_id){
+        return 0;
+    } else {
+        return -1;
+    }
+} 
+
+void AttachMeshToSkeleton(Mesh* mesh, Skeleton* skeleton) {
+    // rearrange mesh bone indices so they correspond to skeleton bones
+    BoneIDSort* mesh_bone_ids = (BoneIDSort*)malloc(sizeof(BoneIDSort) * mesh->num_bones);
+    for(int i=0; i<mesh->num_bones; ++i){
+        mesh_bone_ids[i].num = i;
+        mesh_bone_ids[i].unique_id = mesh->bone_ids[i];
+    }
+    qsort(mesh_bone_ids, mesh->num_bones, sizeof(BoneIDSort), BoneIDSortCompare);
+    BoneIDSort* skeleton_bone_ids = (BoneIDSort*)malloc(sizeof(BoneIDSort) * skeleton->num_bones);
+    for(int i=0; i<skeleton->num_bones; ++i){
+        skeleton_bone_ids[i].num = i;
+        skeleton_bone_ids[i].unique_id = skeleton->bones[i].bone_id;
+    }
+    qsort(skeleton_bone_ids, skeleton->num_bones, sizeof(BoneIDSort), BoneIDSortCompare);
+    int* new_bone_ids = (int*)malloc(sizeof(int) * mesh->num_bones);
+    for(int i=0; i<mesh->num_bones; ++i){
+        new_bone_ids[i] = -1;
+    }
+    for(int mesh_index=0, skeleton_index=0; 
+        mesh_index < mesh->num_bones && skeleton_index < skeleton->num_bones;)
+    {
+        BoneIDSort& skel = skeleton_bone_ids[skeleton_index];
+        BoneIDSort& mesh = mesh_bone_ids[mesh_index];
+        if(skel.unique_id == mesh.unique_id){
+            new_bone_ids[mesh.num] = skel.num;
+            ++mesh_index;
+            ++skeleton_index;
+        } else if(skel.unique_id > mesh.unique_id) {
+            ++mesh_index;
+        } else {
+            ++skeleton_index;
+        }
+    }
+    for(int i=0, index=0; i<mesh->num_verts*4; ++i){
+        int& vert_bone_index = mesh->vert_bone_indices[index++];
+        if(vert_bone_index != -1){
+            vert_bone_index = new_bone_ids[vert_bone_index];
+        }
+    }
+
+    // What to do with mesh->bind_matrices
+    float* bind_matrices = (float*)malloc(16 * sizeof(float) * skeleton->num_bones);
+    for(int i=0, index=0; i<skeleton->num_bones; ++i){
+        for(int j=0; j<16; ++j){
+            bind_matrices[index++] = (j/4 == j%4)?1.0f:0.0f;
+        }
+    }
+    for(int i=0; i<mesh->num_bones; ++i){
+        if(new_bone_ids[i] != -1){
+            void *dst = &bind_matrices[new_bone_ids[i]*16];
+            void *src = &mesh->bind_matrices[i*16];
+            memcpy(dst, src, sizeof(float) * 16);
+        }
+    }
+    free(mesh->bind_matrices);
+    mesh->bind_matrices = bind_matrices;
+
+    free(new_bone_ids);
+    free(skeleton_bone_ids);
+    free(mesh_bone_ids);
+}
+
+void GetBoundingBox(const Mesh* mesh, glm::vec3* bounding_box) {
+    SDL_assert(mesh);
+    SDL_assert(mesh->num_verts > 0);
+    bounding_box[0] = glm::vec3(FLT_MAX);
+    bounding_box[1] = glm::vec3(-FLT_MAX);
+    for(int i=0, vert_index=0; i<mesh->num_verts; ++i){
+        for(int k=0; k<3; ++k){
+            bounding_box[0][k] = min(mesh->vert_coords[vert_index], bounding_box[0][k]);
+            bounding_box[1][k] = max(mesh->vert_coords[vert_index], bounding_box[1][k]);
+            ++vert_index;
+        }
+    }
 }

@@ -68,3 +68,39 @@ void DebugDrawLines::Draw(const glm::mat4& proj_view_mat) {
         }
     }
 }
+
+static const int s_pos_x = 1 << 0, s_pos_y = 1 << 1, s_pos_z = 1 << 2;
+static const int e_pos_x = 1 << 3, e_pos_y = 1 << 4, e_pos_z = 1 << 5;
+
+static void AddBBLine(DebugDrawLines* lines, const glm::mat4& mat, glm::vec3 bb[], int flags) {
+    glm::vec3 points[2];
+    points[0][0] = (flags & s_pos_x)?bb[1][0]:bb[0][0];
+    points[0][1] = (flags & s_pos_y)?bb[1][1]:bb[0][1];
+    points[0][2] = (flags & s_pos_z)?bb[1][2]:bb[0][2];
+    points[1][0] = (flags & e_pos_x)?bb[1][0]:bb[0][0];
+    points[1][1] = (flags & e_pos_y)?bb[1][1]:bb[0][1];
+    points[1][2] = (flags & e_pos_z)?bb[1][2]:bb[0][2];
+    lines->Add(glm::vec3(mat*glm::vec4(points[0],1.0f)), 
+        glm::vec3(mat*glm::vec4(points[1],1.0f)), 
+        glm::vec4(1.0f), kPersistent, 1);
+}
+
+void DrawBoundingBox(DebugDrawLines* lines, const glm::mat4& mat, glm::vec3 bb[]) {
+    static const int s_neg_x = 0, s_neg_y = 0, s_neg_z = 0;
+    static const int e_neg_x = 0, e_neg_y = 0, e_neg_z = 0;
+    // Neg Y square
+    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_neg_z | e_pos_x | e_neg_y | e_neg_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_neg_z | e_pos_x | e_neg_y | e_pos_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_pos_z | e_neg_x | e_neg_y | e_pos_z);
+    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_pos_z | e_neg_x | e_neg_y | e_neg_z);
+    // Pos Y square
+    AddBBLine(lines, mat, bb, s_neg_x | s_pos_y | s_neg_z | e_pos_x | e_pos_y | e_neg_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_pos_y | s_neg_z | e_pos_x | e_pos_y | e_pos_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_pos_y | s_pos_z | e_neg_x | e_pos_y | e_pos_z);
+    AddBBLine(lines, mat, bb, s_neg_x | s_pos_y | s_pos_z | e_neg_x | e_pos_y | e_neg_z);
+    // Neg Y to Pos Y
+    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_neg_z | e_neg_x | e_pos_y | e_neg_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_neg_z | e_pos_x | e_pos_y | e_neg_z);
+    AddBBLine(lines, mat, bb, s_pos_x | s_neg_y | s_pos_z | e_pos_x | e_pos_y | e_pos_z);
+    AddBBLine(lines, mat, bb, s_neg_x | s_neg_y | s_pos_z | e_neg_x | e_pos_y | e_pos_z);
+}
