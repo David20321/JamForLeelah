@@ -162,6 +162,8 @@ void DisplayContent(FbxScene* pScene)
             DisplayContent(lNode->GetChild(i));
         }
     }
+
+    DisplayAnimation(pScene);
 }
 
 void DisplayContent(FbxNode* pNode)
@@ -618,9 +620,9 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
             check_children = false;
             switch(pass){
             case kStore: {
-                FbxAnimStack* anim_stack = node->GetScene()->GetCurrentAnimationStack();
-                SDL_Log("Skeleton anim_stack: %s", anim_stack->GetName());
                 Skeleton* skeleton = &scene->skeletons[scene->num_skeleton];
+                skeleton->num_animations = 0;
+                skeleton->animations = NULL;
                 skeleton->num_bones = 0;
                 ++scene->num_skeleton;
                 ParseSkeleton(skeleton, node, kCount, -1);
@@ -710,10 +712,17 @@ void ParseFBXFromRAM(FBXParseScene* parse_scene, void* file_memory, int file_siz
         converter.Triangulate(scene, true, false);
     }
 
-    for (int i = 0; i < scene->GetSrcObjectCount<FbxAnimStack>(); ++i) {
-        FbxAnimStack* anim_stack = scene->GetSrcObject<FbxAnimStack>(i);
-        SDL_Log("Animation Stack Name: %s", anim_stack->GetName());
-        if(i==1){
+    for (int stack_index = 0, len=scene->GetSrcObjectCount<FbxAnimStack>(); 
+         stack_index < len; 
+         ++stack_index) 
+    {
+        FbxAnimStack* anim_stack = scene->GetSrcObject<FbxAnimStack>(stack_index);
+        FbxTimeSpan time_span = anim_stack->GetLocalTimeSpan();
+        FbxTime duration = time_span.GetDuration();
+        double seconds = duration.GetSecondDouble();
+        SDL_Log("Skeleton anim_stack: %s is %f seconds long", 
+            anim_stack->GetName(), (float)seconds);
+        if(stack_index==1){
             scene->SetCurrentAnimationStack(anim_stack);
         }
     }
@@ -757,10 +766,17 @@ void Mesh::Dispose() {
 
 void Skeleton::Dispose() {
     FreeAndNull((void**)&bones);
+    for(int i=0; i<num_animations; ++i){
+        animations[i].Dispose();
+    }
+    if(num_animations > 0){
+        FreeAndNull((void**)&animations);
+    }
 }
 
 Skeleton::~Skeleton() {
     SDL_assert(bones == NULL);
+    SDL_assert(animations == NULL);
 }
 
 void FBXParseScene::Dispose() {
@@ -870,4 +886,12 @@ void GetBoundingBox(const Mesh* mesh, glm::vec3* bounding_box) {
             ++vert_index;
         }
     }
+}
+
+void Animation::Dispose() {
+    FreeAndNull((void**)&transforms);
+}
+
+Animation::~Animation() {
+    SDL_assert(transforms == NULL);
 }

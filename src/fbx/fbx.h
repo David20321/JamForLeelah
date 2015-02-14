@@ -35,9 +35,19 @@ struct Bone {
     char name[kMaxBoneNameSize]; 
 };
 
+struct Animation {
+    float* transforms; // Matrix for each bone for each frame
+    int num_frames;
+
+    void Dispose();
+    ~Animation();
+};
+
 struct Skeleton {
     int num_bones;
     Bone* bones;
+    int num_animations;
+    Animation *animations;
 
     void Dispose();
     ~Skeleton();
