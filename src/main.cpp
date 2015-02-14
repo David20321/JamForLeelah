@@ -28,6 +28,70 @@
 #define ASSET_PATH "assets/"
 #endif
 
+const char* asset_list[] = {
+    ASSET_PATH "art/street_lamp.fbx",
+    ASSET_PATH "art/lamp_c.tga",
+    ASSET_PATH "art/dry_fountain.fbx",
+    ASSET_PATH "art/dry_fountain_c.tga",
+    ASSET_PATH "art/flower_box.fbx",
+    ASSET_PATH "art/flowerbox_c.tga",
+    ASSET_PATH "art/garden_tall_corner.fbx",
+    ASSET_PATH "art/garden_tall_corner_c.tga",
+    ASSET_PATH "art/garden_tall_nook.fbx",
+    ASSET_PATH "art/garden_tall_nook_c.tga",
+    ASSET_PATH "art/garden_tall_stairs.fbx",
+    ASSET_PATH "art/garden_tall_stairs.tga",
+    ASSET_PATH "art/garden_tall_wall.fbx",
+    ASSET_PATH "art/garden_tall_wall_c.tga",
+    ASSET_PATH "art/short_wall.fbx",
+    ASSET_PATH "art/short_wall_c.tga",
+    ASSET_PATH "art/tree.fbx",
+    ASSET_PATH "art/tree_c.tga",
+    ASSET_PATH "art/wall_pillar.fbx",
+    ASSET_PATH "art/wall_pillar_c.tga",
+    ASSET_PATH "art/floor_quad.fbx",
+    ASSET_PATH "art/tiling_cobbles_c.tga",
+    ASSET_PATH "art/main_character_rig.fbx",
+    ASSET_PATH "art/main_character_c.tga",
+    ASSET_PATH "fonts/LiberationMono-Regular.ttf",
+    ASSET_PATH "shaders/3D_model",
+    ASSET_PATH "shaders/3D_model_skinned",
+    ASSET_PATH "shaders/debug_draw",
+    ASSET_PATH "shaders/debug_draw_text"
+};
+
+enum {
+    kFBXLamp,
+    kTexLamp,
+    kFBXFountain,
+    kTexFountain,
+    kFBXFlowerbox,
+    kTexFlowerbox,
+    kFBXGardenTallCorner,
+    kTexGardenTallCorner,
+    kFBXGardenTallNook,
+    kTexGardenTallNook,
+    kFBXGardenTallStairs,
+    kTexGardenTallStairs,
+    kFBXGardenTallWall,
+    kTexGardenTallWall,
+    kFBXShortWall,
+    kTexShortWall,
+    kFBXTree,
+    kTexTree,
+    kFBXWallPillar,
+    kTexWallPillar,
+    kFBXFloor,
+    kTexFloor,
+    kFBXChar,
+    kTexChar,
+    kFontDebug,
+    kShader3DModel,
+    kShader3DModelSkinned,
+    kShaderDebugDraw,
+    kShaderDebugDrawText
+};
+
 using namespace glm;
 
 struct Character {
@@ -74,13 +138,12 @@ struct GameState {
     void Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data);
 };
 
-void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* file_load_data, const char* specific_name) {
+void StartLoadFile(const char* path, FileLoadThreadData* file_load_data) {
     int path_len = strlen(path);
     if(path_len > FileRequest::kMaxFileRequestPathLen){
         FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
         exit(1);
     }
-    int texture = -1;
     if (SDL_LockMutex(file_load_data->mutex) == 0) {
         FileRequest* request = file_load_data->queue.AddNewRequest();
         for(int i=0; i<path_len + 1; ++i){
@@ -92,107 +155,56 @@ void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* f
             FormattedError(file_load_data->err_title, file_load_data->err_msg);
             exit(1);
         }
-        const char** names = &specific_name;
-        ParseFBXFromRAM(parse_scene, file_load_data->memory, file_load_data->memory_len, names, specific_name?1:0);
-        SDL_UnlockMutex(file_load_data->mutex);
     } else {
         FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
         exit(1);
     }
+}
+
+void EndLoadFile(FileLoadThreadData* file_load_data) {
+    SDL_UnlockMutex(file_load_data->mutex);
+}
+
+
+void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* file_load_data, const char* specific_name) {
+    StartLoadFile(path, file_load_data);
+    const char** names = &specific_name;
+    ParseFBXFromRAM(parse_scene, file_load_data->memory, file_load_data->memory_len, names, specific_name?1:0);
+    EndLoadFile(file_load_data);
 }
 
 void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_load_data, float pixel_height) {
-    int path_len = strlen(path);
-    if(path_len > FileRequest::kMaxFileRequestPathLen){
-        FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
-        exit(1);
-    }
-    int texture = -1;
-    if (SDL_LockMutex(file_load_data->mutex) == 0) {
-        FileRequest* request = file_load_data->queue.AddNewRequest();
-        for(int i=0; i<path_len + 1; ++i){
-            request->path[i] = path[i];
-        }
-        request->condition = SDL_CreateCond();
-        SDL_CondWait(request->condition, file_load_data->mutex);
-        if(file_load_data->err){
-            FormattedError(file_load_data->err_title, file_load_data->err_msg);
-            exit(1);
-        }
-
-        static const int kAtlasSize = 512;
-        unsigned char temp_bitmap[kAtlasSize*kAtlasSize];
-        stbtt_BakeFontBitmap((const unsigned char*)file_load_data->memory, 0, 
-            pixel_height, temp_bitmap, 512, 512, 32, 96, text_atlas->cdata); // no guarantee this fits!
-        SDL_UnlockMutex(file_load_data->mutex);
-        GLuint tmp_texture;
-        glGenTextures(1, &tmp_texture);
-        text_atlas->texture = tmp_texture;
-        text_atlas->pixel_height = pixel_height;
-        glBindTexture(GL_TEXTURE_2D, text_atlas->texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, kAtlasSize, kAtlasSize, 0,
-            GL_RED, GL_UNSIGNED_BYTE, temp_bitmap);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    } else {
-        FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
-        exit(1);
-    }
+    StartLoadFile(path, file_load_data);
+    static const int kAtlasSize = 512;
+    unsigned char temp_bitmap[kAtlasSize*kAtlasSize];
+    stbtt_BakeFontBitmap((const unsigned char*)file_load_data->memory, 0, 
+        pixel_height, temp_bitmap, 512, 512, 32, 96, text_atlas->cdata); // no guarantee this fits!
+    SDL_UnlockMutex(file_load_data->mutex);
+    GLuint tmp_texture;
+    glGenTextures(1, &tmp_texture);
+    text_atlas->texture = tmp_texture;
+    text_atlas->pixel_height = pixel_height;
+    glBindTexture(GL_TEXTURE_2D, text_atlas->texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, kAtlasSize, kAtlasSize, 0,
+        GL_RED, GL_UNSIGNED_BYTE, temp_bitmap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    EndLoadFile(file_load_data);
 }
 
 int CreateProgramFromFile(FileLoadThreadData* file_load_data, const char* path){
-    int path_len = strlen(path)+5;
-    if(path_len > FileRequest::kMaxFileRequestPathLen){
-        FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
-        exit(1);
-    }
-
     char shader_path[FileRequest::kMaxFileRequestPathLen];
-    FormatString(shader_path, FileRequest::kMaxFileRequestPathLen, "%s.vert", path);
     static const int kNumShaders = 2;
     int shaders[kNumShaders];
 
-    if (SDL_LockMutex(file_load_data->mutex) == 0) {
-        FileRequest* request = file_load_data->queue.AddNewRequest();
-        for(int i=0; i<path_len + 1; ++i){
-            request->path[i] = shader_path[i];
-        }
-        request->condition = SDL_CreateCond();
-        SDL_CondWait(request->condition, file_load_data->mutex);
-        if(file_load_data->err){
-            FormattedError(file_load_data->err_title, file_load_data->err_msg);
-            exit(1);
-        }
+    for(int i=0; i<kNumShaders; ++i){
+        FormatString(shader_path, FileRequest::kMaxFileRequestPathLen, 
+            (i==0)?"%s.vert":"%s.frag", path);
+        StartLoadFile(shader_path, file_load_data);
         char* mem_text = (char*)file_load_data->memory;
         mem_text[file_load_data->memory_len] = '\0';
-        shaders[0] = CreateShader(GL_VERTEX_SHADER, mem_text);
-        SDL_UnlockMutex(file_load_data->mutex);
-    } else {
-        FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
-        exit(1);
+        shaders[i] = CreateShader(i==0?GL_VERTEX_SHADER:GL_FRAGMENT_SHADER, mem_text);
+        EndLoadFile(file_load_data);
     }
-
-    FormatString(shader_path, FileRequest::kMaxFileRequestPathLen, "%s.frag", path);
-
-    if (SDL_LockMutex(file_load_data->mutex) == 0) {
-        FileRequest* request = file_load_data->queue.AddNewRequest();
-        for(int i=0; i<path_len + 1; ++i){
-            request->path[i] = shader_path[i];
-        }
-        request->condition = SDL_CreateCond();
-        SDL_CondWait(request->condition, file_load_data->mutex);
-        if(file_load_data->err){
-            FormattedError(file_load_data->err_title, file_load_data->err_msg);
-            exit(1);
-        }
-        char* mem_text = (char*)file_load_data->memory;
-        mem_text[file_load_data->memory_len] = '\0';
-        shaders[1] = CreateShader(GL_FRAGMENT_SHADER, mem_text);
-        SDL_UnlockMutex(file_load_data->mutex);
-    } else {
-        FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
-        exit(1);
-    }
-
     int shader_program = CreateProgram(shaders, kNumShaders);
     for(int i=0; i<kNumShaders; ++i){
         glDeleteShader(shaders[i]);
@@ -200,7 +212,8 @@ int CreateProgramFromFile(FileLoadThreadData* file_load_data, const char* path){
     return shader_program;
 }
 
-void VBOFromMesh(Mesh* mesh, int* vert_vbo, int* index_vbo) {
+void VBOFromMesh(const Mesh* mesh, int* vert_vbo, int* index_vbo) {
+    // TODO: remove duplicated verts
     int interleaved_size = sizeof(float)*mesh->num_tris*3*8;
     float* interleaved = (float*)malloc(interleaved_size);
     int consecutive_size = sizeof(unsigned)*mesh->num_tris*3;
@@ -249,40 +262,106 @@ void VBOFromSkinnedMesh(Mesh* mesh, int* vert_vbo, int* index_vbo) {
     *index_vbo = CreateVBO(kElementVBO, kStaticVBO, consecutive, consecutive_size);
 }
 
+struct MeshAsset {
+    int vert_vbo;
+    int index_vbo;
+    int num_index;
+    vec3 bounding_box[2];
+};
+
+void LoadMeshAsset(FileLoadThreadData* file_load_thread_data,
+                   MeshAsset* mesh_asset, const char* path) 
+{
+    FBXParseScene parse_scene;
+    LoadFBX(&parse_scene, path, file_load_thread_data, NULL);
+    const Mesh& mesh = parse_scene.meshes[0];
+    mesh_asset->num_index = mesh.num_tris*3;
+    GetBoundingBox(&mesh, mesh_asset->bounding_box);
+    VBOFromMesh(&mesh, &mesh_asset->vert_vbo, &mesh_asset->index_vbo);
+    parse_scene.Dispose();
+}
+
+void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset, 
+                        int texture, int shader, vec3 translation) 
+{
+    drawable->vert_vbo = mesh_asset.vert_vbo;
+    drawable->index_vbo = mesh_asset.index_vbo;
+    drawable->num_indices = mesh_asset.num_index;
+    drawable->vbo_layout = kInterleave_3V2T3N;
+    drawable->texture_id = texture;
+    drawable->shader_id = shader;
+    SeparableTransform sep_transform;
+    sep_transform.rotation = angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f));
+    sep_transform.translation = 
+        vec3(0.0f, -mesh_asset.bounding_box[0][2], 0.0f) + translation;
+    drawable->transform = sep_transform.GetCombination();
+}
 
 void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data) {
-    profiler->StartEvent("Parsing lamp fbx and creating vbo");
-    FBXParseScene parse_scene;
-    int street_lamp_vert_vbo, street_lamp_index_vbo;
-    LoadFBX(&parse_scene, ASSET_PATH "street_lamp.fbx", file_load_thread_data, NULL);
-    int num_street_lamp_indices = parse_scene.meshes[0].num_tris*3;
-    vec3 lamp_bb[2];
-    GetBoundingBox(&parse_scene.meshes[0], lamp_bb);
-    VBOFromMesh(&parse_scene.meshes[0], &street_lamp_vert_vbo, &street_lamp_index_vbo);
-    parse_scene.Dispose();
-    profiler->EndEvent();
-
-    profiler->StartEvent("Parsing cobble fbx and creating vbo");
-    int cobble_floor_vert_vbo, cobble_floor_index_vbo;
-    LoadFBX(&parse_scene, ASSET_PATH "cobble_floor.fbx", file_load_thread_data, NULL);    
-    int num_cobble_floor_indices = parse_scene.meshes[0].num_tris*3;
-    vec3 floor_bb[2];
-    GetBoundingBox(&parse_scene.meshes[0], floor_bb);
-    VBOFromMesh(&parse_scene.meshes[0], &cobble_floor_vert_vbo, &cobble_floor_index_vbo);
-    parse_scene.Dispose();
-    profiler->EndEvent();
+    MeshAsset fbx_lamp, fbx_floor, fbx_fountain, fbx_flowerbox, 
+              fbx_garden_tall_corner, fbx_garden_tall_nook, fbx_garden_tall_stairs,
+              fbx_garden_tall_wall, fbx_short_wall, fbx_wall_pillar, fbx_tree;
+    LoadMeshAsset(file_load_thread_data, &fbx_lamp, 
+                  asset_list[kFBXLamp]);
+    LoadMeshAsset(file_load_thread_data, &fbx_fountain, 
+                  asset_list[kFBXFountain]);
+    LoadMeshAsset(file_load_thread_data, &fbx_flowerbox, 
+                  asset_list[kFBXFlowerbox]);
+    LoadMeshAsset(file_load_thread_data, &fbx_garden_tall_corner, 
+                  asset_list[kFBXGardenTallCorner]);
+    LoadMeshAsset(file_load_thread_data, &fbx_garden_tall_nook, 
+                  asset_list[kFBXGardenTallNook]);
+    LoadMeshAsset(file_load_thread_data, &fbx_garden_tall_stairs, 
+                  asset_list[kFBXGardenTallStairs]);
+    LoadMeshAsset(file_load_thread_data, &fbx_garden_tall_wall, 
+                  asset_list[kFBXGardenTallWall]);
+    LoadMeshAsset(file_load_thread_data, &fbx_short_wall, 
+                  asset_list[kFBXShortWall]);
+    LoadMeshAsset(file_load_thread_data, &fbx_wall_pillar, 
+                  asset_list[kFBXTree]);
+    LoadMeshAsset(file_load_thread_data, &fbx_wall_pillar, 
+                  asset_list[kFBXWallPillar]);
+    LoadMeshAsset(file_load_thread_data, &fbx_floor, 
+                  asset_list[kFBXFloor]);
+    LoadMeshAsset(file_load_thread_data, &fbx_tree, 
+                  asset_list[kFBXTree]);
 
     profiler->StartEvent("Loading textures");
-    int cobbles_texture = LoadImage(ASSET_PATH "cobbles_c.tga", file_load_thread_data);
-    int lamp_texture = LoadImage(ASSET_PATH "lamp_c.tga", file_load_thread_data);
-    int character_texture = LoadImage(ASSET_PATH "main_character_c.tga", file_load_thread_data);
+    int tex_lamp = 
+        LoadImage(asset_list[kTexLamp], file_load_thread_data);
+    int tex_fountain = 
+        LoadImage(asset_list[kTexFountain], file_load_thread_data);
+    int tex_flower_box = 
+        LoadImage(asset_list[kTexFlowerbox], file_load_thread_data);
+    int tex_garden_tall_corner = 
+        LoadImage(asset_list[kTexGardenTallCorner], file_load_thread_data);
+    int tex_garden_tall_nook = 
+        LoadImage(asset_list[kTexGardenTallNook], file_load_thread_data);
+    int tex_garden_tall_stairs = 
+        LoadImage(asset_list[kTexGardenTallStairs], file_load_thread_data);
+    int tex_garden_tall_wall = 
+        LoadImage(asset_list[kTexGardenTallWall], file_load_thread_data);
+    int tex_short_wall = 
+        LoadImage(asset_list[kTexShortWall], file_load_thread_data);
+    int tex_tree = 
+        LoadImage(asset_list[kTexTree], file_load_thread_data);
+    int tex_wall_pillar = 
+        LoadImage(asset_list[kTexWallPillar], file_load_thread_data);
+    int tex_floor = 
+        LoadImage(asset_list[kTexFloor], file_load_thread_data);
+    int tex_char = 
+        LoadImage(asset_list[kTexChar], file_load_thread_data);
     profiler->EndEvent();
 
     profiler->StartEvent("Loading shaders");
-    int shader_3d_model = CreateProgramFromFile(file_load_thread_data, ASSET_PATH "shaders/3D_model");
-    int shader_3d_model_skinned = CreateProgramFromFile(file_load_thread_data, ASSET_PATH "shaders/3D_model_skinned");
-    int shader_debug_draw = CreateProgramFromFile(file_load_thread_data, ASSET_PATH "shaders/debug_draw");
-    int shader_debug_draw_text = CreateProgramFromFile(file_load_thread_data, ASSET_PATH "shaders/debug_draw_text");
+    int shader_3d_model = 
+        CreateProgramFromFile(file_load_thread_data, asset_list[kShader3DModel]);
+    int shader_3d_model_skinned = 
+        CreateProgramFromFile(file_load_thread_data, asset_list[kShader3DModelSkinned]);
+    int shader_debug_draw = 
+        CreateProgramFromFile(file_load_thread_data, asset_list[kShaderDebugDraw]);
+    int shader_debug_draw_text = 
+        CreateProgramFromFile(file_load_thread_data, asset_list[kShaderDebugDrawText]);
     profiler->EndEvent();
 
     camera.position = vec3(0.0f,0.0f,20.0f);
@@ -293,7 +372,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
     lines.shader = shader_debug_draw;
 
-    LoadTTF(ASSET_PATH "LiberationMono-Regular.ttf", &text_atlas, file_load_thread_data, 18.0f);
+    LoadTTF(asset_list[kFontDebug], &text_atlas, file_load_thread_data, 18.0f);
     text_atlas.shader = shader_debug_draw_text;
     text_atlas.vert_vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
     text_atlas.index_vbo = CreateVBO(kElementVBO, kStreamVBO, NULL, 0);
@@ -301,18 +380,8 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
     lines.num_lines = 0;
     num_drawables = 0;
-    drawables[num_drawables].vert_vbo = street_lamp_vert_vbo;
-    drawables[num_drawables].index_vbo = street_lamp_index_vbo;
-    drawables[num_drawables].num_indices = num_street_lamp_indices;
-    drawables[num_drawables].vbo_layout = kInterleave_3V2T3N;
-    SeparableTransform sep_transform;
-    sep_transform.rotation = angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f));
-    sep_transform.translation = vec3(0.0f, -lamp_bb[0][2], 2.0f);
-    sep_transform.scale = vec3(1.0f);
-    drawables[num_drawables].transform = sep_transform.GetCombination();
-    drawables[num_drawables].texture_id = lamp_texture;
-    drawables[num_drawables].shader_id = shader_3d_model;
-    ++num_drawables;
+    FillStaticDrawable(&drawables[num_drawables++], fbx_lamp, tex_lamp,
+                       shader_3d_model, vec3(0,0,2));
 
     lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
 
@@ -325,8 +394,8 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         int len;
         char err_title[FileLoadThreadData::kMaxErrMsgLen];
         char err_msg[FileLoadThreadData::kMaxErrMsgLen];
-        if(!FileLoadThreadData::LoadFile(ASSET_PATH "main_character_rig.fbx", 
-            mem,  &len, err_title, err_msg))
+        if(!FileLoadThreadData::LoadFile(asset_list[kFBXChar], mem, &len,
+                                         err_title, err_msg) )
         {
             FormattedError(err_title, err_msg);
             exit(1);
@@ -369,7 +438,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         SeparableTransform char_transform;
         char_transform.scale = vec3(1.0f);
         drawables[num_drawables].transform = mat4();//char_transform.GetCombination();
-        drawables[num_drawables].texture_id = character_texture;
+        drawables[num_drawables].texture_id = tex_char;
         drawables[num_drawables].shader_id = shader_3d_model_skinned;
         drawables[num_drawables].bone_transforms = character.display_bone_transforms;
         ++num_drawables;
@@ -380,18 +449,29 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         profiler->EndEvent();
     }
 
+    FillStaticDrawable(&drawables[num_drawables++], fbx_tree, tex_tree,
+        shader_3d_model, vec3(2,0,0));
+    FillStaticDrawable(&drawables[num_drawables++], fbx_fountain, tex_fountain,
+        shader_3d_model, vec3(4,0,0));
+    FillStaticDrawable(&drawables[num_drawables++], fbx_flowerbox, tex_flower_box,
+        shader_3d_model, vec3(6,0,0));
+    FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
+        shader_3d_model, vec3(8,0,0));
+    FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_nook, tex_garden_tall_nook,
+        shader_3d_model, vec3(10,0,0));
+    FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_wall, tex_garden_tall_wall,
+        shader_3d_model, vec3(12,0,0));
+    FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_stairs, tex_garden_tall_stairs,
+        shader_3d_model, vec3(14,0,0));
+    FillStaticDrawable(&drawables[num_drawables++], fbx_short_wall, tex_short_wall,
+        shader_3d_model, vec3(16,0,0));
+    FillStaticDrawable(&drawables[num_drawables++], fbx_wall_pillar, tex_wall_pillar,
+        shader_3d_model, vec3(18,0,0));
+
     for(int i=-10; i<10; ++i){
         for(int j=-10; j<10; ++j){
-            sep_transform.translation = vec3(0.0f, floor_bb[1][2], 0.0f);
-            sep_transform.translation += vec3(-1.0f+(float)j*2.0f,0.0f,-1.0f+(float)i*2.0f);
-            drawables[num_drawables].vert_vbo = cobble_floor_vert_vbo;
-            drawables[num_drawables].index_vbo = cobble_floor_index_vbo;
-            drawables[num_drawables].num_indices = num_cobble_floor_indices;
-            drawables[num_drawables].vbo_layout = kInterleave_3V2T3N;
-            drawables[num_drawables].transform = sep_transform.GetCombination();
-            drawables[num_drawables].texture_id = cobbles_texture;
-            drawables[num_drawables].shader_id = shader_3d_model;
-            ++num_drawables;
+            FillStaticDrawable(&drawables[num_drawables++], fbx_floor, tex_floor,
+                               shader_3d_model, vec3(j*2-1,0,i*2-1));
         }
     }
 }
@@ -476,7 +556,6 @@ void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
             float target_rotation = -atan2f(target_dir[2], target_dir[0])+half_pi<float>();
 
             float rel_rotation = target_rotation - char_rotation;
-            float temp;
             // TODO: Do this in a better way, maybe using modf
             while(rel_rotation > pi<float>()){
                 rel_rotation -= two_pi<float>();
