@@ -444,7 +444,7 @@ bool GetUV(FbxMesh* fbx_mesh, int tri_index, int tri_vert, int layer, FbxVector2
     return ret;
 }
 
-void ParseSkeleton(Skeleton* skeleton, FbxNode* node, FBXParsePass pass, int parent, FbxAnimEvaluator* eval) {
+void ParseSkeleton(Skeleton* skeleton, FbxNode* node, FBXParsePass pass, int parent) {
     const char* name = node->GetName();
     if(name[0] == 'D' && name[1] == 'E' && name[2] == 'F'){
         int bone_id = skeleton->num_bones++;
@@ -465,7 +465,7 @@ void ParseSkeleton(Skeleton* skeleton, FbxNode* node, FBXParsePass pass, int par
                 size = (float)skeleton_node->Size.Get();
                 } break;
             }
-            const FbxAMatrix& transform = eval->GetNodeGlobalTransform(node);
+            const FbxAMatrix& transform = node->EvaluateGlobalTransform(FBXSDK_TIME_ZERO);
             Bone& bone = skeleton->bones[bone_id];
             FormatString(bone.name, Bone::kMaxBoneNameSize,
                          "%s", name);
@@ -479,7 +479,7 @@ void ParseSkeleton(Skeleton* skeleton, FbxNode* node, FBXParsePass pass, int par
         parent = bone_id;
     }
     for(int i=0, len=node->GetChildCount(); i<len; ++i) {
-        ParseSkeleton(skeleton, node->GetChild(i), pass, parent, eval);
+        ParseSkeleton(skeleton, node->GetChild(i), pass, parent);
     }
 }
 
@@ -552,7 +552,7 @@ void CheckMeshDeformer(FbxMesh* fbx_mesh, int* vert_bone_indices,
     }
 }
 
-void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth, FbxAnimEvaluator* eval) {
+void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth) {
     FbxNodeAttribute* node_attribute = node->GetNodeAttribute();
     bool check_children = true;
     if(node_attribute) {
@@ -618,13 +618,15 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
             check_children = false;
             switch(pass){
             case kStore: {
+                FbxAnimStack* anim_stack = node->GetScene()->GetCurrentAnimationStack();
+                SDL_Log("Skeleton anim_stack: %s", anim_stack->GetName());
                 Skeleton* skeleton = &scene->skeletons[scene->num_skeleton];
                 skeleton->num_bones = 0;
                 ++scene->num_skeleton;
-                ParseSkeleton(skeleton, node, kCount, -1, eval);
+                ParseSkeleton(skeleton, node, kCount, -1);
                 skeleton->bones = (Bone*)malloc(sizeof(Bone)*skeleton->num_bones);
                 skeleton->num_bones = 0;
-                ParseSkeleton(skeleton, node, kStore, -1, eval);
+                ParseSkeleton(skeleton, node, kStore, -1);
                 } break;
             case kCount: {
                 ++scene->num_skeleton;
@@ -638,7 +640,7 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
     } 
     if(check_children){
         for(int i=0, len=node->GetChildCount(); i<len; ++i) {
-            ParseNode(scene, node->GetChild(i), pass, depth+1, eval);
+            ParseNode(scene, node->GetChild(i), pass, depth+1);
         }
     }
 }
@@ -654,14 +656,13 @@ bool MatchName(const char* name, const char** match_names, int num_names) {
 
 void ParseScene(FbxScene* scene, FBXParseScene* parse_scene, const char** specific_names, int num_names) {
     FbxNode* node = scene->GetRootNode();
-    FbxAnimEvaluator* eval = scene->GetAnimationEvaluator();
     parse_scene->num_mesh = 0;
     parse_scene->num_skeleton = 0;
     if(node) {
         for(int i=0, len=node->GetChildCount(); i<len; ++i) {
             FbxNode* child = node->GetChild(i);
             if(MatchName(child->GetName(), specific_names, num_names)) {
-                ParseNode(parse_scene, child, kCount, 0, eval);
+                ParseNode(parse_scene, child, kCount, 0);
             }
         }
         parse_scene->meshes = (Mesh*)malloc(sizeof(Mesh)*parse_scene->num_mesh);
@@ -671,7 +672,7 @@ void ParseScene(FbxScene* scene, FBXParseScene* parse_scene, const char** specif
         for(int i=0, len=node->GetChildCount(); i<len; ++i) {
             FbxNode* child = node->GetChild(i);
             if(MatchName(child->GetName(), specific_names, num_names)) {
-                ParseNode(parse_scene, child, kStore, 0, eval);
+                ParseNode(parse_scene, child, kStore, 0);
             }
         }
     }
@@ -707,6 +708,14 @@ void ParseFBXFromRAM(FBXParseScene* parse_scene, void* file_memory, int file_siz
     {
         FbxGeometryConverter converter(fbx_manager);
         converter.Triangulate(scene, true, false);
+    }
+
+    for (int i = 0; i < scene->GetSrcObjectCount<FbxAnimStack>(); ++i) {
+        FbxAnimStack* anim_stack = scene->GetSrcObject<FbxAnimStack>(i);
+        SDL_Log("Animation Stack Name: %s", anim_stack->GetName());
+        if(i==1){
+            scene->SetCurrentAnimationStack(anim_stack);
+        }
     }
 
     ParseScene(scene, parse_scene, specific_names, num_names);

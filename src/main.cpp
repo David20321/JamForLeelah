@@ -815,13 +815,13 @@ int main(int argc, char* argv[]) {
                 break;
             }
         }
-        profiler.StartEvent("Draw");
-        Draw(&graphics_context, &game_state, SDL_GetTicks());
-        profiler.EndEvent();
         profiler.StartEvent("Update");
         int ticks = SDL_GetTicks();
         Update(&game_state, mouse_rel, (ticks - last_ticks) / 1000.0f);
         last_ticks = ticks;
+        profiler.EndEvent();
+        profiler.StartEvent("Draw");
+        Draw(&graphics_context, &game_state, SDL_GetTicks());
         profiler.EndEvent();
         profiler.StartEvent("Audio");
         UpdateAudio(&audio_context);
