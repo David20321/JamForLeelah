@@ -22,5 +22,5 @@ void main() {
 	gl_Position = mv_mat * skinned_mat * vec4(position, 1.0);
 	var_uv = uv;
 	var_uv.y *= -1.0;
-	var_normal = normal;
+	var_normal = normalize(mat3(skinned_mat) * normal);
 }

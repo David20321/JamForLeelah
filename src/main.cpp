@@ -262,6 +262,26 @@ void VBOFromSkinnedMesh(Mesh* mesh, int* vert_vbo, int* index_vbo) {
     *index_vbo = CreateVBO(kElementVBO, kStaticVBO, consecutive, consecutive_size);
 }
 
+void RecalculateNormals(Mesh* mesh){
+    for(int tri_index=0; tri_index<mesh->num_tris; ++tri_index){
+        vec3 tri_verts[3];
+        for(int tri_vert=0; tri_vert<3; ++tri_vert){
+            int vert = mesh->tri_indices[tri_index*3+tri_vert];
+            for(int vert_comp=0; vert_comp<3; ++vert_comp){
+                tri_verts[tri_vert][vert_comp] = mesh->vert_coords[vert*3+vert_comp];
+            }            
+        }
+        vec3 normal = normalize(cross(tri_verts[1] - tri_verts[0], 
+                                      tri_verts[2] - tri_verts[0]));
+        for(int tri_vert=0; tri_vert<3; ++tri_vert){
+            int vert = tri_index*3+tri_vert;
+            for(int vert_comp=0; vert_comp<3; ++vert_comp){
+                mesh->tri_normals[vert*3+vert_comp] = normal[vert_comp];
+            }            
+        }
+    }    
+}
+
 struct MeshAsset {
     int vert_vbo;
     int index_vbo;
@@ -274,7 +294,8 @@ void LoadMeshAsset(FileLoadThreadData* file_load_thread_data,
 {
     FBXParseScene parse_scene;
     LoadFBX(&parse_scene, path, file_load_thread_data, NULL);
-    const Mesh& mesh = parse_scene.meshes[0];
+    Mesh& mesh = parse_scene.meshes[0];
+    RecalculateNormals(&mesh);
     mesh_asset->num_index = mesh.num_tris*3;
     GetBoundingBox(&mesh, mesh_asset->bounding_box);
     VBOFromMesh(&mesh, &mesh_asset->vert_vbo, &mesh_asset->index_vbo);
@@ -407,6 +428,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         Skeleton& skeleton = parse_scene.skeletons[0];
         profiler->EndEvent();
 
+        RecalculateNormals(&mesh);
         AttachMeshToSkeleton(&mesh, &skeleton);
         for(int bone_index=0; bone_index<skeleton.num_bones; ++bone_index){
             Bone& bone = skeleton.bones[bone_index];

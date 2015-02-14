@@ -586,13 +586,13 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
                         bool ret = GetUV(fbx_mesh, i, j, 0, uv);
                         SDL_assert(ret);
                         for(int k=0; k<2; ++k){
-                            mesh->tri_uvs[uv_index++] = (float)(uv)[k];
+                            mesh->tri_uvs[uv_index++] = (float)(uv[k]);
                         }
                         FbxVector4 normal;
                         ret = GetNormal(fbx_mesh, i, j, 0, normal);
                         SDL_assert(ret);
                         for(int k=0; k<3; ++k){
-                            mesh->tri_normals[normal_index++] = (float)(normal)[k];
+                            mesh->tri_normals[normal_index++] = (float)(normal[k]);
                         }
                     }
                 }
