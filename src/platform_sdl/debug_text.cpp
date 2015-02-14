@@ -92,7 +92,7 @@ void DebugText::Draw(GraphicsContext* context) {
     for(int i=0; i<kMaxDebugTextEntries; ++i){
         DebugTextEntry& entry = entries[i];
         if(entry.display){
-            DrawText(text_atlas, context, 40.0f, 40.0f + num_draw * 40.0f, entry.str);
+            DrawText(text_atlas, context, 40.0f, 40.0f + num_draw * text_atlas->pixel_height * 1.15f, entry.str);
             ++num_draw;
         }
     }
@@ -128,8 +128,16 @@ void DebugText::ReleaseDebugTextHandle(int handle) {
     free_queue[free_queue_end] = handle;
 }
 
-void DebugText::UpdateDebugText(int handle, const char* text, float fade_time) {
+void DebugText::UpdateDebugTextV(int handle, float fade_time, const char* fmt, va_list args) {
     SDL_assert(handle >= 0 && handle < kMaxDebugTextEntries && entries[handle].display);
-    FormatString(entries[handle].str, DebugTextEntry::kDebugTextStrMaxLen, "%s", text);
+    VFormatString(entries[handle].str, DebugTextEntry::kDebugTextStrMaxLen, fmt, args);
     entries[handle].fade_time = fade_time;
+}
+
+
+void DebugText::UpdateDebugText(int handle, float fade_time, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    UpdateDebugTextV(handle, fade_time, fmt, args);
+    va_end(args);
 }

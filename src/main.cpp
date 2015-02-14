@@ -31,6 +31,7 @@
 using namespace glm;
 
 struct Character {
+    vec3 velocity;
     SeparableTransform transform;
     mat4 display_bone_transforms[128];
     mat4 local_bone_transforms[128];
@@ -127,6 +128,7 @@ void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_l
         GLuint tmp_texture;
         glGenTextures(1, &tmp_texture);
         text_atlas->texture = tmp_texture;
+        text_atlas->pixel_height = pixel_height;
         glBindTexture(GL_TEXTURE_2D, text_atlas->texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, kAtlasSize, kAtlasSize, 0,
             GL_RED, GL_UNSIGNED_BYTE, temp_bitmap);
@@ -291,7 +293,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
     lines.shader = shader_debug_draw;
 
-    LoadTTF(ASSET_PATH "arial.ttf", &text_atlas, file_load_thread_data, 18.0f);
+    LoadTTF(ASSET_PATH "LiberationMono-Regular.ttf", &text_atlas, file_load_thread_data, 18.0f);
     text_atlas.shader = shader_debug_draw_text;
     text_atlas.vert_vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
     text_atlas.index_vbo = CreateVBO(kElementVBO, kStreamVBO, NULL, 0);
@@ -395,8 +397,9 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 }
 
 void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
+    static const float char_speed = 2.0f;
+    static const float char_accel = 10.0f;
     float cam_speed = 10.0f;
-    float char_speed = 4.0f;
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     if (state[SDL_SCANCODE_SPACE]) {
         cam_speed *= 0.1f;
@@ -447,24 +450,46 @@ void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
             target_dir -= cam_east;
         }
 
+        if(length(target_dir) > 1.0f){
+            target_dir = normalize(target_dir);
+        }
+        vec3 target_vel = target_dir * char_speed;
+        if(time_step != 0.0f){
+            vec3 rel_vel = target_vel - game_state->character.velocity;
+            rel_vel /= (char_accel * time_step);
+            if(length(rel_vel) > 1.0f){
+                rel_vel = normalize(rel_vel);
+            }
+            rel_vel *= (char_accel * time_step);
+            game_state->character.velocity += rel_vel;
+        }
+        game_state->character.transform.translation += 
+            game_state->character.velocity * char_speed * time_step;
+
+
         static float char_rotation = 0.0f;
         static const float turn_speed = 10.0f;
         if(length(target_dir) > 0.0f){
             if(length(target_dir) > 1.0f){
                 target_dir = normalize(target_dir);
             }
-            game_state->character.transform.translation += normalize(target_dir) * 
-                char_speed * time_step;
             float target_rotation = -atan2f(target_dir[2], target_dir[0])+half_pi<float>();
-            /*float rel_rotation = target_rotation - char_rotation;
+
+            float rel_rotation = target_rotation - char_rotation;
             float temp;
-            rel_rotation = modf<float>(rel_rotation / pi<float>(), temp) * pi<float>();
+            // TODO: Do this in a better way, maybe using modf
+            while(rel_rotation > pi<float>()){
+                rel_rotation -= two_pi<float>();
+            }
+            while(rel_rotation < -pi<float>()){
+                rel_rotation += two_pi<float>();
+            }
             if(fabsf(rel_rotation) < turn_speed * time_step){
                 char_rotation += rel_rotation;
             } else {
-                char_rotation += rel_rotation>0.0f?1.0f:-1.0f * turn_speed * time_step;
-            }*/
-            game_state->character.transform.rotation = angleAxis(target_rotation, vec3(0,1,0)); 
+                char_rotation += (rel_rotation>0.0f?1.0f:-1.0f) * turn_speed * time_step;
+            }
+            game_state->character.transform.rotation = angleAxis(char_rotation, vec3(0,1,0)); 
         }
 
         game_state->camera.position = game_state->character.transform.translation +
@@ -568,10 +593,6 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
 
 void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
     CHECK_GL_ERROR();
-    static int txt_handle = game_state->debug_text.GetDebugTextHandle();
-    static int txt_handle2 = game_state->debug_text.GetDebugTextHandle();
-    game_state->debug_text.UpdateDebugText(txt_handle, "Test test test", 1.0f);
-    game_state->debug_text.UpdateDebugText(txt_handle2, "Test2 line", 1.0f);
 
     glViewport(0, 0, context->screen_dims[0], context->screen_dims[1]);
     glClearColor(0.5,0.5,0.5,1);

@@ -3,6 +3,7 @@
 #define PLATFORM_SDL_DEBUG_TEXT_HPP
 
 #include "stb_truetype.h"
+#include <cstdio>
 
 struct GraphicsContext;
 
@@ -12,6 +13,7 @@ struct TextAtlas {
     int shader;
     int vert_vbo;
     int index_vbo;
+    float pixel_height;
 };
 
 struct DebugTextEntry {
@@ -32,7 +34,8 @@ public:
 
     void Init(TextAtlas* p_text_atlas);
     int GetDebugTextHandle();
-    void UpdateDebugText(int handle, const char* text, float fade_time);
+    void UpdateDebugText(int handle, float fade_time, const char* fmt, ...);
+    void UpdateDebugTextV(int handle, float fade_time, const char* fmt, va_list args);
     void ReleaseDebugTextHandle(int handle);
     void Draw(GraphicsContext* context);
 };
