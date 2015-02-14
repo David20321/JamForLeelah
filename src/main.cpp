@@ -291,9 +291,7 @@ void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset,
     drawable->texture_id = texture;
     drawable->shader_id = shader;
     SeparableTransform sep_transform;
-    sep_transform.rotation = angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f));
-    sep_transform.translation = 
-        vec3(0.0f, -mesh_asset.bounding_box[0][2], 0.0f) + translation;
+    sep_transform.translation = translation;
     drawable->transform = sep_transform.GetCombination();
 }
 
@@ -420,8 +418,8 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
             for(int j=0; j<16; ++j){
                 bind_mat[j/4][j%4] = mesh.bind_matrices[bone_index*16+j];
             }
-            mat4 rot_mat = toMat4(angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f)));
-            character.local_bone_transforms[bone_index] = temp * inverse(bind_mat) * rot_mat;
+            //mat4 rot_mat = toMat4(angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f)));
+            character.local_bone_transforms[bone_index] = temp * inverse(bind_mat);// * rot_mat;
         }
 
         profiler->StartEvent("Creating VBO and adding to scene");

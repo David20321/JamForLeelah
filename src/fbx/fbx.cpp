@@ -561,6 +561,7 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
         case FbxNodeAttribute::eMesh: {
             switch(pass){
             case kStore: {
+                FbxAMatrix matrix = node->EvaluateGlobalTransform(FBXSDK_TIME_INFINITE);
                 FbxMesh* fbx_mesh = (FbxMesh*)node_attribute;
                 Mesh* mesh = &scene->meshes[scene->num_mesh];
                 ++scene->num_mesh;
@@ -568,8 +569,9 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
                 FbxVector4* fbx_verts = fbx_mesh->GetControlPoints();
                 mesh->vert_coords = (float*)malloc(sizeof(float) * mesh->num_verts * 3);
                 for(int i=0, index=0; i<mesh->num_verts; ++i, index+=3){
+                    FbxVector4 vert = matrix.MultT(fbx_verts[i]);
                     for(int j=0; j<3; ++j){
-                        mesh->vert_coords[index+j] = (float)fbx_verts[i][j];
+                        mesh->vert_coords[index+j] = (float)vert[j];
                     }
                 }
                 mesh->num_tris = fbx_mesh->GetPolygonCount();
