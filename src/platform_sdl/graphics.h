@@ -41,6 +41,7 @@ struct Drawable {
     int index_vbo;
     int num_indices;
     int shader_id;
+    void *bone_transforms;
     VBO_Setup vbo_layout;
     glm::mat4 transform;
 };

@@ -30,8 +30,32 @@
 
 using namespace glm;
 
-mat4 g_bone_transforms[128];
-mat4 g_anim_bone_transforms[128];
+struct Character {
+    SeparableTransform transform;
+    mat4 display_bone_transforms[128];
+    mat4 local_bone_transforms[128];
+};
+
+struct Camera {
+    float rotation_x;
+    float rotation_y;
+    vec3 position;
+    quat GetRotation();
+    mat4 GetMatrix();
+};
+
+quat Camera::GetRotation() {
+    quat xRot = angleAxis(rotation_x, vec3(1,0,0));
+    quat yRot = angleAxis(rotation_y, vec3(0,1,0));
+    return yRot * xRot;
+}
+
+glm::mat4 Camera::GetMatrix() {
+    SeparableTransform temp;
+    temp.translation = position;
+    temp.rotation = GetRotation();
+    return temp.GetCombination();
+}
 
 struct GameState {
     static const int kMaxDrawables = 1000;
@@ -39,16 +63,15 @@ struct GameState {
     int num_drawables;
     DebugDrawLines lines;
     DebugText debug_text;
-    SeparableTransform camera;
     float camera_fov;
-    SeparableTransform character;
+    Character character;
+    Camera camera;
     int char_drawable;
     bool editor_mode;
     TextAtlas text_atlas;
 
     void Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data);
 };
-
 
 void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* file_load_data, const char* specific_name) {
     int path_len = strlen(path);
@@ -260,9 +283,10 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
     int shader_debug_draw_text = CreateProgramFromFile(file_load_thread_data, ASSET_PATH "shaders/debug_draw_text");
     profiler->EndEvent();
 
-    camera.translation = vec3(0.0f,0.0f,20.0f);
-    camera.rotation = angleAxis(0.0f,vec3(1.0f,0.0f,0.0f));
-    camera.scale = vec3(1.0f);
+    camera.position = vec3(0.0f,0.0f,20.0f);
+    camera.rotation_x = 0.0f;
+    camera.rotation_y = 0.0f;
+
     editor_mode = false;
 
     lines.shader = shader_debug_draw;
@@ -275,17 +299,17 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
     lines.num_lines = 0;
     num_drawables = 0;
-    drawables[0].vert_vbo = street_lamp_vert_vbo;
-    drawables[0].index_vbo = street_lamp_index_vbo;
-    drawables[0].num_indices = num_street_lamp_indices;
-    drawables[0].vbo_layout = kInterleave_3V2T3N;
+    drawables[num_drawables].vert_vbo = street_lamp_vert_vbo;
+    drawables[num_drawables].index_vbo = street_lamp_index_vbo;
+    drawables[num_drawables].num_indices = num_street_lamp_indices;
+    drawables[num_drawables].vbo_layout = kInterleave_3V2T3N;
     SeparableTransform sep_transform;
     sep_transform.rotation = angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f));
     sep_transform.translation = vec3(0.0f, -lamp_bb[0][2], 2.0f);
     sep_transform.scale = vec3(1.0f);
-    drawables[0].transform = sep_transform.GetCombination();
-    drawables[0].texture_id = lamp_texture;
-    drawables[0].shader_id = shader_3d_model;
+    drawables[num_drawables].transform = sep_transform.GetCombination();
+    drawables[num_drawables].texture_id = lamp_texture;
+    drawables[num_drawables].shader_id = shader_3d_model;
     ++num_drawables;
 
     lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
@@ -326,7 +350,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
                 bind_mat[j/4][j%4] = mesh.bind_matrices[bone_index*16+j];
             }
             mat4 rot_mat = toMat4(angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f)));
-            g_anim_bone_transforms[bone_index] = temp * inverse(bind_mat) * rot_mat;
+            character.local_bone_transforms[bone_index] = temp * inverse(bind_mat) * rot_mat;
         }
 
         profiler->StartEvent("Creating VBO and adding to scene");
@@ -345,6 +369,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         drawables[num_drawables].transform = mat4();//char_transform.GetCombination();
         drawables[num_drawables].texture_id = character_texture;
         drawables[num_drawables].shader_id = shader_3d_model_skinned;
+        drawables[num_drawables].bone_transforms = character.display_bone_transforms;
         ++num_drawables;
         profiler->EndEvent();
 
@@ -376,39 +401,34 @@ void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
     if (state[SDL_SCANCODE_SPACE]) {
         cam_speed *= 0.1f;
     }
-    static float cam_x = 0.0f;
-    static float cam_y = 0.0f;
     if(game_state->editor_mode){
+        vec3 offset;
         if (state[SDL_SCANCODE_W]) {
-            game_state->camera.translation -= game_state->camera.rotation * vec3(0,0,1) * cam_speed * time_step;
+            offset -= vec3(0,0,1);
         }
         if (state[SDL_SCANCODE_S]) {
-            game_state->camera.translation += game_state->camera.rotation * vec3(0,0,1) * cam_speed * time_step;
+            offset += vec3(0,0,1);
         }
         if (state[SDL_SCANCODE_A]) {
-            game_state->camera.translation -= game_state->camera.rotation * vec3(1,0,0) * cam_speed * time_step;
+            offset -= vec3(1,0,0);
         }
         if (state[SDL_SCANCODE_D]) {
-            game_state->camera.translation += game_state->camera.rotation * vec3(1,0,0) * cam_speed * time_step;
+            offset += vec3(1,0,0);
         }
+        game_state->camera.position += 
+            game_state->camera.GetRotation() * offset * cam_speed * time_step;
         const float kMouseSensitivity = 0.003f;
         Uint32 mouse_button_bitmask = SDL_GetMouseState(NULL, NULL);
         if(mouse_button_bitmask & SDL_BUTTON_LEFT){
-            cam_x -= mouse_rel.y * kMouseSensitivity;
-            cam_y -= mouse_rel.x * kMouseSensitivity;
+            game_state->camera.rotation_x -= mouse_rel.y * kMouseSensitivity;
+            game_state->camera.rotation_y -= mouse_rel.x * kMouseSensitivity;
         }
-        quat xRot = angleAxis(cam_x,vec3(1,0,0));
-        quat yRot = angleAxis(cam_y,vec3(0,1,0));
-        game_state->camera.rotation = yRot * xRot;
         game_state->camera_fov = 1.02f;
     } else {
-        cam_x = -0.75f;
-        cam_y = 1.0f;
-        quat xRot = angleAxis(cam_x,vec3(1,0,0));
-        quat yRot = angleAxis(cam_y,vec3(0,1,0));
-        game_state->camera.rotation = yRot * xRot;
+        game_state->camera.rotation_x = -0.75f;
+        game_state->camera.rotation_y = 1.0f;
 
-        vec3 temp = game_state->camera.rotation * vec3(0,0,-1);
+        vec3 temp = game_state->camera.GetRotation() * vec3(0,0,-1);
         vec3 cam_north = normalize(vec3(temp[0], 0.0f, temp[1]));
         vec3 cam_east = normalize(vec3(-cam_north[2], 0.0f, cam_north[0]));
 
@@ -416,27 +436,25 @@ void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
         float target_speed = 0.0f;
         if (state[SDL_SCANCODE_W]) {
             target_dir += cam_north;
-            target_speed = 1.0f;
         }
         if (state[SDL_SCANCODE_S]) {
             target_dir -= cam_north;
-            target_speed = 1.0f;
         }
         if (state[SDL_SCANCODE_D]) {
             target_dir += cam_east;
-            target_speed = 1.0f;
         }
         if (state[SDL_SCANCODE_A]) {
             target_dir -= cam_east;
-            target_speed = 1.0f;
         }
 
         static float char_rotation = 0.0f;
         static const float turn_speed = 10.0f;
-        if(target_speed > 0.0f && length(target_dir) > 0.0f){
-            game_state->character.translation += normalize(target_dir) * 
-                target_speed * char_speed * time_step;
-
+        if(length(target_dir) > 0.0f){
+            if(length(target_dir) > 1.0f){
+                target_dir = normalize(target_dir);
+            }
+            game_state->character.transform.translation += normalize(target_dir) * 
+                char_speed * time_step;
             float target_rotation = -atan2f(target_dir[2], target_dir[0])+half_pi<float>();
             /*float rel_rotation = target_rotation - char_rotation;
             float temp;
@@ -446,20 +464,19 @@ void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
             } else {
                 char_rotation += rel_rotation>0.0f?1.0f:-1.0f * turn_speed * time_step;
             }*/
-            game_state->character.rotation = angleAxis(target_rotation, vec3(0,1,0)); 
+            game_state->character.transform.rotation = angleAxis(target_rotation, vec3(0,1,0)); 
         }
 
-        game_state->camera.translation = game_state->character.translation +
-            game_state->camera.rotation * vec3(0,0,1) * 10.0f;
+        game_state->camera.position = game_state->character.transform.translation +
+            game_state->camera.GetRotation() * vec3(0,0,1) * 10.0f;
         game_state->camera_fov = 0.8f;
     }
+    // TODO: we don't really want non-const static variables like this V
     static bool old_tab = false;
     if (state[SDL_SCANCODE_TAB] && !old_tab) {
         game_state->editor_mode = !game_state->editor_mode;
     }
     old_tab = (state[SDL_SCANCODE_TAB] != 0);
-
-    game_state->camera.scale = vec3(1.0f);
 }
 
 void DrawCoordinateGrid(GameState* game_state){
@@ -524,10 +541,7 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
     case kInterleave_3V2T3N4I4W: {
         glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
         GLuint bone_transforms_uniform = glGetUniformLocation(drawable->shader_id, "bone_matrices");
-        for(int i=0; i<128; ++i){
-            g_bone_transforms[i] = model_mat * g_anim_bone_transforms[i];
-        }
-        glUniformMatrix4fv(bone_transforms_uniform, 128, false, (GLfloat*)&g_bone_transforms);
+        glUniformMatrix4fv(bone_transforms_uniform, 128, false, (GLfloat*)drawable->bone_transforms);
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
         glEnableVertexAttribArray(2);
@@ -566,11 +580,17 @@ void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
 
     float aspect_ratio = context->screen_dims[0] / (float)context->screen_dims[1];
     mat4 proj_mat = glm::perspective(game_state->camera_fov, aspect_ratio, 0.1f, 100.0f);
-    mat4 view_mat = inverse(game_state->camera.GetCombination());
+    mat4 view_mat = inverse(game_state->camera.GetMatrix());
     mat4 proj_view_mat = proj_mat * view_mat;
 
     game_state->drawables[game_state->char_drawable].transform = 
-        game_state->character.GetCombination();
+        game_state->character.transform.GetCombination();
+
+    for(int i=0; i<128; ++i){
+        game_state->character.display_bone_transforms[i] = 
+            game_state->drawables[game_state->char_drawable].transform * 
+            game_state->character.local_bone_transforms[i];
+    }
 
     for(int i=0; i<game_state->num_drawables; ++i){
         Drawable* drawable = &game_state->drawables[i];
