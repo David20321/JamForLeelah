@@ -446,42 +446,23 @@ bool GetUV(FbxMesh* fbx_mesh, int tri_index, int tri_vert, int layer, FbxVector2
     return ret;
 }
 
-void ParseSkeleton(Skeleton* skeleton, FbxNode* node, FBXParsePass pass, int parent) {
+void ParseSkeleton(Skeleton* skeleton, FbxNode* node, FBXParsePass pass, int parent, FbxNode** node_store) {
     const char* name = node->GetName();
     if(name[0] == 'D' && name[1] == 'E' && name[2] == 'F'){
         int bone_id = skeleton->num_bones++;
         if(pass == kStore){
             FbxSkeleton* skeleton_node = (FbxSkeleton*)node->GetNodeAttribute();
-            const char* types[] = { "Root", "Limb", "Limb Node", "Effector" };
-            FbxSkeleton::EType e_type = skeleton_node->GetSkeletonType();
-            const char* type = types[e_type];
-            float size = 0.0f;
-            switch(e_type){
-            case FbxSkeleton::eLimb:{
-                size = (float)skeleton_node->LimbLength.Get();
-                } break;
-            case FbxSkeleton::eLimbNode:{
-                size = (float)skeleton_node->Size.Get();
-                } break;
-            case FbxSkeleton::eRoot: {
-                size = (float)skeleton_node->Size.Get();
-                } break;
-            }
-            const FbxAMatrix& transform = node->EvaluateGlobalTransform(FBXSDK_TIME_ZERO);
             Bone& bone = skeleton->bones[bone_id];
             FormatString(bone.name, Bone::kMaxBoneNameSize,
                          "%s", name);
-            for(int i=0; i<16; ++i){
-                bone.transform[i] = (float)transform[i/4][i%4];
-            }
-            bone.size = size;
             bone.parent = parent;
             bone.bone_id = node->GetUniqueID();
+            node_store[bone_id] = node;
         }
         parent = bone_id;
     }
     for(int i=0, len=node->GetChildCount(); i<len; ++i) {
-        ParseSkeleton(skeleton, node->GetChild(i), pass, parent);
+        ParseSkeleton(skeleton, node->GetChild(i), pass, parent, node_store);
     }
 }
 
@@ -625,10 +606,49 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
                 skeleton->animations = NULL;
                 skeleton->num_bones = 0;
                 ++scene->num_skeleton;
-                ParseSkeleton(skeleton, node, kCount, -1);
+                ParseSkeleton(skeleton, node, kCount, -1, NULL);
                 skeleton->bones = (Bone*)malloc(sizeof(Bone)*skeleton->num_bones);
+                FbxNode** node_store = 
+                    (FbxNode**)malloc(sizeof(FbxNode*) * skeleton->num_bones);
                 skeleton->num_bones = 0;
-                ParseSkeleton(skeleton, node, kStore, -1);
+                ParseSkeleton(skeleton, node, kStore, -1, node_store);
+                FbxScene* fbx_scene = node->GetScene();
+                skeleton->num_animations = fbx_scene->GetSrcObjectCount<FbxAnimStack>();
+                skeleton->animations = 
+                    (Animation*)malloc(sizeof(Animation)*skeleton->num_animations);
+
+                for (int stack_index = 0; 
+                     stack_index < skeleton->num_animations; 
+                     ++stack_index) 
+                {
+                    FbxAnimStack* anim_stack = 
+                        fbx_scene->GetSrcObject<FbxAnimStack>(stack_index);
+                    FbxTimeSpan time_span = anim_stack->GetLocalTimeSpan();
+                    FbxTime duration = time_span.GetDuration();
+                    double seconds = duration.GetSecondDouble();
+                    SDL_Log("Skeleton anim_stack: %s is %f seconds long", 
+                        anim_stack->GetName(), (float)seconds);
+                    Animation* animation = &skeleton->animations[stack_index];
+                    animation->num_frames = (int)ceilf(seconds*24.0f);
+                    int transform_memory_size = sizeof(float)*16*skeleton->num_bones*animation->num_frames;
+                    animation->transforms = (float*)malloc(transform_memory_size);
+                    fbx_scene->SetCurrentAnimationStack(anim_stack);
+                    for(int frame=0; frame<animation->num_frames; ++frame){
+                        double t = frame / (double)(animation->num_frames-1);
+                        FbxTime time;
+                        double start_second = time_span.GetStart().GetSecondDouble();
+                        double stop_second = time_span.GetStop().GetSecondDouble();
+                        time.SetSecondDouble(start_second + t*(stop_second - start_second));
+                        for(int bone=0; bone<skeleton->num_bones; ++bone){
+                            int index = (frame*skeleton->num_bones + bone) * 16;
+                            FbxAMatrix transform = node_store[bone]->EvaluateGlobalTransform(time);
+                            for(int i=0; i<16; ++i){
+                                animation->transforms[index++] = transform[i/4][i%4];
+                            }
+                        }
+                    }
+                }
+                free(node_store);
                 } break;
             case kCount: {
                 ++scene->num_skeleton;

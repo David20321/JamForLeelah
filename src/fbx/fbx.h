@@ -27,8 +27,6 @@ struct Mesh {
 };
 
 struct Bone {
-    float transform[16]; // matrix 4x4
-    float size;
     int parent;
     uint64_t bone_id; // To attach to a mesh
     static const int kMaxBoneNameSize = 256;
@@ -67,6 +65,5 @@ void ParseFBXFromRAM(FBXParseScene* scene, void* file_memory, int file_size, con
 void PrintFBXInfoFromRAM(void* file_memory, int file_size);
 void AttachMeshToSkeleton(Mesh* mesh, Skeleton* skeleton);
 void GetBoundingBox(const Mesh* mesh, glm::vec3* bounding_box);
-
 
 #endif

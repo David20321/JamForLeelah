@@ -98,7 +98,9 @@ struct Character {
     vec3 velocity;
     SeparableTransform transform;
     mat4 display_bone_transforms[128];
+    mat4 bind_transforms[128];
     mat4 local_bone_transforms[128];
+    FBXParseScene parse_scene;
 };
 
 struct Camera {
@@ -408,7 +410,6 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
     {
         profiler->StartEvent("Parsing character fbx");
         profiler->StartEvent("Loading file to RAM");
-        FBXParseScene parse_scene;
         void* mem = malloc(1024*1024*64);
         int len;
         char err_title[FileLoadThreadData::kMaxErrMsgLen];
@@ -423,25 +424,20 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
         profiler->StartEvent("Parsing character fbx");
         const char* names[] = {"RiggedMesh", "rig"};
-        ParseFBXFromRAM(&parse_scene, mem, len, names, 2);
-        Mesh& mesh = parse_scene.meshes[0];
-        Skeleton& skeleton = parse_scene.skeletons[0];
+        ParseFBXFromRAM(&character.parse_scene, mem, len, names, 2);
+        Mesh& mesh = character.parse_scene.meshes[0];
+        Skeleton& skeleton = character.parse_scene.skeletons[0];
         profiler->EndEvent();
 
         RecalculateNormals(&mesh);
         AttachMeshToSkeleton(&mesh, &skeleton);
+
         for(int bone_index=0; bone_index<skeleton.num_bones; ++bone_index){
-            Bone& bone = skeleton.bones[bone_index];
-            mat4 temp;
-            for(int matrix_element=0; matrix_element<16; ++matrix_element){
-                temp[matrix_element/4][matrix_element%4] = bone.transform[matrix_element];
-            }
             mat4 bind_mat;
             for(int j=0; j<16; ++j){
                 bind_mat[j/4][j%4] = mesh.bind_matrices[bone_index*16+j];
             }
-            //mat4 rot_mat = toMat4(angleAxis(-glm::half_pi<float>(), vec3(1.0f,0.0f,0.0f)));
-            character.local_bone_transforms[bone_index] = temp * inverse(bind_mat);// * rot_mat;
+            character.bind_transforms[bone_index] = bind_mat;
         }
 
         profiler->StartEvent("Creating VBO and adding to scene");
@@ -457,7 +453,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         drawables[num_drawables].vbo_layout = kInterleave_3V2T3N4I4W;
         SeparableTransform char_transform;
         char_transform.scale = vec3(1.0f);
-        drawables[num_drawables].transform = mat4();//char_transform.GetCombination();
+        drawables[num_drawables].transform = mat4();
         drawables[num_drawables].texture_id = tex_char;
         drawables[num_drawables].shader_id = shader_3d_model_skinned;
         drawables[num_drawables].bone_transforms = character.display_bone_transforms;
@@ -465,7 +461,6 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         profiler->EndEvent();
 
         lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
-        parse_scene.Dispose();
         profiler->EndEvent();
     }
 
@@ -706,6 +701,25 @@ void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
     game_state->drawables[game_state->char_drawable].transform = 
         game_state->character.transform.GetCombination();
 
+    Skeleton* skeleton = &game_state->character.parse_scene.skeletons[0];
+    int animation = 1;
+    int frame = 31+(ticks/30)%(58-31);
+    for(int bone_index=0; bone_index<skeleton->num_bones; ++bone_index){
+        Bone& bone = skeleton->bones[bone_index];
+        mat4 temp;
+        int index = (frame*skeleton->num_bones+bone_index)*16;
+        for(int matrix_element=0; matrix_element<16; ++matrix_element){
+            temp[matrix_element/4][matrix_element%4] = 
+                skeleton->animations[animation].transforms[index+matrix_element];
+        }
+        float size = 0.03f;
+        game_state->lines.Add(vec3(temp*vec4(0,0,size,1.0f)), vec3(temp*vec4(0,0,-size,1.0f)), vec4(1.0f), kDraw, 1);
+        game_state->lines.Add(vec3(temp*vec4(0,size,0,1.0f)), vec3(temp*vec4(0,-size,0,1.0f)), vec4(1.0f), kDraw, 1);
+        game_state->lines.Add(vec3(temp*vec4(size,0,0,1.0f)), vec3(temp*vec4(-size,0,0,1.0f)), vec4(1.0f), kDraw, 1);
+        game_state->character.local_bone_transforms[bone_index] = temp * 
+            inverse(game_state->character.bind_transforms[bone_index]);
+    }
+
     for(int i=0; i<128; ++i){
         game_state->character.display_bone_transforms[i] = 
             game_state->drawables[game_state->char_drawable].transform * 
@@ -832,6 +846,7 @@ int main(int argc, char* argv[]) {
         profiler.EndEvent();
     }
     
+    game_state.character.parse_scene.Dispose();
     // Game code ends here
 
     {
