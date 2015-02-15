@@ -137,6 +137,9 @@ struct GameState {
     bool editor_mode;
     TextAtlas text_atlas;
 
+    static const int kMapSize = 30;
+    int tile_height[kMapSize * kMapSize];
+
     void Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data);
 };
 
@@ -401,8 +404,6 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
     lines.num_lines = 0;
     num_drawables = 0;
-    FillStaticDrawable(&drawables[num_drawables++], fbx_lamp, tex_lamp,
-                       shader_3d_model, vec3(0,0,2));
 
     lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
 
@@ -464,6 +465,14 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         profiler->EndEvent();
     }
 
+    for(int z=0; z<kMapSize; ++z){
+        for(int j=0; j<kMapSize; ++j){
+            tile_height[z*kMapSize+j] = (rand()%20)==0;
+        }
+    }
+    /*
+    FillStaticDrawable(&drawables[num_drawables++], fbx_lamp, tex_lamp,
+        shader_3d_model, vec3(0,0,2));
     FillStaticDrawable(&drawables[num_drawables++], fbx_tree, tex_tree,
         shader_3d_model, vec3(2,0,0));
     FillStaticDrawable(&drawables[num_drawables++], fbx_fountain, tex_fountain,
@@ -481,12 +490,93 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
     FillStaticDrawable(&drawables[num_drawables++], fbx_short_wall, tex_short_wall,
         shader_3d_model, vec3(16,0,0));
     FillStaticDrawable(&drawables[num_drawables++], fbx_wall_pillar, tex_wall_pillar,
-        shader_3d_model, vec3(18,0,0));
+        shader_3d_model, vec3(18,0,0));*/
 
-    for(int i=-10; i<10; ++i){
-        for(int j=-10; j<10; ++j){
-            FillStaticDrawable(&drawables[num_drawables++], fbx_floor, tex_floor,
-                               shader_3d_model, vec3(j*2-1,0,i*2-1));
+    for(int z=0; z<kMapSize; ++z){
+        for(int x=0; x<kMapSize; ++x){
+            vec3 translation(x*2,tile_height[z*kMapSize+x]*2,z*2);// Check nooks
+            if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)] && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_nook, tex_garden_tall_nook,
+                    shader_3d_model, translation);
+                SeparableTransform transform;
+                transform.translation = translation + vec3(0,0,2);
+                transform.rotation = angleAxis(-half_pi<float>(), vec3(0,1,0));
+                drawables[num_drawables-1].transform = transform.GetCombination();
+            } else if(x>0 && z>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)] && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_nook, tex_garden_tall_nook,
+                    shader_3d_model, translation);
+                SeparableTransform transform;
+                transform.translation = translation + vec3(-2,0,0);
+                transform.rotation = angleAxis(half_pi<float>(), vec3(0,1,0));
+                drawables[num_drawables-1].transform = transform.GetCombination();
+            } else if(x>0 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)] && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_nook, tex_garden_tall_nook,
+                    shader_3d_model, translation);
+                SeparableTransform transform;
+                transform.translation = translation + vec3(-2,0,2);
+                transform.rotation = angleAxis(pi<float>(), vec3(0,1,0));
+                drawables[num_drawables-1].transform = transform.GetCombination();
+            } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)] && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_nook, tex_garden_tall_nook,
+                    shader_3d_model, translation);
+            } 
+            // Check walls
+            else if(x<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_wall, tex_garden_tall_wall,
+                    shader_3d_model, translation);
+            } else if(x>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_wall, tex_garden_tall_wall,
+                    shader_3d_model, translation);
+                SeparableTransform transform;
+                transform.translation = translation + vec3(-2,0,2);
+                transform.rotation = angleAxis(pi<float>(), vec3(0,1,0));
+                drawables[num_drawables-1].transform = transform.GetCombination();
+            } else if(z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_wall, tex_garden_tall_wall,
+                    shader_3d_model, translation);
+                SeparableTransform transform;
+                transform.translation = translation + vec3(-2,0,0);
+                transform.rotation = angleAxis(half_pi<float>(), vec3(0,1,0));
+                drawables[num_drawables-1].transform = transform.GetCombination();
+            } else if(z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_wall, tex_garden_tall_wall,
+                    shader_3d_model, translation);
+                SeparableTransform transform;
+                transform.translation = translation + vec3(0,0,2);
+                transform.rotation = angleAxis(-half_pi<float>(), vec3(0,1,0));
+                drawables[num_drawables-1].transform = transform.GetCombination();
+            }
+            // Check corners 
+            else if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x+1)]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
+                    shader_3d_model, translation);
+                SeparableTransform transform;
+                transform.translation = translation + vec3(0,0,2);
+                transform.rotation = angleAxis(-half_pi<float>(), vec3(0,1,0));
+                drawables[num_drawables-1].transform = transform.GetCombination();
+            } else if(x>0 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x-1)]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
+                    shader_3d_model, translation);
+                SeparableTransform transform;
+                transform.translation = translation + vec3(-2,0,0);
+                transform.rotation = angleAxis(half_pi<float>(), vec3(0,1,0));
+                drawables[num_drawables-1].transform = transform.GetCombination();
+            } else if(x>0 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x-1)]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
+                    shader_3d_model, translation);
+                SeparableTransform transform;
+                transform.translation = translation + vec3(-2,0,2);
+                transform.rotation = angleAxis(pi<float>(), vec3(0,1,0));
+                drawables[num_drawables-1].transform = transform.GetCombination();
+            } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x+1)]){
+                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
+                    shader_3d_model, translation);
+            } 
+            
+            else {
+                FillStaticDrawable(&drawables[num_drawables++], fbx_floor, tex_floor,
+                    shader_3d_model, translation);
+            }
         }
     }
 }
@@ -713,9 +803,12 @@ void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
                 skeleton->animations[animation].transforms[index+matrix_element];
         }
         float size = 0.03f;
-        game_state->lines.Add(vec3(temp*vec4(0,0,size,1.0f)), vec3(temp*vec4(0,0,-size,1.0f)), vec4(1.0f), kDraw, 1);
-        game_state->lines.Add(vec3(temp*vec4(0,size,0,1.0f)), vec3(temp*vec4(0,-size,0,1.0f)), vec4(1.0f), kDraw, 1);
-        game_state->lines.Add(vec3(temp*vec4(size,0,0,1.0f)), vec3(temp*vec4(-size,0,0,1.0f)), vec4(1.0f), kDraw, 1);
+        static const bool debug_draw_skeleton = false;
+        if(debug_draw_skeleton) {
+            game_state->lines.Add(vec3(temp*vec4(0,0,size,1.0f)), vec3(temp*vec4(0,0,-size,1.0f)), vec4(1.0f), kDraw, 1);
+            game_state->lines.Add(vec3(temp*vec4(0,size,0,1.0f)), vec3(temp*vec4(0,-size,0,1.0f)), vec4(1.0f), kDraw, 1);
+            game_state->lines.Add(vec3(temp*vec4(size,0,0,1.0f)), vec3(temp*vec4(-size,0,0,1.0f)), vec4(1.0f), kDraw, 1);
+        }
         game_state->character.local_bone_transforms[bone_index] = temp * 
             inverse(game_state->character.bind_transforms[bone_index]);
     }
@@ -762,6 +855,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     profiler.EndEvent();
+
+
+    srand((unsigned)SDL_GetPerformanceCounter());
 
     char* write_dir = SDL_GetPrefPath("Wolfire", "UnderGlass");
 
