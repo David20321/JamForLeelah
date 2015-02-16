@@ -861,6 +861,33 @@ void FileParseErr(const char* path, int line, const char* detail) {
     exit(1);
 }
 
+void ReadFloatArray(char* line, float* elements, int num_elements, int start, int end, const char* path, int line_num) {
+    static const int kMaxElements = 32;
+    int coord_read_pos[kMaxElements];
+    SDL_assert(num_elements < kMaxElements);
+    coord_read_pos[0] = start;
+    int comma_pos = -1;
+    int coord_read_index = 1;
+    for(int comma_find=start; comma_find<end; ++comma_find){
+        if(line[comma_find] == ','){
+            line[comma_find] = '\0';
+            coord_read_pos[coord_read_index++] = comma_find+1;
+            if(coord_read_index > num_elements) {
+                FileParseErr(path, line_num, "Too many commas");
+            }
+        }
+        if(line[comma_find] == ')'){
+            line[comma_find] = '\0';
+        }
+    }
+    if(coord_read_index != num_elements) {
+        FileParseErr(path, line_num, "Too few commas");
+    }
+    for(int i=0; i<num_elements; ++i){
+        elements[i] = (float)atof(&line[coord_read_pos[i]]);
+    }
+}
+
 void ParseTestFile(const char* path){
     static const int curr_version = 1;
     enum ParseState {
@@ -883,7 +910,7 @@ void ParseTestFile(const char* path){
         kAction,
         kActionFrame,
         kActionFrameBone,
-        kActionFrameboneMatrix,
+        kActionFrameBoneMatrix,
         kEnd
     };
     ParseState parse_state = kHeader;
@@ -892,7 +919,27 @@ void ParseTestFile(const char* path){
     LoadFileToRAM(path, (void**)&file_str, &size);
     int line_start = 0;
     int line_num = 0;
-    for(int i=0; i<size; ++i){
+    static const char* polygon_index_header = "  Polygon index: ";
+    static const int polygon_index_header_len = strlen(polygon_index_header);
+    static const char* skeleton_header = "Skeleton";
+    static const int skeleton_header_len = strlen(skeleton_header);
+    static const char* skeleton_bone_header = "  Bone: ";
+    static const int skeleton_bone_header_len = strlen(skeleton_bone_header);
+    static const char* skeleton_bone_matrix_header = "    Matrix: (";
+    static const int skeleton_bone_matrix_header_len = strlen(skeleton_bone_matrix_header);
+    static const char* skeleton_bone_parent_header = "    Parent: \"";
+    static const int skeleton_bone_parent_header_len = strlen(skeleton_bone_parent_header);
+    static const char* action_header = "Action: ";
+    static const int action_header_len = strlen(action_header);
+    static const char* action_frame_header = "  Frame: ";
+    static const int action_frame_header_len = strlen(action_frame_header);
+    static const char* action_frame_bone_header = "    Bone: ";
+    static const int action_frame_bone_header_len = strlen(action_frame_bone_header);
+    static const char* action_frame_bone_matrix_header = "      Matrix: (";
+    static const int action_frame_bone_matrix_header_len = strlen(action_frame_bone_matrix_header);
+    static const char* end_header = "--END--";
+    static const int end_header_len = strlen(end_header);
+    for(int i=0; i<size, parse_state!=kEnd; ++i){
         if(file_str[i] == '\n'){
             int length = i-line_start;
             if(length > 1){
@@ -954,62 +1001,19 @@ void ParseTestFile(const char* path){
                         if(strncmp(line, header, header_len) != 0){
                             FileParseErr(path, line_num, "Invalid MeshVertCoords header");
                         }
-                        int coord_read_pos[3];
-                        coord_read_pos[0] = header_len;
-                        int comma_pos = -1;
-                        int coord_read_index = 1;
-                        for(int comma_find=header_len; comma_find<length; ++comma_find){
-                            if(line[comma_find] == ','){
-                                line[comma_find] = '\0';
-                                coord_read_pos[coord_read_index++] = comma_find+1;
-                                if(coord_read_index > 3) {
-                                    FileParseErr(path, line_num, "Too many commas");
-                                }
-                            }
-                            if(line[comma_find] == ')'){
-                                line[comma_find] = '\0';
-                            }
-                        }
-                        if(coord_read_index != 3) {
-                            FileParseErr(path, line_num, "Too few commas");
-                        }
                         float coords[3];
-                        for(int i=0; i<3; ++i){
-                            coords[i] = (float)atof(&line[coord_read_pos[i]]);
-                        }
+                        ReadFloatArray(line, coords, 3, header_len, length, path, line_num);
                         SDL_Log("Vert coords %f %f %f", coords[0], coords[1], coords[2]);
                         parse_state = kMeshVertNormal;
                         } break;
-                    // TODO: this is a lot of duplicated code with MeshVertCoord
                     case kMeshVertNormal: {
                         static const char* header = "    Normals: (";
                         static const int header_len = strlen(header);
                         if(strncmp(line, header, header_len) != 0){
                             FileParseErr(path, line_num, "Invalid MeshVertNormals header");
                         }
-                        int coord_read_pos[3];
-                        coord_read_pos[0] = header_len;
-                        int comma_pos = -1;
-                        int coord_read_index = 1;
-                        for(int comma_find=header_len; comma_find<length; ++comma_find){
-                            if(line[comma_find] == ','){
-                                line[comma_find] = '\0';
-                                coord_read_pos[coord_read_index++] = comma_find+1;
-                                if(coord_read_index > 3) {
-                                    FileParseErr(path, line_num, "Too many commas");
-                                }
-                            }
-                            if(line[comma_find] == ')'){
-                                line[comma_find] = '\0';
-                            }
-                        }
-                        if(coord_read_index != 3) {
-                            FileParseErr(path, line_num, "Too few commas");
-                        }
                         float coords[3];
-                        for(int i=0; i<3; ++i){
-                            coords[i] = (float)atof(&line[coord_read_pos[i]]);
-                        }
+                        ReadFloatArray(line, coords, 3, header_len, length, path, line_num);
                         SDL_Log("Vert normals %f %f %f", coords[0], coords[1], coords[2]);
                         parse_state = kMeshVertGroups;
                         } break;
@@ -1019,17 +1023,15 @@ void ParseTestFile(const char* path){
                         }
                         parse_state = kMeshVertGroupSingle;
                         break;
-                    case kMeshVertGroupSingle: 
+                    case kMeshVertGroupSingle: {
                         static const char* other_header = "  Vert ";
                         static const int other_header_len = strlen(other_header);
-                        static const char* other_header2 = "  Polygon index: ";
-                        static const int other_header2_len = strlen(other_header2);
                         static const char* header=  "      \"";
                         static const int header_len = strlen(header);
                         if(strncmp(line, other_header, other_header_len) == 0){
                             parse_state = kMeshVert;
                             repeat = true;
-                        } else if(strncmp(line, other_header2, other_header_len2) == 0){
+                        } else if(strncmp(line, polygon_index_header, polygon_index_header_len) == 0){
                             parse_state = kMeshPolygon;
                             repeat = true;
                         } else if(strncmp(line, header, header_len) != 0){
@@ -1048,37 +1050,171 @@ void ParseTestFile(const char* path){
                             float vert_group_weight = (float)atof(&line[weight_start]);
                             SDL_Log("Vertex group \"%s\" has weight %f", vert_group_bone, vert_group_weight);
                         }
-                        break;
+                        } break;
                     case kMeshPolygon: {
-                        static const char* other_header = "  Vert ";
-                        static const int other_header_len = strlen(other_header);
-                        static const char* other_header2 = "  Polygon index: ";
-                        static const int other_header2_len = strlen(other_header2);
-                        static const char* header=  "      \"";
-                        static const int header_len = strlen(header);
-                        if(strncmp(line, other_header, other_header_len) == 0){
-                            parse_state = kMeshVert;
-                            repeat = true;
-                        } else if(strncmp(line, other_header2, other_header_len2) == 0){
-                            parse_state = kMeshPolygon;
-                            repeat = true;
-                        } else if(strncmp(line, header, header_len) != 0){
-                            FileParseErr(path, line_num, "Invalid single vertex group header");
-                        } else {
-                            // This is a vertex group header
-                            int weight_start = -1;
-                            for(int find_quote=header_len; find_quote<length; ++find_quote){
-                                if(line[find_quote] == '"'){
-                                    line[find_quote] = '\0';
-                                    weight_start = find_quote+2;
-                                    break;
-                                }
-                            }
-                            const char* vert_group_bone = &line[header_len];
-                            float vert_group_weight = (float)atof(&line[weight_start]);
-                            SDL_Log("Vertex group \"%s\" has weight %f", vert_group_bone, vert_group_weight);
+                        if(strncmp(line, polygon_index_header, polygon_index_header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid polygon header");
                         }
-                                               } break;
+                        static const char* length_header = " length: ";
+                        static const int length_header_len = strlen(length_header);
+                        int comma_pos = -1;
+                        for(int comma_find=polygon_index_header_len; comma_find<length; ++comma_find){
+                            if(line[comma_find] == ','){
+                                line[comma_find] = '\0';
+                                comma_pos = comma_find+1;
+                                break;
+                            }
+                        }
+                        if(strncmp(&line[comma_pos], length_header, length_header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid polygon length header");
+                        }
+                        int polygon_index = atoi(&line[polygon_index_header_len]);
+                        int polygon_length = atoi(&line[comma_pos+length_header_len]);
+                        SDL_Log("Polygon %d has %d vertices", polygon_index, polygon_length);
+                        parse_state = kMeshPolygonVertex;
+                        } break;
+                    case kMeshPolygonVertex: {
+                        static const char* header = "    Vertex: ";
+                        static const int header_len = strlen(header);
+                        if(strncmp(line, polygon_index_header, polygon_index_header_len) == 0){
+                            repeat = true;
+                            parse_state = kMeshPolygon;
+                        } else if(strncmp(line, skeleton_header, skeleton_header_len) == 0){
+                            repeat = true;
+                            parse_state = kSkeleton;
+                        } else {
+                            if(strncmp(line, header, header_len) != 0){
+                                FileParseErr(path, line_num, "Invalid polygon vertex header");
+                            }
+                            int vert_index = atoi(&line[header_len]);
+                            SDL_Log("    Vert index %d", vert_index);
+                            parse_state = kMeshPolygonUV;
+                        }
+                        } break;
+                    case kMeshPolygonUV: {
+                        static const char* header = "    UV: (";
+                        static const int header_len = strlen(header);
+                        if(strncmp(line, header, header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid polygon uv header");
+                        }
+                        int comma_pos = -1;
+                        for(int comma_find=header_len; comma_find<length; ++comma_find){
+                            if(line[comma_find] == ','){
+                                line[comma_find] = '\0';
+                                comma_pos = comma_find+1;
+                            } else if(line[comma_find] == ')'){
+                                line[comma_find] = '\0';
+                                break;
+                            }
+                        }
+                        float uv[2];
+                        uv[0] = (float)atof(&line[header_len]);
+                        uv[1] = (float)atof(&line[comma_pos]);
+                        SDL_Log("    Vert uv %f %f", uv[0], uv[1]);
+                        parse_state = kMeshPolygonVertex;
+                        } break;
+                    case kSkeleton: 
+                        if(strcmp(line, skeleton_header) != 0){
+                            FileParseErr(path, line_num, "Invalid skeleton header");
+                        }
+                        parse_state = kSkeletonBone;
+                        break;
+                    case kSkeletonBone: {
+                        if(strncmp(line, action_header, action_header_len) == 0){
+                            parse_state = kAction;
+                            repeat = true;
+                        } else {
+                            if(strncmp(line, skeleton_bone_header, skeleton_bone_header_len) != 0){
+                                FileParseErr(path, line_num, "Invalid skeleton bone header");
+                            }
+                            const char* bone_name = &line[skeleton_bone_header_len];
+                            SDL_Log("Bone \"%s\"", bone_name);
+                            parse_state = kSkeletonBoneMatrix;
+                        }
+                        } break;
+                    case kSkeletonBoneMatrix: {
+                        if(strncmp(line, skeleton_bone_matrix_header, skeleton_bone_matrix_header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid skeleton bone matrix header");
+                        }
+                        float coords[16];
+                        ReadFloatArray(line, coords, 16, skeleton_bone_matrix_header_len, length, path, line_num);
+                        static const bool display_matrix = false;
+                        if(display_matrix) {
+                            SDL_Log("Bone matrix");
+                            for(int i=0; i<16; ++i){
+                                SDL_Log("%f", coords[i]);
+                            }
+                        }
+                        parse_state = kSkeletonBoneParent;
+                        } break;
+                    case kSkeletonBoneParent: {
+                        if(strncmp(line, skeleton_bone_parent_header, skeleton_bone_parent_header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid skeleton bone parent header");
+                        }
+                        for(int quote_find=skeleton_bone_parent_header_len;
+                            quote_find<length;
+                            ++quote_find)
+                        {
+                            if(line[quote_find] == '\"'){
+                                line[quote_find] = '\0';
+                                break;
+                            }
+                        }
+                        const char* parent_name = &line[skeleton_bone_parent_header_len];
+                        SDL_Log("Bone parent: %s", strlen(parent_name)>0?parent_name:"NONE");
+                        parse_state = kSkeletonBone;
+                        } break;
+                    case kAction: {
+                        if(strncmp(line, action_header, action_header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid action header");
+                        }
+                        const char* action_name = &line[action_header_len];
+                        SDL_Log("Action: %s", action_name);
+                        parse_state = kActionFrame;
+                        } break;
+                    case kActionFrame: {
+                        if(strncmp(line, action_frame_header, action_frame_header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid action frame header");
+                        }
+                        int frame = atoi(&line[action_frame_header_len]);
+                        SDL_Log("  Frame: %d", frame);
+                        parse_state = kActionFrameBone;
+                        } break;
+                    case kActionFrameBone: {
+                        if(strncmp(line, action_frame_header, action_frame_header_len) == 0){
+                            parse_state = kActionFrame;
+                            repeat = true;
+                        } else if(strncmp(line, action_header, action_header_len) == 0){
+                            parse_state = kAction;
+                            repeat = true;
+                        } else if(strncmp(line, end_header, end_header_len) == 0){
+                            parse_state = kEnd;
+                        } else {
+                            if(strncmp(line, action_frame_bone_header, action_frame_bone_header_len) != 0){
+                                FileParseErr(path, line_num, "Invalid action frame bone header");
+                            }
+                            const char* bone_name = &line[action_frame_header_len];
+                            SDL_Log("  Bone: %s", bone_name);
+                            parse_state = kActionFrameBoneMatrix;
+                        }
+                        } break;
+                    case kActionFrameBoneMatrix: {
+                        if(strncmp(line, action_frame_bone_matrix_header, action_frame_bone_matrix_header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid action frame bone matrix header");
+                        }
+                        float coords[16];
+                        ReadFloatArray(line, coords, 16, action_frame_bone_matrix_header_len, length, path, line_num);
+                        static const bool display_matrix = false;
+                        if(display_matrix) {
+                            SDL_Log("  Bone matrix");
+                            for(int i=0; i<16; ++i){
+                                SDL_Log("%f", coords[i]);
+                            }
+                        }
+                        parse_state = kActionFrameBone;
+                        } break;
+                    default:
+                        SDL_assert(false);
                     }
                 } while(repeat);
                 line_start = i+1;
