@@ -12,15 +12,15 @@ out vec2 var_uv;
 out vec3 var_normal; 
 
 void main() { 
-	mat4 skinned_mat = mat4(0.0);
+	/*mat4 skinned_mat = mat4(0.0);
 	for(int i=0; i<4; ++i){
 		int index = int(indices[i]+0.5);
 		if(indices[i] != -1.0){
 			skinned_mat += bone_matrices[index] * weights[i];
 		}
-	}
-	gl_Position = mv_mat * skinned_mat * vec4(position, 1.0);
+	}*/
+	gl_Position = mv_mat/* * skinned_mat*/ * vec4(position, 1.0);
 	var_uv = uv;
 	var_uv.y *= -1.0;
-	var_normal = normalize(mat3(skinned_mat) * normal);
+	var_normal = normal;// normalize(mat3(skinned_mat) * normal);
 }
