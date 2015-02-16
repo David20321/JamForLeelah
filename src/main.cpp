@@ -792,8 +792,8 @@ void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
         game_state->character.transform.GetCombination();
 
     Skeleton* skeleton = &game_state->character.parse_scene.skeletons[0];
-    int animation = 1;
-    int frame = 31+(ticks/30)%(58-31);
+    int animation = 0;//1;
+    int frame = 0;//31+(ticks/30)%(58-31);
     for(int bone_index=0; bone_index<skeleton->num_bones; ++bone_index){
         Bone& bone = skeleton->bones[bone_index];
         mat4 temp;
@@ -835,7 +835,263 @@ void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
     CHECK_GL_ERROR();
 }
 
+void LoadFileToRAM(const char *path, void** mem, int* size) {
+    SDL_RWops* file = SDL_RWFromFile(path, "r");
+    if(!file){
+        FormattedError("Error", "Could not open file \"%s\" for reading", path);
+        exit(1);
+    }
+    *size = (int)SDL_RWseek(file, 0, RW_SEEK_END);
+    if(*size == -1){
+        FormattedError("Error", "Could not get size of file \"%s\"", path);
+        exit(1);
+    }
+    SDL_RWseek(file, 0, RW_SEEK_SET);
+    *mem = malloc(*size);
+    size_t read = SDL_RWread(file, *mem, *size, 1);
+    if(read != 1){
+        FormattedError("Error", "Failed to read data from file \"%s\", %s", path, SDL_GetError());
+        exit(1);
+    }
+    SDL_RWclose(file);
+}
+
+void FileParseErr(const char* path, int line, const char* detail) {
+    FormattedError("Error", "Line %d of file \"%s\"\n%s", line, path, detail);
+    exit(1);
+}
+
+void ParseTestFile(const char* path){
+    static const int curr_version = 1;
+    enum ParseState {
+        kHeader,
+        kVersion,
+        kBegin,
+        kMesh,
+        kMeshVert,
+        kMeshVertCoord,
+        kMeshVertNormal,
+        kMeshVertGroups,
+        kMeshVertGroupSingle,
+        kMeshPolygon,
+        kMeshPolygonVertex,
+        kMeshPolygonUV,
+        kSkeleton,
+        kSkeletonBone,
+        kSkeletonBoneMatrix,
+        kSkeletonBoneParent,
+        kAction,
+        kActionFrame,
+        kActionFrameBone,
+        kActionFrameboneMatrix,
+        kEnd
+    };
+    ParseState parse_state = kHeader;
+    char* file_str;
+    int size;
+    LoadFileToRAM(path, (void**)&file_str, &size);
+    int line_start = 0;
+    int line_num = 0;
+    for(int i=0; i<size; ++i){
+        if(file_str[i] == '\n'){
+            int length = i-line_start;
+            if(length > 1){
+                // End line before newline
+                file_str[i] = '\0';
+                if(i!=0 && file_str[i-1] == '\r') {
+                    file_str[i-1] = '\0';
+                }
+                char* line = &file_str[line_start];
+                //SDL_Log("Processing line \"%s\"", &file_str[line_start]);
+                // Parse line
+                bool repeat;
+                do {
+                    repeat = false;
+                    switch(parse_state) {
+                    case kHeader:
+                        if(strcmp(line, "Wolfire JamForLeelah Format") != 0){
+                            FileParseErr(path, line_num, "Invalid header");
+                        }
+                        parse_state = kVersion;
+                        break;
+                    case kVersion: {
+                        static const char* version_str = "Version ";
+                        static const int version_len = strlen(version_str);
+                        if(strncmp(line, version_str, version_len) != 0){
+                            FileParseErr(path, line_num, "Invalid version text");
+                        }
+                        int version_num = atoi(&line[version_len]);
+                        if(version_num != curr_version) {
+                            FileParseErr(path, line_num, "Invalid version number");
+                        }
+                        parse_state = kBegin;
+                        } break;
+                    case kBegin: 
+                        if(strcmp(line, "--BEGIN--") != 0){
+                            FileParseErr(path, line_num, "Invalid BEGIN header");
+                        }
+                        parse_state = kMesh;
+                        break;
+                    case kMesh: 
+                        if(strcmp(line, "Mesh") != 0){
+                            FileParseErr(path, line_num, "Invalid Mesh header");
+                        }
+                        parse_state = kMeshVert;
+                        break;
+                    case kMeshVert: {
+                        static const char* header = "  Vert ";
+                        static const int header_len = strlen(header);
+                        if(strncmp(line, header, header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid MeshVert header");
+                        }
+                        int vert_id = atoi(&line[header_len]);
+                        SDL_Log("Processing vert %d", vert_id);
+                        parse_state = kMeshVertCoord;
+                        } break;
+                    case kMeshVertCoord: {
+                        static const char* header = "    Coords: (";
+                        static const int header_len = strlen(header);
+                        if(strncmp(line, header, header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid MeshVertCoords header");
+                        }
+                        int coord_read_pos[3];
+                        coord_read_pos[0] = header_len;
+                        int comma_pos = -1;
+                        int coord_read_index = 1;
+                        for(int comma_find=header_len; comma_find<length; ++comma_find){
+                            if(line[comma_find] == ','){
+                                line[comma_find] = '\0';
+                                coord_read_pos[coord_read_index++] = comma_find+1;
+                                if(coord_read_index > 3) {
+                                    FileParseErr(path, line_num, "Too many commas");
+                                }
+                            }
+                            if(line[comma_find] == ')'){
+                                line[comma_find] = '\0';
+                            }
+                        }
+                        if(coord_read_index != 3) {
+                            FileParseErr(path, line_num, "Too few commas");
+                        }
+                        float coords[3];
+                        for(int i=0; i<3; ++i){
+                            coords[i] = (float)atof(&line[coord_read_pos[i]]);
+                        }
+                        SDL_Log("Vert coords %f %f %f", coords[0], coords[1], coords[2]);
+                        parse_state = kMeshVertNormal;
+                        } break;
+                    // TODO: this is a lot of duplicated code with MeshVertCoord
+                    case kMeshVertNormal: {
+                        static const char* header = "    Normals: (";
+                        static const int header_len = strlen(header);
+                        if(strncmp(line, header, header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid MeshVertNormals header");
+                        }
+                        int coord_read_pos[3];
+                        coord_read_pos[0] = header_len;
+                        int comma_pos = -1;
+                        int coord_read_index = 1;
+                        for(int comma_find=header_len; comma_find<length; ++comma_find){
+                            if(line[comma_find] == ','){
+                                line[comma_find] = '\0';
+                                coord_read_pos[coord_read_index++] = comma_find+1;
+                                if(coord_read_index > 3) {
+                                    FileParseErr(path, line_num, "Too many commas");
+                                }
+                            }
+                            if(line[comma_find] == ')'){
+                                line[comma_find] = '\0';
+                            }
+                        }
+                        if(coord_read_index != 3) {
+                            FileParseErr(path, line_num, "Too few commas");
+                        }
+                        float coords[3];
+                        for(int i=0; i<3; ++i){
+                            coords[i] = (float)atof(&line[coord_read_pos[i]]);
+                        }
+                        SDL_Log("Vert normals %f %f %f", coords[0], coords[1], coords[2]);
+                        parse_state = kMeshVertGroups;
+                        } break;
+                    case kMeshVertGroups: 
+                        if(strcmp(line, "    Vertex Groups:") != 0){
+                            FileParseErr(path, line_num, "Invalid vertex groups header");
+                        }
+                        parse_state = kMeshVertGroupSingle;
+                        break;
+                    case kMeshVertGroupSingle: 
+                        static const char* other_header = "  Vert ";
+                        static const int other_header_len = strlen(other_header);
+                        static const char* other_header2 = "  Polygon index: ";
+                        static const int other_header2_len = strlen(other_header2);
+                        static const char* header=  "      \"";
+                        static const int header_len = strlen(header);
+                        if(strncmp(line, other_header, other_header_len) == 0){
+                            parse_state = kMeshVert;
+                            repeat = true;
+                        } else if(strncmp(line, other_header2, other_header_len2) == 0){
+                            parse_state = kMeshPolygon;
+                            repeat = true;
+                        } else if(strncmp(line, header, header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid single vertex group header");
+                        } else {
+                            // This is a vertex group header
+                            int weight_start = -1;
+                            for(int find_quote=header_len; find_quote<length; ++find_quote){
+                                if(line[find_quote] == '"'){
+                                    line[find_quote] = '\0';
+                                    weight_start = find_quote+2;
+                                    break;
+                                }
+                            }
+                            const char* vert_group_bone = &line[header_len];
+                            float vert_group_weight = (float)atof(&line[weight_start]);
+                            SDL_Log("Vertex group \"%s\" has weight %f", vert_group_bone, vert_group_weight);
+                        }
+                        break;
+                    case kMeshPolygon: {
+                        static const char* other_header = "  Vert ";
+                        static const int other_header_len = strlen(other_header);
+                        static const char* other_header2 = "  Polygon index: ";
+                        static const int other_header2_len = strlen(other_header2);
+                        static const char* header=  "      \"";
+                        static const int header_len = strlen(header);
+                        if(strncmp(line, other_header, other_header_len) == 0){
+                            parse_state = kMeshVert;
+                            repeat = true;
+                        } else if(strncmp(line, other_header2, other_header_len2) == 0){
+                            parse_state = kMeshPolygon;
+                            repeat = true;
+                        } else if(strncmp(line, header, header_len) != 0){
+                            FileParseErr(path, line_num, "Invalid single vertex group header");
+                        } else {
+                            // This is a vertex group header
+                            int weight_start = -1;
+                            for(int find_quote=header_len; find_quote<length; ++find_quote){
+                                if(line[find_quote] == '"'){
+                                    line[find_quote] = '\0';
+                                    weight_start = find_quote+2;
+                                    break;
+                                }
+                            }
+                            const char* vert_group_bone = &line[header_len];
+                            float vert_group_weight = (float)atof(&line[weight_start]);
+                            SDL_Log("Vertex group \"%s\" has weight %f", vert_group_bone, vert_group_weight);
+                        }
+                                               } break;
+                    }
+                } while(repeat);
+                line_start = i+1;
+                ++line_num;
+            }
+        }
+    }
+}
+
 int main(int argc, char* argv[]) {
+    ParseTestFile("C:\\Users\\David\\Desktop\\AnimTestExport.txt");
+    return 0;
+
     Profiler profiler;
     profiler.Init();
 
@@ -855,7 +1111,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     profiler.EndEvent();
-
 
     srand((unsigned)SDL_GetPerformanceCounter());
 
