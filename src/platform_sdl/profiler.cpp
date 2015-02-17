@@ -37,9 +37,9 @@ void Profiler::Export(const char* filename) {
     const int kPerfCountToMicroseconds = (int)(SDL_GetPerformanceFrequency() / 1000000);
     SDL_RWops* file = SDL_RWFromFile(filename, "w");
     if(file){
+        static const int kBufSize = 1024;
+        char buf[kBufSize];
         for(int i=0; i<num_events; ++i){
-            static const int kBufSize = 1024;
-            char buf[kBufSize];
             Event& event = events[i];
             int index = 0;
             for(int j=0; j<event.depth; ++j){
@@ -51,6 +51,10 @@ void Profiler::Export(const char* filename) {
             }
             int microseconds = (int)((event.end_time - event.start_time) / kPerfCountToMicroseconds);
             FormatString(&buf[index], kBufSize-index, "%s: %d us\n", events[i].label, microseconds);
+            SDL_RWwrite(file, buf, 1, strlen(buf));
+        }
+        if(num_events == kMaxEvents){
+            FormatString(buf, kBufSize, "--reached kMaxEvents--\n");
             SDL_RWwrite(file, buf, 1, strlen(buf));
         }
         SDL_RWclose(file);
