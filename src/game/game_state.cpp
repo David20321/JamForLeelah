@@ -375,17 +375,18 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
     int character_vert_vbo, character_index_vbo, num_character_indices;
     {
-        character.nav_mesh_walker.tri = 0;
-        character.nav_mesh_walker.bary_pos = vec3(1/3.0f);
+        characters[0].nav_mesh_walker.tri = 0;
+        characters[0].nav_mesh_walker.bary_pos = vec3(1/3.0f);
 
-        character.parse_mesh = (ParseMesh*)malloc(sizeof(ParseMesh));
-        ParseTestFile(asset_list[kModelChar], character.parse_mesh);
-        character_vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, character.parse_mesh->vert, character.parse_mesh->num_vert*sizeof(float)*16);
-        character_index_vbo = CreateVBO(kElementVBO, kStaticVBO, character.parse_mesh->indices, character.parse_mesh->num_index*sizeof(Uint32));
-        num_character_indices = character.parse_mesh->num_index;
-        for(int bone_index=0; bone_index<character.parse_mesh->num_bones; ++bone_index){
-            character.bind_transforms[bone_index] = character.parse_mesh->rest_mats[bone_index];
+        ParseMesh* parse_mesh = (ParseMesh*)malloc(sizeof(ParseMesh));
+        ParseTestFile(asset_list[kModelChar], parse_mesh);
+        character_vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, parse_mesh->vert, parse_mesh->num_vert*sizeof(float)*16);
+        character_index_vbo = CreateVBO(kElementVBO, kStaticVBO, parse_mesh->indices, parse_mesh->num_index*sizeof(Uint32));
+        num_character_indices = parse_mesh->num_index;
+        for(int bone_index=0; bone_index<parse_mesh->num_bones; ++bone_index){
+            characters[0].bind_transforms[bone_index] = parse_mesh->rest_mats[bone_index];
         }
+        characters[0].parse_mesh = parse_mesh;
 
         char_drawable = num_drawables;
         drawables[num_drawables].vert_vbo = character_vert_vbo;
@@ -395,7 +396,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         drawables[num_drawables].transform = mat4();
         drawables[num_drawables].texture_id = tex_char;
         drawables[num_drawables].shader_id = shader_3d_model_skinned;
-        drawables[num_drawables].bone_transforms = character.display_bone_transforms;
+        drawables[num_drawables].bone_transforms = characters[0].display_bone_transforms;
         ++num_drawables;
         profiler->EndEvent();
 
@@ -409,7 +410,8 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
             tile_height[z*kMapSize+j] = 0;
         }
     }
-    character.transform.translation = vec3(kMapSize,0,kMapSize);
+    characters[0].transform.translation = vec3(kMapSize,0,kMapSize);
+    characters[0].walk_cycle_frame = 0.0f;
 
     /*
     FillStaticDrawable(&drawables[num_drawables++], fbx_lamp, tex_lamp,
@@ -547,9 +549,102 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
     nav_mesh.CalcNeighbors(stack_allocator);
 }
 
-void GameState::Update(const vec2& mouse_rel, float time_step) {
+static void UpdateCharacter(Character* character, vec3 target_dir, float time_step,
+                            const NavMesh& nav) 
+{
     static const float char_speed = 2.0f;
     static const float char_accel = 10.0f;
+    vec3 target_vel = target_dir * char_speed;
+    if(time_step != 0.0f){
+        vec3 rel_vel = target_vel - character->velocity;
+        rel_vel /= (char_accel * time_step);
+        if(length(rel_vel) > 1.0f){
+            rel_vel = normalize(rel_vel);
+        }
+        rel_vel *= (char_accel * time_step);
+        character->velocity += rel_vel;
+    }
+    character->transform.translation += 
+        character->velocity * char_speed * time_step;
+
+    {
+        NavMeshWalker& walker = character->nav_mesh_walker;
+        vec3 old_translation = character->transform.translation;
+        vec3 pos = character->transform.translation;
+        bool repeat;
+        do {
+            repeat = false;
+            vec3 tri_verts[3];
+            for(int i=0; i<3; ++i){
+                tri_verts[i] = nav.verts[nav.indices[walker.tri*3+i]];
+            }
+            vec3 tri_normal = cross(tri_verts[2] - tri_verts[0], tri_verts[1] - tri_verts[0]);
+            for(int i=0; i<3; ++i){
+                vec3 plane_n = normalize(cross(tri_verts[(i+1)%3] - tri_verts[(i+2)%3], tri_normal));
+                float plane_d = dot(tri_verts[(i+1)%3], plane_n);
+                float char_d = dot(pos, plane_n);
+                if(char_d > plane_d){
+                    int neighbor = nav.tri_neighbors[walker.tri*3+(i+1)%3];
+                    if(neighbor != -1){
+                        // Go to neighboring triangle if possible
+                        walker.tri = neighbor/3;
+                        repeat = true;
+                        break;
+                    } else {
+                        // Otherwise slide along wall
+                        pos -= plane_n * (char_d - plane_d);
+                        float char_vel_d = dot(character->velocity, plane_n);
+                        if(char_vel_d > 0.0f){
+                            character->velocity -= plane_n * (char_vel_d);
+                        }
+                    }
+                }
+            }
+        } while(repeat);
+
+        character->transform.translation = pos;
+    }
+
+    float walk_anim_speed = 30.0f;
+    character->walk_cycle_frame += length(character->velocity) * walk_anim_speed * time_step;
+    // TODO: this could be done much more elegantly using modf or similar
+    while((int)character->walk_cycle_frame > Character::kWalkCycleEnd){
+        character->walk_cycle_frame -=
+            (float)(Character::kWalkCycleEnd - Character::kWalkCycleStart);
+    }
+    while((int)character->walk_cycle_frame < Character::kWalkCycleStart){
+        character->walk_cycle_frame +=
+            (float)(Character::kWalkCycleEnd - Character::kWalkCycleStart);
+    }
+
+    target_dir = character->velocity;
+
+    static float char_rotation = 0.0f;
+    static const float turn_speed = 10.0f;
+    if(length(target_dir) > 0.0f){
+        if(length(target_dir) > 1.0f){
+            target_dir = normalize(target_dir);
+        }
+        float target_rotation = -atan2f(target_dir[2], target_dir[0])+half_pi<float>();
+
+        float rel_rotation = target_rotation - char_rotation;
+        // TODO: Do this in a better way, maybe using modf
+        while(rel_rotation > pi<float>()){
+            rel_rotation -= two_pi<float>();
+        }
+        while(rel_rotation < -pi<float>()){
+            rel_rotation += two_pi<float>();
+        }
+        if(fabsf(rel_rotation) < turn_speed * time_step){
+            char_rotation += rel_rotation;
+        } else {
+            char_rotation += (rel_rotation>0.0f?1.0f:-1.0f) * turn_speed * time_step;
+        }
+        character->transform.rotation = angleAxis(char_rotation, vec3(0,1,0)); 
+    }
+}
+
+void GameState::Update(const vec2& mouse_rel, float time_step) {
     float cam_speed = 10.0f;
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     if (state[SDL_SCANCODE_SPACE]) {
@@ -604,97 +699,10 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
         if(length(target_dir) > 1.0f){
             target_dir = normalize(target_dir);
         }
-        vec3 target_vel = target_dir * char_speed;
-        if(time_step != 0.0f){
-            vec3 rel_vel = target_vel - character.velocity;
-            rel_vel /= (char_accel * time_step);
-            if(length(rel_vel) > 1.0f){
-                rel_vel = normalize(rel_vel);
-            }
-            rel_vel *= (char_accel * time_step);
-            character.velocity += rel_vel;
-        }
-        character.transform.translation += 
-            character.velocity * char_speed * time_step;
 
-        {
-            NavMeshWalker& walker = character.nav_mesh_walker;
-            NavMesh& nav = nav_mesh;
-            vec3 old_translation = character.transform.translation;
-            vec3 pos = character.transform.translation;
-            bool repeat;
-            do {
-                repeat = false;
-                vec3 tri_verts[3];
-                for(int i=0; i<3; ++i){
-                    tri_verts[i] = nav.verts[nav.indices[walker.tri*3+i]];
-                }
-                vec3 tri_normal = cross(tri_verts[2] - tri_verts[0], tri_verts[1] - tri_verts[0]);
-                for(int i=0; i<3; ++i){
-                    vec3 plane_n = normalize(cross(tri_verts[(i+1)%3] - tri_verts[(i+2)%3], tri_normal));
-                    float plane_d = dot(tri_verts[(i+1)%3], plane_n);
-                    float char_d = dot(pos, plane_n);
-                    if(char_d > plane_d){
-                        int neighbor = nav.tri_neighbors[walker.tri*3+(i+1)%3];
-                        if(neighbor != -1){
-                            // Go to neighboring triangle if possible
-                            walker.tri = neighbor/3;
-                            repeat = true;
-                            break;
-                        } else {
-                            // Otherwise slide along wall
-                            pos -= plane_n * (char_d - plane_d);
-                            float char_vel_d = dot(character.velocity, plane_n);
-                            if(char_vel_d > 0.0f){
-                                character.velocity -= plane_n * (char_vel_d);
-                            }
-                        }
-                    }
-                }
-            } while(repeat);
-            
-            character.transform.translation = pos;
-        }
+        UpdateCharacter(&characters[0], target_dir, time_step, nav_mesh);
 
-        float walk_anim_speed = 30.0f;
-        character.walk_cycle_frame += length(character.velocity) * walk_anim_speed * time_step;
-        // TODO: this could be done much more elegantly using modf or similar
-        while((int)character.walk_cycle_frame > Character::kWalkCycleEnd){
-            character.walk_cycle_frame -=
-                (float)(Character::kWalkCycleEnd - Character::kWalkCycleStart);
-        }
-        while((int)character.walk_cycle_frame < Character::kWalkCycleStart){
-            character.walk_cycle_frame +=
-                (float)(Character::kWalkCycleEnd - Character::kWalkCycleStart);
-        }
-
-        target_dir = character.velocity;
-
-        static float char_rotation = 0.0f;
-        static const float turn_speed = 10.0f;
-        if(length(target_dir) > 0.0f){
-            if(length(target_dir) > 1.0f){
-                target_dir = normalize(target_dir);
-            }
-            float target_rotation = -atan2f(target_dir[2], target_dir[0])+half_pi<float>();
-
-            float rel_rotation = target_rotation - char_rotation;
-            // TODO: Do this in a better way, maybe using modf
-            while(rel_rotation > pi<float>()){
-                rel_rotation -= two_pi<float>();
-            }
-            while(rel_rotation < -pi<float>()){
-                rel_rotation += two_pi<float>();
-            }
-            if(fabsf(rel_rotation) < turn_speed * time_step){
-                char_rotation += rel_rotation;
-            } else {
-                char_rotation += (rel_rotation>0.0f?1.0f:-1.0f) * turn_speed * time_step;
-            }
-            character.transform.rotation = angleAxis(char_rotation, vec3(0,1,0)); 
-        }
-
-        camera.position = character.transform.translation +
+        camera.position = characters[0].transform.translation +
             camera.GetRotation() * vec3(0,0,1) * 10.0f;
         camera_fov = 0.8f;
     }
@@ -810,11 +818,11 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
     mat4 view_mat = inverse(camera.GetMatrix());
 
     drawables[char_drawable].transform = 
-        character.transform.GetCombination();
+        characters[0].transform.GetCombination();
 
-    ParseMesh* parse_mesh = character.parse_mesh;
+    ParseMesh* parse_mesh = characters[0].parse_mesh;
     int animation = 1;//1;
-    int frame = (int)character.walk_cycle_frame;
+    int frame = (int)characters[0].walk_cycle_frame;
     int start_anim_transform = parse_mesh->animations[animation].anim_transform_start +
                                parse_mesh->num_bones * frame;
     for(int bone_index=0; bone_index<parse_mesh->num_bones; ++bone_index){
@@ -826,14 +834,14 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
             lines.Add(vec3(temp*vec4(0,size,0,1.0f)), vec3(temp*vec4(0,-size,0,1.0f)), vec4(1.0f), kDraw, 1);
             lines.Add(vec3(temp*vec4(size,0,0,1.0f)), vec3(temp*vec4(-size,0,0,1.0f)), vec4(1.0f), kDraw, 1);
         }
-        character.local_bone_transforms[bone_index] = temp * 
+        characters[0].local_bone_transforms[bone_index] = temp * 
             inverse(parse_mesh->rest_mats[bone_index]);
     }
     
     for(int i=0; i<128; ++i){
-        character.display_bone_transforms[i] = 
+        characters[0].display_bone_transforms[i] = 
             drawables[char_drawable].transform * 
-            character.local_bone_transforms[i];
+            characters[0].local_bone_transforms[i];
     }
 
     for(int i=0; i<num_drawables; ++i){
@@ -856,6 +864,6 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
 }
 
 void GameState::Dispose() {
-    character.parse_mesh->Dispose();
-    free(character.parse_mesh);
+    characters[0].parse_mesh->Dispose();
+    free(characters[0].parse_mesh);
 }

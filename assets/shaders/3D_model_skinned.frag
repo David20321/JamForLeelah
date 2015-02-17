@@ -18,7 +18,7 @@ vec4 ApplyLighting(vec4 color, vec3 normal) {
 
 void main() { 
    outputColor = texture(texture_id, var_uv);
-   outputColor = ApplyFog(outputColor); 
    outputColor = ApplyLighting(outputColor, var_normal); 
+   outputColor = ApplyFog(outputColor); 
    //outputColor.xyz = var_normal * 0.5 + vec3(0.5); 
 }

@@ -60,12 +60,13 @@ struct Drawable {
 class GameState {
 public:
     static const int kMaxDrawables = 1000;
+    static const int kMaxCharacters = 100;
     Drawable drawables[kMaxDrawables];
     int num_drawables;
     DebugDrawLines lines;
     DebugText debug_text;
     float camera_fov;
-    Character character;
+    Character characters[kMaxCharacters];
     Camera camera;
     int char_drawable;
     bool editor_mode;

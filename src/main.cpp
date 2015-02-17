@@ -12,13 +12,19 @@
 #include <cstring>
 #include <cstdio>
 #include <sys/stat.h>
+#include <new>
 
 static void RunGame(Profiler* profiler, FileLoadThreadData* file_load_thread_data, 
                     StackAllocator* stack_allocator, GraphicsContext* graphics_context,
                     AudioContext* audio_context) 
 {
-    GameState game_state;
-    game_state.Init(profiler, file_load_thread_data, stack_allocator);
+    GameState* game_state;
+    game_state = new((GameState*)stack_allocator->Alloc(sizeof(game_state))) GameState();
+    if(!game_state){
+        FormattedError("Error", "Could not alloc memory for game state");
+        exit(1);
+    }
+    game_state->Init(profiler, file_load_thread_data, stack_allocator);
     int last_ticks = SDL_GetTicks();
     bool game_running = true;
     while(game_running){
@@ -39,11 +45,11 @@ static void RunGame(Profiler* profiler, FileLoadThreadData* file_load_thread_dat
         profiler->StartEvent("Update");
         float time_scale = 1.0f;// 0.1f;
         int ticks = SDL_GetTicks();
-        game_state.Update(mouse_rel, (ticks - last_ticks) / 1000.0f * time_scale);
+        game_state->Update(mouse_rel, (ticks - last_ticks) / 1000.0f * time_scale);
         last_ticks = ticks;
         profiler->EndEvent();
         profiler->StartEvent("Draw");
-        game_state.Draw(graphics_context, SDL_GetTicks());
+        game_state->Draw(graphics_context, SDL_GetTicks());
         profiler->EndEvent();
         profiler->StartEvent("Audio");
         UpdateAudio(audio_context);
@@ -53,7 +59,7 @@ static void RunGame(Profiler* profiler, FileLoadThreadData* file_load_thread_dat
         profiler->EndEvent();
         profiler->EndEvent();
     }    
-    game_state.Dispose();
+    game_state->Dispose();
 }
 
 int main(int argc, char* argv[]) {
