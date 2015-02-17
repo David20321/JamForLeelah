@@ -69,6 +69,16 @@ void DebugDrawLines::Draw(const glm::mat4& proj_view_mat) {
     }
 }
 
+int DebugDrawLines::AllocMemory(void* mem) {
+    int common_size = kMaxLines * sizeof(DebugDrawCommon);
+    int draw_data_size = kElementsPerPoint * kMaxLines * 2 * sizeof(float);
+    if(mem){
+        common = (DebugDrawCommon*)mem;
+        draw_data = (float*)(((intptr_t)mem) + common_size);
+    }
+    return common_size + draw_data_size;
+}
+
 static const int s_pos_x = 1 << 0, s_pos_y = 1 << 1, s_pos_z = 1 << 2;
 static const int e_pos_x = 1 << 3, e_pos_y = 1 << 4, e_pos_z = 1 << 5;
 

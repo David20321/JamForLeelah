@@ -58,7 +58,8 @@ const char* asset_list[] = {
     ASSET_PATH "shaders/3D_model",
     ASSET_PATH "shaders/3D_model_skinned",
     ASSET_PATH "shaders/debug_draw",
-    ASSET_PATH "shaders/debug_draw_text"
+    ASSET_PATH "shaders/debug_draw_text",
+    ASSET_PATH "shaders/nav_mesh"
 };
 
 enum {
@@ -90,7 +91,8 @@ enum {
     kShader3DModel,
     kShader3DModelSkinned,
     kShaderDebugDraw,
-    kShaderDebugDrawText
+    kShaderDebugDrawText,
+    kShaderNavMesh
 };
 
 using namespace glm;
@@ -130,6 +132,36 @@ glm::mat4 Camera::GetMatrix() {
     return temp.GetCombination();
 }
 
+class NavMesh {
+public:
+    static const int kMaxNavMeshVerts = 10000;
+    static const int kMaxNavMeshTris = 10000;
+    int num_verts;
+    vec3 verts[kMaxNavMeshVerts];
+    int num_indices;
+    Uint32 indices[kMaxNavMeshTris*3];
+    int vert_vbo;
+    int index_vbo;
+    int shader;
+
+    void Draw(const mat4& proj_view_mat);
+};
+
+void NavMesh::Draw(const mat4& proj_view_mat) {
+    glBindBuffer(GL_ARRAY_BUFFER, vert_vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_vbo);
+    glUseProgram(shader);
+    GLuint modelview_matrix_uniform = glGetUniformLocation(shader, "mv_mat");
+    glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
+    glDrawElements(GL_TRIANGLES, num_indices, GL_UNSIGNED_INT, 0);
+    glDisableVertexAttribArray(0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glUseProgram(0);
+}
+
 struct GameState {
     static const int kMaxDrawables = 1000;
     Drawable drawables[kMaxDrawables];
@@ -142,11 +174,12 @@ struct GameState {
     int char_drawable;
     bool editor_mode;
     TextAtlas text_atlas;
+    NavMesh nav_mesh;
 
     static const int kMapSize = 30;
     int tile_height[kMapSize * kMapSize];
 
-    void Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data);
+    void Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackMemoryBlock* stack_allocator);
 };
 
 void StartLoadFile(const char* path, FileLoadThreadData* file_load_data) {
@@ -326,7 +359,17 @@ void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset,
     drawable->transform = sep_transform.GetCombination();
 }
 
-void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data) {
+void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackMemoryBlock* stack_allocator) {
+    { // Allocate memory for debug lines
+        int mem_needed = lines.AllocMemory(NULL);
+        void* mem = stack_allocator->Alloc(mem_needed);
+        if(!mem) {
+            FormattedError("Error", "Could not allocate memory for DebugLines (%d bytes)", mem_needed);
+        } else {
+            lines.AllocMemory(mem);
+        }
+    }
+
     MeshAsset fbx_lamp, fbx_floor, fbx_fountain, fbx_flowerbox, 
               fbx_garden_tall_corner, fbx_garden_tall_nook, fbx_garden_tall_stairs,
               fbx_garden_tall_wall, fbx_short_wall, fbx_wall_pillar, fbx_tree;
@@ -391,6 +434,8 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         CreateProgramFromFile(file_load_thread_data, asset_list[kShaderDebugDraw]);
     int shader_debug_draw_text = 
         CreateProgramFromFile(file_load_thread_data, asset_list[kShaderDebugDrawText]);
+    int shader_nav_mesh = 
+        CreateProgramFromFile(file_load_thread_data, asset_list[kShaderNavMesh]);
     profiler->EndEvent();
 
     camera.position = vec3(0.0f,0.0f,20.0f);
@@ -465,6 +510,8 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         shader_3d_model, vec3(16,0,0));
     FillStaticDrawable(&drawables[num_drawables++], fbx_wall_pillar, tex_wall_pillar,
         shader_3d_model, vec3(18,0,0));*/
+    nav_mesh.num_verts = 0;
+    nav_mesh.num_indices = 0;
 
     for(int z=0; z<kMapSize; ++z){
         for(int x=0; x<kMapSize; ++x){
@@ -545,12 +592,32 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
             } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x+1)]){
                 FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
                     shader_3d_model, translation);
-            } 
-            
+            } // Basic floor
             else {
                 FillStaticDrawable(&drawables[num_drawables++], fbx_floor, tex_floor,
                     shader_3d_model, translation);
+                nav_mesh.verts[nav_mesh.num_verts++] = translation;
+                nav_mesh.verts[nav_mesh.num_verts++] = translation + vec3(-2,0,0);
+                nav_mesh.verts[nav_mesh.num_verts++] = translation + vec3(-2,0,2);
+                nav_mesh.verts[nav_mesh.num_verts++] = translation + vec3(0,0,2);
+                nav_mesh.indices[nav_mesh.num_indices++] = nav_mesh.num_verts-4;
+                nav_mesh.indices[nav_mesh.num_indices++] = nav_mesh.num_verts-3;
+                nav_mesh.indices[nav_mesh.num_indices++] = nav_mesh.num_verts-2;
+                nav_mesh.indices[nav_mesh.num_indices++] = nav_mesh.num_verts-4;
+                nav_mesh.indices[nav_mesh.num_indices++] = nav_mesh.num_verts-2;
+                nav_mesh.indices[nav_mesh.num_indices++] = nav_mesh.num_verts-1;
             }
+        }
+    }
+
+    nav_mesh.vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, nav_mesh.verts, nav_mesh.num_verts*sizeof(vec3));
+    nav_mesh.index_vbo = CreateVBO(kElementVBO, kStaticVBO, nav_mesh.indices, nav_mesh.num_indices*sizeof(Uint32));
+    nav_mesh.shader = shader_nav_mesh;
+    for(int i=0; i<nav_mesh.num_indices; i+=3){
+        for(int j=0; j<3; ++j){
+            lines.Add(nav_mesh.verts[nav_mesh.indices[i+j]] + vec3(0,0.1,0), 
+                      nav_mesh.verts[nav_mesh.indices[i+(j+1)%3]] + vec3(0,0.1,0),
+                      vec4(1), kPersistent, 1);        
         }
     }
 }
@@ -809,6 +876,7 @@ void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
     if(draw_coordinate_grid){
         DrawCoordinateGrid(game_state);
     }
+    game_state->nav_mesh.Draw(proj_view_mat);
     CHECK_GL_ERROR();
     game_state->lines.Draw(proj_view_mat);
     CHECK_GL_ERROR();
@@ -886,7 +954,7 @@ int main(int argc, char* argv[]) {
     InitAudio(&audio_context, &stack_memory_block);
 
     GameState game_state;
-    game_state.Init(&profiler, &file_load_thread_data);
+    game_state.Init(&profiler, &file_load_thread_data, &stack_memory_block);
 
     int last_ticks = SDL_GetTicks();
     bool game_running = true;

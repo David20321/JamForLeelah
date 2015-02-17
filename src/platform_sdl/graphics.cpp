@@ -81,7 +81,7 @@ int CreateShader(int type, const char *src) {
     return program;
 }
 
- int CreateVBO(VBO_Type type, VBO_Hint hint, void* data, int num_data_elements) {
+ int CreateVBO(VBO_Type type, VBO_Hint hint, void* data, int data_size_bytes) {
      int type_val;
      switch(type){
      case kArrayVBO: type_val = GL_ARRAY_BUFFER; break;
@@ -102,8 +102,8 @@ int CreateShader(int type, const char *src) {
      GLuint u_vbo;
      glGenBuffers(1, &u_vbo);
      glBindBuffer(type_val, u_vbo);
-     if(num_data_elements > 0){
-         glBufferData(type_val, num_data_elements, data, hint_val);
+     if(data_size_bytes > 0){
+         glBufferData(type_val, data_size_bytes, data, hint_val);
      }
      glBindBuffer(type_val, 0);
      return (int)u_vbo;
