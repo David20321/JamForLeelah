@@ -814,28 +814,46 @@ void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
         game_state->character.transform.translation += 
             game_state->character.velocity * char_speed * time_step;
 
-        vec3 bary_pos = 
-            game_state->character.nav_mesh_walker.GetBaryPos(
-                &game_state->nav_mesh,
-                game_state->character.transform.translation);
-        
-        for(int i=0; i<3; ++i){
-            bary_pos[i] = min(1.0f, max(0.0f, bary_pos[i])); 
-        }
-        float total_bary = 0.0f;
-        for(int i=0; i<3; ++i){
-            total_bary += bary_pos[i];
-        }
-        if(total_bary > 0.0f){
-            for(int i=0; i<3; ++i){
-                bary_pos[i] /= total_bary; 
+        {
+            Character& character = game_state->character;
+            NavMeshWalker& walker = game_state->character.nav_mesh_walker;
+            NavMesh& nav = game_state->nav_mesh;
+            vec3 old_translation = character.transform.translation;
+            vec3 bary_pos;
+            bool repeat;
+            do {
+                repeat = false;
+                bary_pos = walker.GetBaryPos(&nav, character.transform.translation);
+                for(int i=0; i<3; ++i){
+                    if(bary_pos[i] < 0.0f){
+                        int neighbor = nav.tri_neighbors[walker.tri*3+(i+1)%3];
+                        if(neighbor != -1){
+                            // Go to neighboring triangle if possible
+                            walker.tri = neighbor/3;
+                            repeat = true;
+                            break;
+                        } else {
+                            // Otherwise slide along wall
+                            bary_pos[i] = 0.0f; 
+                        }
+                    }
+                }
+            } while(repeat);
+            
+            { // Renormalize barycentric coord
+                float total_bary = 0.0f;
+                for(int i=0; i<3; ++i){
+                    total_bary += bary_pos[i];
+                }
+                if(total_bary > 0.0f){
+                    for(int i=0; i<3; ++i){
+                        bary_pos[i] /= total_bary; 
+                    }
+                }
             }
+            walker.bary_pos = bary_pos;
+            character.transform.translation = walker.GetWorldPos(&nav);
         }
-
-        game_state->character.nav_mesh_walker.bary_pos = bary_pos;
-
-        game_state->character.transform.translation = 
-            game_state->character.nav_mesh_walker.GetWorldPos(&game_state->nav_mesh);
 
         float walk_anim_speed = 30.0f;
         game_state->character.walk_cycle_frame += length(game_state->character.velocity) * walk_anim_speed * time_step;
