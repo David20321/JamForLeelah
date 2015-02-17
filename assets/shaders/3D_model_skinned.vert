@@ -1,6 +1,7 @@
 #version 330 
 
 uniform mat4 mv_mat; 
+uniform mat4 proj_mat; 
 uniform mat4 bone_matrices[128];
 uniform mat3 norm_mat; 
 layout(location = 0) in vec3 position;
@@ -10,6 +11,7 @@ layout(location = 3) in vec4 indices;
 layout(location = 4) in vec4 weights; 
 out vec2 var_uv; 
 out vec3 var_normal; 
+out vec3 var_view_pos; 
 
 void main() { 
 	mat4 skinned_mat = mat4(0.0);
@@ -19,8 +21,9 @@ void main() {
 			skinned_mat += bone_matrices[index] * weights[i];
 		}
 	}
-	gl_Position = mv_mat * skinned_mat * vec4(position, 1.0);
+	gl_Position = proj_mat * mv_mat * skinned_mat * vec4(position, 1.0);
 	var_uv = uv;
 	var_uv.y *= -1.0;
 	var_normal = normalize(mat3(skinned_mat) * normal);
+	var_view_pos = vec3(mv_mat * skinned_mat * vec4(position, 1.0));
 }

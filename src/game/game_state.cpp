@@ -83,6 +83,8 @@ enum {
     kShaderNavMesh
 };
 
+static const bool kDrawNavMesh = false;
+
 quat Camera::GetRotation() {
     quat xRot = angleAxis(rotation_x, vec3(1,0,0));
     quat yRot = angleAxis(rotation_y, vec3(0,1,0));
@@ -401,11 +403,14 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         profiler->EndEvent();
     }
 
+    // Initialize tile map
     for(int z=0; z<kMapSize; ++z){
         for(int j=0; j<kMapSize; ++j){
-            tile_height[z*kMapSize+j] = (rand()%20)==0;
+            tile_height[z*kMapSize+j] = 0;
         }
     }
+    character.transform.translation = vec3(kMapSize,0,kMapSize);
+
     /*
     FillStaticDrawable(&drawables[num_drawables++], fbx_lamp, tex_lamp,
         shader_3d_model, vec3(0,0,2));
@@ -530,11 +535,13 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
     nav_mesh.vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, nav_mesh.verts, nav_mesh.num_verts*sizeof(vec3));
     nav_mesh.index_vbo = CreateVBO(kElementVBO, kStaticVBO, nav_mesh.indices, nav_mesh.num_indices*sizeof(Uint32));
     nav_mesh.shader = shader_nav_mesh;
-    for(int i=0; i<nav_mesh.num_indices; i+=3){
-        for(int j=0; j<3; ++j){
-            lines.Add(nav_mesh.verts[nav_mesh.indices[i+j]] + vec3(0,0.1,0), 
-                      nav_mesh.verts[nav_mesh.indices[i+(j+1)%3]] + vec3(0,0.1,0),
-                      vec4(1), kPersistent, 1);        
+    if(kDrawNavMesh) {
+        for(int i=0; i<nav_mesh.num_indices; i+=3){
+            for(int j=0; j<3; ++j){
+                lines.Add(nav_mesh.verts[nav_mesh.indices[i+j]] + vec3(0,0.1,0), 
+                          nav_mesh.verts[nav_mesh.indices[i+(j+1)%3]] + vec3(0,0.1,0),
+                          vec4(1), kPersistent, 1);        
+            }
         }
     }
     nav_mesh.CalcNeighbors(stack_allocator);
@@ -715,14 +722,15 @@ void DrawCoordinateGrid(GameState* game_state){
                           y_axis_color, kDraw, 1);
 }
 
-void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
+void DrawDrawable(const mat4 &proj_mat, const mat4 &view_mat, Drawable* drawable) {
     glUseProgram(drawable->shader_id);
 
     GLuint modelview_matrix_uniform = glGetUniformLocation(drawable->shader_id, "mv_mat");
+    GLuint projection_matrix_uniform = glGetUniformLocation(drawable->shader_id, "proj_mat");
     GLuint normal_matrix_uniform = glGetUniformLocation(drawable->shader_id, "norm_mat");
 
     mat4 model_mat = drawable->transform;
-    mat4 mat = proj_view_mat * model_mat;
+    mat4 modelview_mat = view_mat * model_mat;
     mat3 normal_mat = mat3(model_mat);
     glUniformMatrix3fv(normal_matrix_uniform, 1, false, (GLfloat*)&normal_mat);
 
@@ -735,7 +743,8 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
     glBindBuffer(GL_ARRAY_BUFFER, drawable->vert_vbo);
     switch(drawable->vbo_layout){
     case kSimple_4V:
-        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
+        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&modelview_mat);
+        glUniformMatrix4fv(projection_matrix_uniform, 1, false, (GLfloat*)&proj_mat);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
@@ -744,7 +753,8 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
         glDisableVertexAttribArray(0);
         break;
     case kInterleave_3V2T3N:
-        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
+        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&modelview_mat);
+        glUniformMatrix4fv(projection_matrix_uniform, 1, false, (GLfloat*)&proj_mat);
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
         glEnableVertexAttribArray(2);
@@ -759,7 +769,8 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
         glDisableVertexAttribArray(0);
         break;
     case kInterleave_3V2T3N4I4W: {
-        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
+        glUniformMatrix4fv(projection_matrix_uniform, 1, false, (GLfloat*)&proj_mat);
+        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&view_mat);
         GLuint bone_transforms_uniform = glGetUniformLocation(drawable->shader_id, "bone_matrices");
         glUniformMatrix4fv(bone_transforms_uniform, 128, false, (GLfloat*)drawable->bone_transforms);
         glEnableVertexAttribArray(0);
@@ -797,7 +808,6 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
     float aspect_ratio = context->screen_dims[0] / (float)context->screen_dims[1];
     mat4 proj_mat = glm::perspective(camera_fov, aspect_ratio, 0.1f, 100.0f);
     mat4 view_mat = inverse(camera.GetMatrix());
-    mat4 proj_view_mat = proj_mat * view_mat;
 
     drawables[char_drawable].transform = 
         character.transform.GetCombination();
@@ -828,16 +838,18 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
 
     for(int i=0; i<num_drawables; ++i){
         Drawable* drawable = &drawables[i];
-        DrawDrawable(proj_view_mat, drawable);
+        DrawDrawable(proj_mat, view_mat, drawable);
     }
 
     static const bool draw_coordinate_grid = false;
     if(draw_coordinate_grid){
         DrawCoordinateGrid(this);
     }
-    nav_mesh.Draw(proj_view_mat);
-    CHECK_GL_ERROR();
-    lines.Draw(proj_view_mat);
+    if(kDrawNavMesh){
+        nav_mesh.Draw(proj_mat * view_mat);
+        CHECK_GL_ERROR();
+    }
+    lines.Draw(proj_mat * view_mat);
     CHECK_GL_ERROR();
     debug_text.Draw(context, ticks/1000.0f);
     CHECK_GL_ERROR();
