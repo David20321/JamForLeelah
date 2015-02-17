@@ -629,7 +629,7 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
                     SDL_Log("Skeleton anim_stack: %s is %f seconds long", 
                         anim_stack->GetName(), (float)seconds);
                     Animation* animation = &skeleton->animations[stack_index];
-                    animation->num_frames = (int)ceilf(seconds*24.0f);
+                    animation->num_frames = (int)ceilf((float)seconds*24.0f);
                     int transform_memory_size = sizeof(float)*16*skeleton->num_bones*animation->num_frames;
                     animation->transforms = (float*)malloc(transform_memory_size);
                     fbx_scene->SetCurrentAnimationStack(anim_stack);
@@ -643,7 +643,7 @@ void ParseNode(FBXParseScene* scene, FbxNode* node, FBXParsePass pass, int depth
                             int index = (frame*skeleton->num_bones + bone) * 16;
                             FbxAMatrix transform = node_store[bone]->EvaluateGlobalTransform(time);
                             for(int i=0; i<16; ++i){
-                                animation->transforms[index++] = transform[i/4][i%4];
+                                animation->transforms[index++] = (float)transform[i/4][i%4];
                             }
                         }
                     }

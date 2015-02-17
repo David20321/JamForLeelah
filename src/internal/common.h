@@ -43,4 +43,7 @@ inline void VFormatString(char* buf, int buf_size, const char* fmt, va_list args
 
 void FormatString(char* buf, int buf_size, const char* fmt, ...);
 
+int djb2_hash(unsigned char* str);
+int djb2_hash_len(unsigned char* str, int len);
+
 #endif

@@ -3,6 +3,7 @@
 #include "glm/glm.hpp"
 #include "SDL.h"
 #include <cstring>
+#include "internal/common.h"
 
 using namespace glm;
 
@@ -79,26 +80,14 @@ public:
     int num_strings;
     char strings[kMaxStrings][kMaxStringLength];
 private:
-    Uint32 string_hash[kMaxStrings];
-    static Uint32 hash(unsigned char* str);
+    int string_hash[kMaxStrings];
 };
-
-//From http://www.cse.yorku.ca/~oz/hash.html
-//djb2 hash function
-Uint32 StringHashStore::hash(unsigned char* str) {
-    Uint32 hash_val = 5381;
-    int c;
-    while (c = *str++) {
-        hash_val = ((hash_val << 5) + hash_val) + c; /* hash * 33 + c */
-    }
-    return hash_val;
-}
 
 int StringHashStore::StringIndex(const char* str) {
     if(strlen(str) > kMaxStringLength){
         return kStringTooLong;
     }
-    Uint32 hash_val = hash((unsigned char*)str);
+    int hash_val = djb2_hash((unsigned char*)str);
     int index = -1;
     //TODO: This could be a binary search rather than linear if it becomes a bottleneck 
     for(int i=0; i<num_strings; ++i){

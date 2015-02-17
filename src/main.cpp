@@ -99,12 +99,160 @@ using namespace glm;
 
 class ParseMesh;
 
+class NavMesh {
+public:
+    static const int kMaxNavMeshVerts = 10000;
+    static const int kMaxNavMeshTris = 10000;
+    int num_verts;
+    vec3 verts[kMaxNavMeshVerts];
+    int num_indices;
+    Uint32 indices[kMaxNavMeshTris*3];
+    int vert_vbo;
+    int index_vbo;
+    int shader;
+    int tri_neighbors[kMaxNavMeshTris*3];
+
+    void CalcNeighbors(StackMemoryBlock* stack_allocator);
+    void Draw(const mat4& proj_view_mat);
+};
+
+class NavMeshWalker {
+public:
+    int tri;
+    vec3 bary_pos; //barycentric position
+    vec3 GetWorldPos(NavMesh* nav_mesh);
+    void ApplyWorldSpaceTranslation(NavMesh* nav_mesh, vec3 translation);
+    vec3 GetBaryPos(NavMesh* nav_mesh, vec3 pos);
+};
+
+glm::vec3 NavMeshWalker::GetWorldPos(NavMesh* nav_mesh) {
+    vec3 pos;
+    for(int i=0; i<3; ++i){
+        pos += nav_mesh->verts[nav_mesh->indices[tri*3+i]] * bary_pos[i];
+    }
+    return pos;
+}
+
+// Compute barycentric coordinates (u, v, w) for
+// point p with respect to triangle (a, b, c)
+// Transcribed from Christer Ericson's Real-Time Collision Detection
+// http://gamedev.stackexchange.com/a/23745
+void Barycentric(vec3 p, vec3 a, vec3 b, vec3 c, vec3* bary)
+{
+    vec3 v0 = b - a, v1 = c - a, v2 = p - a;
+    float d00 = dot(v0, v0);
+    float d01 = dot(v0, v1);
+    float d11 = dot(v1, v1);
+    float d20 = dot(v2, v0);
+    float d21 = dot(v2, v1);
+    float denom = d00 * d11 - d01 * d01;
+    (*bary)[1] = (d11 * d20 - d01 * d21) / denom;
+    (*bary)[2] = (d00 * d21 - d01 * d20) / denom;
+    (*bary)[0] = 1.0f - (*bary)[1] - (*bary)[2];
+}
+
+vec3 NavMeshWalker::GetBaryPos(NavMesh* nav_mesh, vec3 pos) {
+    vec3 bary;
+    Barycentric(pos, 
+                nav_mesh->verts[nav_mesh->indices[tri*3+0]],
+                nav_mesh->verts[nav_mesh->indices[tri*3+1]],
+                nav_mesh->verts[nav_mesh->indices[tri*3+2]],
+                &bary);
+    return bary;
+}
+
+void NavMesh::Draw(const mat4& proj_view_mat) {
+    glBindBuffer(GL_ARRAY_BUFFER, vert_vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_vbo);
+    glUseProgram(shader);
+    GLuint modelview_matrix_uniform = glGetUniformLocation(shader, "mv_mat");
+    glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
+    glDrawElements(GL_TRIANGLES, num_indices, GL_UNSIGNED_INT, 0);
+    glDisableVertexAttribArray(0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glUseProgram(0);
+}
+
+struct Vec3EdgeHash {
+    int hash;
+    int tri_index;
+    vec3 verts[2];
+};
+
+int Vec3EdgeHashSort(const void* a_ptr, const void* b_ptr){
+    const Vec3EdgeHash* a = (const Vec3EdgeHash*)a_ptr;
+    const Vec3EdgeHash* b = (const Vec3EdgeHash*)b_ptr;
+    if(a->hash < b->hash) {
+        return -1;
+    } else if(a->hash == b->hash){
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+void NavMesh::CalcNeighbors(StackMemoryBlock* stack_allocator) {
+    //TODO: just compare each vec3 value in turn instead of using hashes, no need to risk collisions if don't have to
+    static const int kMaxEdges = 10000;
+    int num_unique_edges = 0;
+    Vec3EdgeHash* unique_verts = (Vec3EdgeHash*)stack_allocator->Alloc(
+        sizeof(Vec3EdgeHash)*kMaxEdges);
+    if(!unique_verts){
+        FormattedError("Error", "Could not allocate memory for Navmesh::CalcNeighbors unique_verts");
+    }
+    for(int i=0; i<num_indices; i+=3){
+        for(int j=0; j<3; ++j){
+            tri_neighbors[i+j] = -1;
+            vec3 edge_verts[2] = {verts[indices[i+j]], verts[indices[i+(j+1)%3]]};
+            // Make sure that identical edges have verts in the same order
+            int vec3_hash[2];
+            for(int k=0; k<2; ++k){
+                vec3_hash[k] = djb2_hash_len((unsigned char*)&edge_verts[k], sizeof(vec3));
+            }
+            if(vec3_hash[0] > vec3_hash[1]){
+                vec3 temp = edge_verts[0];
+                edge_verts[0] = edge_verts[1];
+                edge_verts[1] = temp;
+            }
+            unique_verts[num_unique_edges].hash = djb2_hash_len((unsigned char*)edge_verts, sizeof(vec3)*2);
+            for(int k=0; k<2; ++k){
+                unique_verts[num_unique_edges].verts[k] = edge_verts[k];
+            }
+            unique_verts[num_unique_edges].hash = djb2_hash_len((unsigned char*)edge_verts, sizeof(vec3)*2);
+            unique_verts[num_unique_edges].tri_index = i+j;
+            ++num_unique_edges;
+            if(num_unique_edges >= kMaxEdges) {
+                FormattedError("Error", "Too many edges for CalcNeighbors");
+                exit(1);
+            }
+        }
+    }
+    qsort(unique_verts, num_unique_edges, sizeof(Vec3EdgeHash), Vec3EdgeHashSort);
+    for(int i=1; i<num_unique_edges; ++i){
+        if(unique_verts[i].hash == unique_verts[i-1].hash){
+            if(unique_verts[i].verts[0] != unique_verts[i].verts[0] ||
+                unique_verts[i].verts[1] != unique_verts[i].verts[1])
+            {
+                FormattedError("Error", "Hash collision in CalcNeighbors");
+                exit(1);
+            }
+            tri_neighbors[unique_verts[i].tri_index] = unique_verts[i-1].tri_index;
+            tri_neighbors[unique_verts[i-1].tri_index] = unique_verts[i].tri_index;
+        }
+    }
+    stack_allocator->Free();
+}
+
 struct Character {
     vec3 velocity;
     SeparableTransform transform;
     mat4 display_bone_transforms[128];
     mat4 bind_transforms[128];
     mat4 local_bone_transforms[128];
+    NavMeshWalker nav_mesh_walker;
     ParseMesh* parse_mesh;
     static const int kWalkCycleStart = 31;
     static const int kWalkCycleEnd = 58;
@@ -130,36 +278,6 @@ glm::mat4 Camera::GetMatrix() {
     temp.translation = position;
     temp.rotation = GetRotation();
     return temp.GetCombination();
-}
-
-class NavMesh {
-public:
-    static const int kMaxNavMeshVerts = 10000;
-    static const int kMaxNavMeshTris = 10000;
-    int num_verts;
-    vec3 verts[kMaxNavMeshVerts];
-    int num_indices;
-    Uint32 indices[kMaxNavMeshTris*3];
-    int vert_vbo;
-    int index_vbo;
-    int shader;
-
-    void Draw(const mat4& proj_view_mat);
-};
-
-void NavMesh::Draw(const mat4& proj_view_mat) {
-    glBindBuffer(GL_ARRAY_BUFFER, vert_vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_vbo);
-    glUseProgram(shader);
-    GLuint modelview_matrix_uniform = glGetUniformLocation(shader, "mv_mat");
-    glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
-    glDrawElements(GL_TRIANGLES, num_indices, GL_UNSIGNED_INT, 0);
-    glDisableVertexAttribArray(0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glUseProgram(0);
 }
 
 struct GameState {
@@ -459,6 +577,9 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
     int character_vert_vbo, character_index_vbo, num_character_indices;
     {
+        character.nav_mesh_walker.tri = 0;
+        character.nav_mesh_walker.bary_pos = vec3(1/3.0f);
+
         character.parse_mesh = (ParseMesh*)malloc(sizeof(ParseMesh));
         ParseTestFile(ASSET_PATH "art/main_character_rig_export.txt", character.parse_mesh);
         character_vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, character.parse_mesh->vert, character.parse_mesh->num_vert*sizeof(float)*16);
@@ -620,6 +741,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
                       vec4(1), kPersistent, 1);        
         }
     }
+    nav_mesh.CalcNeighbors(stack_allocator);
 }
 
 void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
@@ -691,6 +813,29 @@ void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
         }
         game_state->character.transform.translation += 
             game_state->character.velocity * char_speed * time_step;
+
+        vec3 bary_pos = 
+            game_state->character.nav_mesh_walker.GetBaryPos(
+                &game_state->nav_mesh,
+                game_state->character.transform.translation);
+        
+        for(int i=0; i<3; ++i){
+            bary_pos[i] = min(1.0f, max(0.0f, bary_pos[i])); 
+        }
+        float total_bary = 0.0f;
+        for(int i=0; i<3; ++i){
+            total_bary += bary_pos[i];
+        }
+        if(total_bary > 0.0f){
+            for(int i=0; i<3; ++i){
+                bary_pos[i] /= total_bary; 
+            }
+        }
+
+        game_state->character.nav_mesh_walker.bary_pos = bary_pos;
+
+        game_state->character.transform.translation = 
+            game_state->character.nav_mesh_walker.GetWorldPos(&game_state->nav_mesh);
 
         float walk_anim_speed = 30.0f;
         game_state->character.walk_cycle_frame += length(game_state->character.velocity) * walk_anim_speed * time_step;
