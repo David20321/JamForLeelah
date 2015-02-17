@@ -373,35 +373,45 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
     lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
 
-    int character_vert_vbo, character_index_vbo, num_character_indices;
+    num_character_assets = 0;
     {
-        characters[0].nav_mesh_walker.tri = 0;
-        characters[0].nav_mesh_walker.bary_pos = vec3(1/3.0f);
-
-        ParseMesh* parse_mesh = (ParseMesh*)malloc(sizeof(ParseMesh));
+        ParseMesh* parse_mesh = &character_assets[num_character_assets].parse_mesh;
         ParseTestFile(asset_list[kModelChar], parse_mesh);
-        character_vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, parse_mesh->vert, parse_mesh->num_vert*sizeof(float)*16);
-        character_index_vbo = CreateVBO(kElementVBO, kStaticVBO, parse_mesh->indices, parse_mesh->num_index*sizeof(Uint32));
-        num_character_indices = parse_mesh->num_index;
+        character_assets[num_character_assets].vert_vbo = 
+            CreateVBO(kArrayVBO, kStaticVBO, parse_mesh->vert, 
+                      parse_mesh->num_vert*sizeof(float)*16);
+        character_assets[num_character_assets].index_vbo = 
+            CreateVBO(kElementVBO, kStaticVBO, parse_mesh->indices, 
+                      parse_mesh->num_index*sizeof(Uint32));
         for(int bone_index=0; bone_index<parse_mesh->num_bones; ++bone_index){
-            characters[0].bind_transforms[bone_index] = parse_mesh->rest_mats[bone_index];
+            character_assets[num_character_assets].bind_transforms[bone_index] = 
+                parse_mesh->rest_mats[bone_index];
         }
-        characters[0].parse_mesh = parse_mesh;
+        ++num_character_assets;
+    }
+
+    num_characters = 0;
+    for(int i=0; i<kMaxCharacters; ++i){
+        characters[num_characters].nav_mesh_walker.tri = 0;
+        characters[num_characters].nav_mesh_walker.bary_pos = vec3(1/3.0f);
+        characters[num_characters].character_asset = &character_assets[0];
+        characters[num_characters].transform.translation = vec3(kMapSize-i/10,0,kMapSize-i%10);
+        characters[num_characters].walk_cycle_frame = rand()%100;
 
         char_drawable = num_drawables;
-        drawables[num_drawables].vert_vbo = character_vert_vbo;
-        drawables[num_drawables].index_vbo = character_index_vbo;
-        drawables[num_drawables].num_indices = num_character_indices;
+        drawables[num_drawables].vert_vbo = 
+            characters[num_characters].character_asset->vert_vbo;
+        drawables[num_drawables].index_vbo = 
+            characters[num_characters].character_asset->index_vbo;
+        drawables[num_drawables].num_indices = 
+            characters[num_characters].character_asset->parse_mesh.num_index;
         drawables[num_drawables].vbo_layout = kInterleave_3V2T3N4I4W;
         drawables[num_drawables].transform = mat4();
         drawables[num_drawables].texture_id = tex_char;
         drawables[num_drawables].shader_id = shader_3d_model_skinned;
-        drawables[num_drawables].bone_transforms = characters[0].display_bone_transforms;
+        drawables[num_drawables].character = &characters[num_characters];
         ++num_drawables;
-        profiler->EndEvent();
-
-        lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
-        profiler->EndEvent();
+        ++num_characters;
     }
 
     // Initialize tile map
@@ -410,8 +420,6 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
             tile_height[z*kMapSize+j] = 0;
         }
     }
-    characters[0].transform.translation = vec3(kMapSize,0,kMapSize);
-    characters[0].walk_cycle_frame = 0.0f;
 
     /*
     FillStaticDrawable(&drawables[num_drawables++], fbx_lamp, tex_lamp,
@@ -700,7 +708,9 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
             target_dir = normalize(target_dir);
         }
 
-        UpdateCharacter(&characters[0], target_dir, time_step, nav_mesh);
+        for(int i=0; i<num_characters; ++i){
+            UpdateCharacter(&characters[i], target_dir, time_step, nav_mesh);
+        }
 
         camera.position = characters[0].transform.translation +
             camera.GetRotation() * vec3(0,0,1) * 10.0f;
@@ -777,10 +787,28 @@ void DrawDrawable(const mat4 &proj_mat, const mat4 &view_mat, Drawable* drawable
         glDisableVertexAttribArray(0);
         break;
     case kInterleave_3V2T3N4I4W: {
+        SDL_assert(drawable->character != NULL);
+        Character* character = drawable->character;
+        drawable->transform = character->transform.GetCombination();
+        ParseMesh* parse_mesh = &character->character_asset->parse_mesh;
+        int animation = 1;//1;
+        int frame = (int)character->walk_cycle_frame;
+        int start_anim_transform = 
+            parse_mesh->animations[animation].anim_transform_start +
+            parse_mesh->num_bones * frame;
+        mat4 bone_transforms[128];
+        for(int bone_index=0; bone_index<parse_mesh->num_bones; ++bone_index){
+            mat4 temp = parse_mesh->anim_transforms[start_anim_transform + bone_index];
+            bone_transforms[bone_index] = temp * 
+                inverse(parse_mesh->rest_mats[bone_index]);
+        }
+        for(int i=0; i<128; ++i){
+            bone_transforms[i] = drawable->transform * bone_transforms[i];
+        }
         glUniformMatrix4fv(projection_matrix_uniform, 1, false, (GLfloat*)&proj_mat);
         glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&view_mat);
         GLuint bone_transforms_uniform = glGetUniformLocation(drawable->shader_id, "bone_matrices");
-        glUniformMatrix4fv(bone_transforms_uniform, 128, false, (GLfloat*)drawable->bone_transforms);
+        glUniformMatrix4fv(bone_transforms_uniform, 128, false, (GLfloat*)bone_transforms);
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
         glEnableVertexAttribArray(2);
@@ -817,33 +845,6 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
     mat4 proj_mat = glm::perspective(camera_fov, aspect_ratio, 0.1f, 100.0f);
     mat4 view_mat = inverse(camera.GetMatrix());
 
-    drawables[char_drawable].transform = 
-        characters[0].transform.GetCombination();
-
-    ParseMesh* parse_mesh = characters[0].parse_mesh;
-    int animation = 1;//1;
-    int frame = (int)characters[0].walk_cycle_frame;
-    int start_anim_transform = parse_mesh->animations[animation].anim_transform_start +
-                               parse_mesh->num_bones * frame;
-    for(int bone_index=0; bone_index<parse_mesh->num_bones; ++bone_index){
-        mat4 temp = parse_mesh->anim_transforms[start_anim_transform + bone_index];
-        static const bool debug_draw_skeleton = false;
-        if(debug_draw_skeleton) {
-            static const float size = 0.03f;
-            lines.Add(vec3(temp*vec4(0,0,size,1.0f)), vec3(temp*vec4(0,0,-size,1.0f)), vec4(1.0f), kDraw, 1);
-            lines.Add(vec3(temp*vec4(0,size,0,1.0f)), vec3(temp*vec4(0,-size,0,1.0f)), vec4(1.0f), kDraw, 1);
-            lines.Add(vec3(temp*vec4(size,0,0,1.0f)), vec3(temp*vec4(-size,0,0,1.0f)), vec4(1.0f), kDraw, 1);
-        }
-        characters[0].local_bone_transforms[bone_index] = temp * 
-            inverse(parse_mesh->rest_mats[bone_index]);
-    }
-    
-    for(int i=0; i<128; ++i){
-        characters[0].display_bone_transforms[i] = 
-            drawables[char_drawable].transform * 
-            characters[0].local_bone_transforms[i];
-    }
-
     for(int i=0; i<num_drawables; ++i){
         Drawable* drawable = &drawables[i];
         DrawDrawable(proj_mat, view_mat, drawable);
@@ -861,9 +862,4 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
     CHECK_GL_ERROR();
     debug_text.Draw(context, ticks/1000.0f);
     CHECK_GL_ERROR();
-}
-
-void GameState::Dispose() {
-    characters[0].parse_mesh->Dispose();
-    free(characters[0].parse_mesh);
 }

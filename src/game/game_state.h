@@ -5,6 +5,7 @@
 #include "glm/glm.hpp"
 #include "game/nav_mesh.h"
 #include "internal/separable_transform.h"
+#include "platform_sdl/blender_file_io.h"
 #include "platform_sdl/debug_draw.h"
 #include "platform_sdl/debug_text.h"
 
@@ -19,17 +20,22 @@ struct GraphicsContext;
 class ParseMesh;
 class Profiler;
 
+struct CharacterAsset {
+    static const int kMaxBones = 128;
+    ParseMesh parse_mesh;
+    glm::mat4 bind_transforms[128];
+    int vert_vbo;
+    int index_vbo;
+};
+
 struct Character {
     glm::vec3 velocity;
     SeparableTransform transform;
-    glm::mat4 display_bone_transforms[128];
-    glm::mat4 bind_transforms[128];
-    glm::mat4 local_bone_transforms[128];
     NavMeshWalker nav_mesh_walker;
-    ParseMesh* parse_mesh;
     static const int kWalkCycleStart = 31;
     static const int kWalkCycleEnd = 58;
     float walk_cycle_frame;
+    CharacterAsset* character_asset;
 };
 
 struct Camera {
@@ -52,7 +58,7 @@ struct Drawable {
     int index_vbo;
     int num_indices;
     int shader_id;
-    void *bone_transforms;
+    Character* character;
     VBO_Setup vbo_layout;
     glm::mat4 transform;
 };
@@ -61,11 +67,15 @@ class GameState {
 public:
     static const int kMaxDrawables = 1000;
     static const int kMaxCharacters = 100;
+    static const int kMaxCharacterAssets = 4;
+    int num_character_assets;
+    CharacterAsset character_assets[kMaxCharacterAssets];
     Drawable drawables[kMaxDrawables];
     int num_drawables;
     DebugDrawLines lines;
     DebugText debug_text;
     float camera_fov;
+    int num_characters;
     Character characters[kMaxCharacters];
     Camera camera;
     int char_drawable;
@@ -79,7 +89,6 @@ public:
     void Update(const glm::vec2& mouse_rel, float time_step);
     void Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator);
     void Draw(GraphicsContext* context, int ticks);
-    void Dispose();
 };
 
 #endif

@@ -58,8 +58,7 @@ static void RunGame(Profiler* profiler, FileLoadThreadData* file_load_thread_dat
         SDL_GL_SwapWindow(graphics_context->window);
         profiler->EndEvent();
         profiler->EndEvent();
-    }    
-    game_state->Dispose();
+    }
 }
 
 int main(int argc, char* argv[]) {
