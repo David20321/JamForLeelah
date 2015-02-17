@@ -841,7 +841,7 @@ void ParseTestFileFromRam(const char* path, ParsePass pass, ParseMeshStraight* m
                         parse_state = kSkeletonBoneParent;
                         if(pass == kStore){
                             for(int el=0; el<16; ++el){
-                                mesh->bones[mesh->num_bones-1].rest_mat[el/4][el%4] = 
+                                mesh->bones[mesh->num_bones-1].rest_mat[el%4][el/4] = 
                                     coords[el];
                             }
                         }
@@ -934,7 +934,7 @@ void ParseTestFileFromRam(const char* path, ParsePass pass, ParseMeshStraight* m
                         parse_state = kActionFrameBone;
                         if(pass == kStore){
                             for(int el=0; el<16; ++el){
-                                mesh->frame_transforms[mesh->num_frame_transforms].mat[el/4][el%4] = 
+                                mesh->frame_transforms[mesh->num_frame_transforms].mat[el%4][el/4] = 
                                     coords[el];
                             }
                         }
@@ -1005,6 +1005,26 @@ int SortBonesByWeight(const void* a_ptr, const void* b_ptr) {
         return -1;
     }
 };
+
+mat4 BlenderMatToGame(const mat4 &blender_mat){
+    mat4 mat;
+    for(int row=0; row<4; ++row){
+        for(int column=0; column<4; ++column){
+            int src_column = column;
+            if(column == 2){
+                src_column = 1;
+            }
+            if(column == 1){
+                src_column = 2;
+            }
+            mat[row][column] = blender_mat[row][src_column];
+            if(column == 2){
+                mat[row][column] *= -1.0f;
+            }
+        }
+    }
+    return mat;
+}
 
 void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straight) {
     // Prepare structure for easy lookup of the bone ID of a hash string
@@ -1133,7 +1153,7 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
     mesh_final->rest_mats = (mat4*)malloc(sizeof(mat4)*mesh_straight->num_bones);
     mesh_final->bone_parents = (int*)malloc(sizeof(int)*mesh_straight->num_bones);
     for(int i=0; i<mesh_straight->num_bones; ++i){
-        mesh_final->rest_mats[i] = mesh_straight->bones[i].rest_mat;
+        mesh_final->rest_mats[i] = BlenderMatToGame(mesh_straight->bones[i].rest_mat);
         mesh_final->bone_parents[i] = bone_id_from_hash[mesh_straight->bones[i].parent_name_hash];
     }
 
@@ -1151,12 +1171,12 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
     for(int i=0; i<mesh_final->num_animations; ++i){
         mesh_final->animations[i].anim_transform_start = anim_transform_index;
         for(int j=0; j<mesh_final->animations[i].num_frames; ++j){
-            int frame_transform_index = mesh_straight->frames[mesh_straight->actions[i].frame_index].start_index;
+            int frame_transform_index = mesh_straight->frames[mesh_straight->actions[i].frame_index+j].start_index;
             for(int k=0; k<mesh_final->num_bones; ++k){
                 int bone_id = bone_id_from_hash[mesh_straight->frame_transforms[frame_transform_index].name_hash];
                 SDL_assert(bone_id >= 0 && bone_id < mesh_final->num_bones);
-                mat4 mat = mesh_straight->frame_transforms[frame_transform_index].mat;
-                mesh_final->anim_transforms[anim_transform_index+bone_id] = mat; 
+                mesh_final->anim_transforms[anim_transform_index+bone_id] = 
+                    BlenderMatToGame(mesh_straight->frame_transforms[frame_transform_index].mat);
                 ++frame_transform_index;
             }
             anim_transform_index += mesh_final->num_bones;
@@ -1267,7 +1287,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
     int character_vert_vbo, character_index_vbo, num_character_indices;
     {
         character.parse_mesh = (ParseMesh*)malloc(sizeof(ParseMesh));
-        ParseTestFile("C:\\Users\\David\\Desktop\\AnimTestExport.txt", character.parse_mesh);
+        ParseTestFile(ASSET_PATH "art/main_character_rig_export.txt", character.parse_mesh);
         character_vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, character.parse_mesh->vert, character.parse_mesh->num_vert*sizeof(float)*16);
         character_index_vbo = CreateVBO(kElementVBO, kStaticVBO, character.parse_mesh->indices, character.parse_mesh->num_index*sizeof(Uint32));
         num_character_indices = character.parse_mesh->num_index;
