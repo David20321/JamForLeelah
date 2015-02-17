@@ -29,23 +29,6 @@ enum VBO_Hint {
     kStreamVBO
 };
 
-enum VBO_Setup {
-    kSimple_4V, // 4 vert
-    kInterleave_3V2T3N, // 3 vert, 2 tex coord, 3 normal
-    kInterleave_3V2T3N4I4W // 3 vert, 2 tex coord, 3 normal, 4 bone index, 4 bone weight
-};
-
-struct Drawable {
-    int texture_id;
-    int vert_vbo;
-    int index_vbo;
-    int num_indices;
-    int shader_id;
-    void *bone_transforms;
-    VBO_Setup vbo_layout;
-    glm::mat4 transform;
-};
-
 int CreateVBO(VBO_Type type, VBO_Hint hint, void* data, int num_data_elements);
 
 void CheckGLError(const char *file, int line);

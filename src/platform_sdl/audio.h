@@ -4,7 +4,7 @@
 
 #include <SDL.h>
 
-class StackMemoryBlock;
+class StackAllocator;
 
 struct AudioContext {
     SDL_AudioDeviceID device_id;
@@ -16,6 +16,6 @@ struct AudioContext {
 };
 
 void UpdateAudio(AudioContext* audio_context);
-void InitAudio(AudioContext* context, StackMemoryBlock *stack_memory_block);
+void InitAudio(AudioContext* context, StackAllocator *stack_memory_block);
 
 #endif

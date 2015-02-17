@@ -53,7 +53,7 @@ void UpdateAudio(AudioContext* audio_context) {
     SDL_UnlockAudioDevice(audio_context->device_id);
 }
 
-void InitAudio(AudioContext* context, StackMemoryBlock *stack_memory_block) {
+void InitAudio(AudioContext* context, StackAllocator *stack_memory_block) {
     SDL_AudioSpec target_audio_spec;
     SDL_zero(target_audio_spec);
     target_audio_spec.freq = 48000;

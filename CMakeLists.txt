@@ -30,6 +30,7 @@ DIRS
     src
     src/fbx/**
     src/internal
+    src/game
     src/platform_sdl
 DEFINES
     $<$<BOOL:${WIN32}>:_CRT_SECURE_NO_WARNINGS>

@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-void* StackMemoryBlock::Alloc(int requested_size) {
+void* StackAllocator::Alloc(int requested_size) {
     if(stack_block_pts[stack_blocks] + requested_size < size && stack_blocks < kMaxBlocks-2){
         ++stack_blocks;
         stack_block_pts[stack_blocks] = stack_block_pts[stack_blocks-1] + requested_size;
@@ -13,7 +13,7 @@ void* StackMemoryBlock::Alloc(int requested_size) {
     }
 }
 
-void StackMemoryBlock::Free() {
+void StackAllocator::Free() {
     if(stack_blocks){
         --stack_blocks;
     } else {
@@ -22,7 +22,7 @@ void StackMemoryBlock::Free() {
     }
 }
 
-void StackMemoryBlock::Init(void* p_mem, int p_size) {
+void StackAllocator::Init(void* p_mem, int p_size) {
     stack_block_pts[0] = 0;
     mem = p_mem;
     size = p_size;

@@ -2,7 +2,7 @@
 #ifndef INTERNAL_MEMORY_HPP
 #define INTERNAL_MEMORY_HPP
 
-class StackMemoryBlock {
+class StackAllocator {
 public:
     void Init(void* mem, int size);
     void* Alloc(int size);
