@@ -1,0 +1,63 @@
+Wolfire JamForLeelah Format
+Version 1
+--BEGIN--
+Mesh
+  Vert 0
+    Coords: (-1.000000, -1.000000, -1.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 1
+    Coords: (-1.000000, 1.000000, -1.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 2
+    Coords: (-0.100000, 1.000000, -1.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 3
+    Coords: (-0.100000, -1.000000, -1.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 4
+    Coords: (0.629513, 1.000000, 1.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 5
+    Coords: (0.629513, -1.000000, 1.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 6
+    Coords: (1.000000, 1.000000, 1.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 7
+    Coords: (1.000000, -1.000000, 1.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 8
+    Coords: (-0.100000, 1.000000, -1.000000)
+    Normals: (-0.070528, 0.705344, -0.705344)
+    Vertex Groups:
+  Vert 9
+    Coords: (-0.100000, -1.000000, -1.000000)
+    Normals: (-0.070528, -0.705344, -0.705344)
+    Vertex Groups:
+  Polygon index: 0, length: 4
+    Vertex: 3
+    UV: (0.619099, 0.975118)
+    Vertex: 2
+    UV: (0.619099, 0.403562)
+    Vertex: 1
+    UV: (0.876299, 0.403562)
+    Vertex: 0
+    UV: (0.876299, 0.975118)
+  Polygon index: 1, length: 4
+    Vertex: 4
+    UV: (0.592954, 0.749625)
+    Vertex: 5
+    UV: (0.021398, 0.749625)
+    Vertex: 7
+    UV: (0.021398, 0.463847)
+    Vertex: 6
+    UV: (0.592954, 0.463847)
+--END--

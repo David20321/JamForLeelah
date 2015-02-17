@@ -1,0 +1,130 @@
+Wolfire JamForLeelah Format
+Version 1
+--BEGIN--
+Mesh
+  Vert 0
+    Coords: (-1.000000, -1.000000, -0.500000)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 1
+    Coords: (-1.000000, 1.000000, -0.500000)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 2
+    Coords: (1.000000, 1.000000, -0.500000)
+    Normals: (0.000000, 1.000000, 0.000000)
+    Vertex Groups:
+  Vert 3
+    Coords: (1.000000, -1.000000, -0.500000)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 4
+    Coords: (-1.000000, -1.000000, 0.000000)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 5
+    Coords: (-1.000000, 1.000000, 0.000000)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 6
+    Coords: (1.000000, 1.000000, 0.000000)
+    Normals: (0.000000, 1.000000, 0.000000)
+    Vertex Groups:
+  Vert 7
+    Coords: (1.000000, -1.000000, 0.000000)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 8
+    Coords: (-1.000000, -1.000000, -0.500000)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 9
+    Coords: (-1.000000, -1.000000, 0.000000)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 10
+    Coords: (-1.000000, -1.000000, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 11
+    Coords: (-1.000000, 1.000000, 0.000000)
+    Normals: (0.000000, 1.000000, 0.000000)
+    Vertex Groups:
+  Vert 12
+    Coords: (-1.000000, 1.000000, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 13
+    Coords: (-1.000000, 1.000000, -0.500000)
+    Normals: (0.000000, 1.000000, 0.000000)
+    Vertex Groups:
+  Vert 14
+    Coords: (1.000000, 1.000000, 0.000000)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 15
+    Coords: (1.000000, 1.000000, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 16
+    Coords: (1.000000, 1.000000, -0.500000)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 17
+    Coords: (1.000000, -1.000000, 0.000000)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 18
+    Coords: (1.000000, -1.000000, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 19
+    Coords: (1.000000, -1.000000, -0.500000)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Polygon index: 0, length: 4
+    Vertex: 4
+    UV: (0.811065, 0.811065)
+    Vertex: 5
+    UV: (0.811065, 0.188935)
+    Vertex: 1
+    UV: (0.966597, 0.188935)
+    Vertex: 0
+    UV: (0.966597, 0.811065)
+  Polygon index: 1, length: 4
+    Vertex: 11
+    UV: (0.811065, 0.188935)
+    Vertex: 6
+    UV: (0.188935, 0.188935)
+    Vertex: 2
+    UV: (0.188935, 0.033403)
+    Vertex: 13
+    UV: (0.811065, 0.033403)
+  Polygon index: 2, length: 4
+    Vertex: 14
+    UV: (0.188935, 0.188935)
+    Vertex: 7
+    UV: (0.188935, 0.811065)
+    Vertex: 3
+    UV: (0.033403, 0.811065)
+    Vertex: 16
+    UV: (0.033403, 0.188935)
+  Polygon index: 3, length: 4
+    Vertex: 17
+    UV: (0.188935, 0.811065)
+    Vertex: 9
+    UV: (0.811065, 0.811065)
+    Vertex: 8
+    UV: (0.811065, 0.966597)
+    Vertex: 19
+    UV: (0.188935, 0.966597)
+  Polygon index: 4, length: 4
+    Vertex: 18
+    UV: (0.188935, 0.811065)
+    Vertex: 15
+    UV: (0.188935, 0.188935)
+    Vertex: 12
+    UV: (0.811065, 0.188935)
+    Vertex: 10
+    UV: (0.811065, 0.811065)
+--END--

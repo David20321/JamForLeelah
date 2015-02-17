@@ -52,7 +52,7 @@ const char* asset_list[] = {
     ASSET_PATH "art/wall_pillar_c.tga",
     ASSET_PATH "art/floor_quad.fbx",
     ASSET_PATH "art/tiling_cobbles_c.tga",
-    ASSET_PATH "art/main_character_rig.fbx",
+    ASSET_PATH "art/main_character_rig_export.txt",
     ASSET_PATH "art/main_character_c.tga",
     ASSET_PATH "fonts/LiberationMono-Regular.ttf",
     ASSET_PATH "shaders/3D_model",
@@ -85,7 +85,7 @@ enum {
     kTexWallPillar,
     kFBXFloor,
     kTexFloor,
-    kFBXChar,
+    kModelChar,
     kTexChar,
     kFontDebug,
     kShader3DModel,
@@ -581,7 +581,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         character.nav_mesh_walker.bary_pos = vec3(1/3.0f);
 
         character.parse_mesh = (ParseMesh*)malloc(sizeof(ParseMesh));
-        ParseTestFile(ASSET_PATH "art/main_character_rig_export.txt", character.parse_mesh);
+        ParseTestFile(asset_list[kModelChar], character.parse_mesh);
         character_vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, character.parse_mesh->vert, character.parse_mesh->num_vert*sizeof(float)*16);
         character_index_vbo = CreateVBO(kElementVBO, kStaticVBO, character.parse_mesh->indices, character.parse_mesh->num_index*sizeof(Uint32));
         num_character_indices = character.parse_mesh->num_index;

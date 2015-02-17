@@ -1,0 +1,86 @@
+Wolfire JamForLeelah Format
+Version 1
+--BEGIN--
+Mesh
+  Vert 0
+    Coords: (-1.400000, -2.000000, -0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 1
+    Coords: (-2.000000, 0.900000, -0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 2
+    Coords: (-1.000000, 2.000000, 2.000000)
+    Normals: (-0.593738, 0.802759, -0.054689)
+    Vertex Groups:
+  Vert 3
+    Coords: (-2.000000, 1.999999, 2.000000)
+    Normals: (0.000000, 0.000000, -1.000000)
+    Vertex Groups:
+  Vert 4
+    Coords: (-2.000000, 1.636901, 2.000000)
+    Normals: (0.000000, 0.000000, -1.000000)
+    Vertex Groups:
+  Vert 5
+    Coords: (-2.000000, -2.000000, -0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 6
+    Coords: (1.400000, -2.000000, -0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 7
+    Coords: (2.000000, 0.900000, -0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 8
+    Coords: (1.000000, 2.000000, 2.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 9
+    Coords: (2.000000, 1.999999, 2.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 10
+    Coords: (2.000000, -2.000000, -0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 11
+    Coords: (-1.000000, 1.638883, 2.000000)
+    Normals: (0.000000, 0.000000, -1.000000)
+    Vertex Groups:
+  Vert 12
+    Coords: (-1.399999, 0.900000, -0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 13
+    Coords: (1.000000, -2.000000, -0.000000)
+    Normals: (0.000000, 0.465743, -0.884915)
+    Vertex Groups:
+  Vert 14
+    Coords: (2.000000, 1.649559, 2.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 15
+    Coords: (1.000000, 1.649560, 2.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 16
+    Coords: (1.400000, 0.900000, -0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 17
+    Coords: (-1.000000, -2.000000, -0.000000)
+    Normals: (0.000000, 0.465743, -0.884915)
+    Vertex Groups:
+  Vert 18
+    Coords: (-0.950001, 1.799998, 2.000003)
+    Normals: (-0.000031, 0.237739, 0.971313)
+    Vertex Groups:
+  Vert 19
+    Coords: (0.950000, 1.799998, 2.000003)
+    Normals: (0.000031, 0.239235, 0.970946)
+    Vertex Groups:
+  Polygon index: 0, length: 4
+    Vertex: 3

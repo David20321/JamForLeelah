@@ -1,0 +1,401 @@
+Wolfire JamForLeelah Format
+Version 1
+--BEGIN--
+Mesh
+  Vert 0
+    Coords: (-1.000000, -1.000000, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 1
+    Coords: (-1.000000, 1.000000, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 2
+    Coords: (1.000000, 1.000000, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 3
+    Coords: (1.000000, -1.000000, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 4
+    Coords: (0.000000, 0.981458, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 5
+    Coords: (0.191473, 0.962600, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 6
+    Coords: (0.375588, 0.906749, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 7
+    Coords: (0.545269, 0.816053, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 8
+    Coords: (0.693996, 0.693996, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 9
+    Coords: (0.816053, 0.545269, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 10
+    Coords: (0.906749, 0.375588, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 11
+    Coords: (0.962600, 0.191473, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 12
+    Coords: (0.981458, 0.000000, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 13
+    Coords: (0.962600, -0.191473, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 14
+    Coords: (0.906749, -0.375588, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 15
+    Coords: (0.816053, -0.545269, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 16
+    Coords: (0.693996, -0.693996, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 17
+    Coords: (0.545269, -0.816053, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 18
+    Coords: (0.375588, -0.906749, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 19
+    Coords: (0.191473, -0.962600, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 20
+    Coords: (-0.000000, -0.981458, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 21
+    Coords: (-0.191473, -0.962600, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 22
+    Coords: (-0.375588, -0.906749, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 23
+    Coords: (-0.545270, -0.816053, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 24
+    Coords: (-0.693996, -0.693995, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 25
+    Coords: (-0.816053, -0.545269, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 26
+    Coords: (-0.906750, -0.375587, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 27
+    Coords: (-0.962600, -0.191472, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 28
+    Coords: (-0.981458, 0.000001, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 29
+    Coords: (-0.962600, 0.191474, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 30
+    Coords: (-0.906749, 0.375589, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 31
+    Coords: (-0.816052, 0.545270, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 32
+    Coords: (-0.693995, 0.693997, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 33
+    Coords: (-0.545268, 0.816054, 0.000000)
+    Normals: (0.000000, 0.000000, 0.999969)
+    Vertex Groups:
+  Vert 34
+    Coords: (-0.375587, 0.906750, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Vert 35
+    Coords: (-0.191472, 0.962600, 0.000000)
+    Normals: (0.000000, 0.000000, 1.000000)
+    Vertex Groups:
+  Polygon index: 0, length: 3
+    Vertex: 32
+    UV: (0.000000, 0.000000)
+    Vertex: 33
+    UV: (0.000000, 0.000000)
+    Vertex: 1
+    UV: (0.000000, 0.000000)
+  Polygon index: 1, length: 3
+    Vertex: 8
+    UV: (0.000000, 0.000000)
+    Vertex: 9
+    UV: (0.000000, 0.000000)
+    Vertex: 2
+    UV: (0.000000, 0.000000)
+  Polygon index: 2, length: 3
+    Vertex: 16
+    UV: (0.000000, 0.000000)
+    Vertex: 17
+    UV: (0.000000, 0.000000)
+    Vertex: 3
+    UV: (0.000000, 0.000000)
+  Polygon index: 3, length: 3
+    Vertex: 24
+    UV: (0.000000, 0.000000)
+    Vertex: 25
+    UV: (0.000000, 0.000000)
+    Vertex: 0
+    UV: (0.000000, 0.000000)
+  Polygon index: 4, length: 3
+    Vertex: 3
+    UV: (0.000000, 0.000000)
+    Vertex: 20
+    UV: (0.000000, 0.000000)
+    Vertex: 0
+    UV: (0.000000, 0.000000)
+  Polygon index: 5, length: 3
+    Vertex: 2
+    UV: (0.000000, 0.000000)
+    Vertex: 12
+    UV: (0.000000, 0.000000)
+    Vertex: 3
+    UV: (0.000000, 0.000000)
+  Polygon index: 6, length: 3
+    Vertex: 1
+    UV: (0.000000, 0.000000)
+    Vertex: 4
+    UV: (0.000000, 0.000000)
+    Vertex: 2
+    UV: (0.000000, 0.000000)
+  Polygon index: 7, length: 3
+    Vertex: 0
+    UV: (0.000000, 0.000000)
+    Vertex: 28
+    UV: (0.000000, 0.000000)
+    Vertex: 1
+    UV: (0.000000, 0.000000)
+  Polygon index: 8, length: 3
+    Vertex: 1
+    UV: (0.000000, 0.000000)
+    Vertex: 28
+    UV: (0.000000, 0.000000)
+    Vertex: 29
+    UV: (0.000000, 0.000000)
+  Polygon index: 9, length: 3
+    Vertex: 35
+    UV: (0.000000, 0.000000)
+    Vertex: 4
+    UV: (0.000000, 0.000000)
+    Vertex: 1
+    UV: (0.000000, 0.000000)
+  Polygon index: 10, length: 3
+    Vertex: 1
+    UV: (0.000000, 0.000000)
+    Vertex: 29
+    UV: (0.000000, 0.000000)
+    Vertex: 30
+    UV: (0.000000, 0.000000)
+  Polygon index: 11, length: 3
+    Vertex: 34
+    UV: (0.000000, 0.000000)
+    Vertex: 35
+    UV: (0.000000, 0.000000)
+    Vertex: 1
+    UV: (0.000000, 0.000000)
+  Polygon index: 12, length: 3
+    Vertex: 1
+    UV: (0.000000, 0.000000)
+    Vertex: 30
+    UV: (0.000000, 0.000000)
+    Vertex: 31
+    UV: (0.000000, 0.000000)
+  Polygon index: 13, length: 3
+    Vertex: 33
+    UV: (0.000000, 0.000000)
+    Vertex: 34
+    UV: (0.000000, 0.000000)
+    Vertex: 1
+    UV: (0.000000, 0.000000)
+  Polygon index: 14, length: 3
+    Vertex: 1
+    UV: (0.000000, 0.000000)
+    Vertex: 31
+    UV: (0.000000, 0.000000)
+    Vertex: 32
+    UV: (0.000000, 0.000000)
+  Polygon index: 15, length: 3
+    Vertex: 2
+    UV: (0.000000, 0.000000)
+    Vertex: 4
+    UV: (0.000000, 0.000000)
+    Vertex: 5
+    UV: (0.000000, 0.000000)
+  Polygon index: 16, length: 3
+    Vertex: 11
+    UV: (0.000000, 0.000000)
+    Vertex: 12
+    UV: (0.000000, 0.000000)
+    Vertex: 2
+    UV: (0.000000, 0.000000)
+  Polygon index: 17, length: 3
+    Vertex: 2
+    UV: (0.000000, 0.000000)
+    Vertex: 5
+    UV: (0.000000, 0.000000)
+    Vertex: 6
+    UV: (0.000000, 0.000000)
+  Polygon index: 18, length: 3
+    Vertex: 10
+    UV: (0.000000, 0.000000)
+    Vertex: 11
+    UV: (0.000000, 0.000000)
+    Vertex: 2
+    UV: (0.000000, 0.000000)
+  Polygon index: 19, length: 3
+    Vertex: 2
+    UV: (0.000000, 0.000000)
+    Vertex: 6
+    UV: (0.000000, 0.000000)
+    Vertex: 7
+    UV: (0.000000, 0.000000)
+  Polygon index: 20, length: 3
+    Vertex: 9
+    UV: (0.000000, 0.000000)
+    Vertex: 10
+    UV: (0.000000, 0.000000)
+    Vertex: 2
+    UV: (0.000000, 0.000000)
+  Polygon index: 21, length: 3
+    Vertex: 2
+    UV: (0.000000, 0.000000)
+    Vertex: 7
+    UV: (0.000000, 0.000000)
+    Vertex: 8
+    UV: (0.000000, 0.000000)
+  Polygon index: 22, length: 3
+    Vertex: 3
+    UV: (0.000000, 0.000000)
+    Vertex: 12
+    UV: (0.000000, 0.000000)
+    Vertex: 13
+    UV: (0.000000, 0.000000)
+  Polygon index: 23, length: 3
+    Vertex: 19
+    UV: (0.000000, 0.000000)
+    Vertex: 20
+    UV: (0.000000, 0.000000)
+    Vertex: 3
+    UV: (0.000000, 0.000000)
+  Polygon index: 24, length: 3
+    Vertex: 3
+    UV: (0.000000, 0.000000)
+    Vertex: 13
+    UV: (0.000000, 0.000000)
+    Vertex: 14
+    UV: (0.000000, 0.000000)
+  Polygon index: 25, length: 3
+    Vertex: 18
+    UV: (0.000000, 0.000000)
+    Vertex: 19
+    UV: (0.000000, 0.000000)
+    Vertex: 3
+    UV: (0.000000, 0.000000)
+  Polygon index: 26, length: 3
+    Vertex: 3
+    UV: (0.000000, 0.000000)
+    Vertex: 14
+    UV: (0.000000, 0.000000)
+    Vertex: 15
+    UV: (0.000000, 0.000000)
+  Polygon index: 27, length: 3
+    Vertex: 17
+    UV: (0.000000, 0.000000)
+    Vertex: 18
+    UV: (0.000000, 0.000000)
+    Vertex: 3
+    UV: (0.000000, 0.000000)
+  Polygon index: 28, length: 3
+    Vertex: 3
+    UV: (0.000000, 0.000000)
+    Vertex: 15
+    UV: (0.000000, 0.000000)
+    Vertex: 16
+    UV: (0.000000, 0.000000)
+  Polygon index: 29, length: 3
+    Vertex: 0
+    UV: (0.000000, 0.000000)
+    Vertex: 20
+    UV: (0.000000, 0.000000)
+    Vertex: 21
+    UV: (0.000000, 0.000000)
+  Polygon index: 30, length: 3
+    Vertex: 27
+    UV: (0.000000, 0.000000)
+    Vertex: 28
+    UV: (0.000000, 0.000000)
+    Vertex: 0
+    UV: (0.000000, 0.000000)
+  Polygon index: 31, length: 3
+    Vertex: 0
+    UV: (0.000000, 0.000000)
+    Vertex: 21
+    UV: (0.000000, 0.000000)
+    Vertex: 22
+    UV: (0.000000, 0.000000)
+  Polygon index: 32, length: 3
+    Vertex: 26
+    UV: (0.000000, 0.000000)
+    Vertex: 27
+    UV: (0.000000, 0.000000)
+    Vertex: 0
+    UV: (0.000000, 0.000000)
+  Polygon index: 33, length: 3
+    Vertex: 0
+    UV: (0.000000, 0.000000)
+    Vertex: 22
+    UV: (0.000000, 0.000000)
+    Vertex: 23
+    UV: (0.000000, 0.000000)
+  Polygon index: 34, length: 3
+    Vertex: 25
+    UV: (0.000000, 0.000000)
+    Vertex: 26
+    UV: (0.000000, 0.000000)
+    Vertex: 0
+    UV: (0.000000, 0.000000)
+  Polygon index: 35, length: 3
+    Vertex: 0
+    UV: (0.000000, 0.000000)
+    Vertex: 23
+    UV: (0.000000, 0.000000)
+    Vertex: 24
+    UV: (0.000000, 0.000000)
+--END--
