@@ -87,11 +87,11 @@ void DrawText(TextAtlas *text_atlas, GraphicsContext* context, float x, float y,
     CHECK_GL_ERROR();
 }
 
-void DebugText::Draw(GraphicsContext* context) {
+void DebugText::Draw(GraphicsContext* context, float time) {
     int num_draw = 0;
     for(int i=0; i<kMaxDebugTextEntries; ++i){
         DebugTextEntry& entry = entries[i];
-        if(entry.display){
+        if(entry.display && time < entry.fade_time){
             DrawText(text_atlas, context, 40.0f, 40.0f + num_draw * text_atlas->pixel_height * 1.15f, entry.str);
             ++num_draw;
         }

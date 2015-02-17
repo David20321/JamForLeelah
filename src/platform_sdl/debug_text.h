@@ -37,7 +37,7 @@ public:
     void UpdateDebugText(int handle, float fade_time, const char* fmt, ...);
     void UpdateDebugTextV(int handle, float fade_time, const char* fmt, va_list args);
     void ReleaseDebugTextHandle(int handle);
-    void Draw(GraphicsContext* context);
+    void Draw(GraphicsContext* context, float time);
 };
 
 void DrawText(TextAtlas *text_atlas, GraphicsContext* context, float x, float y, char *text);
