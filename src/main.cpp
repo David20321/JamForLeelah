@@ -104,6 +104,9 @@ struct Character {
     mat4 bind_transforms[128];
     mat4 local_bone_transforms[128];
     ParseMesh* parse_mesh;
+    static const int kWalkCycleStart = 31;
+    static const int kWalkCycleEnd = 58;
+    float walk_cycle_frame;
 };
 
 struct Camera {
@@ -425,8 +428,6 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         drawables[num_drawables].index_vbo = character_index_vbo;
         drawables[num_drawables].num_indices = num_character_indices;
         drawables[num_drawables].vbo_layout = kInterleave_3V2T3N4I4W;
-        SeparableTransform char_transform;
-        char_transform.scale = vec3(1.0f);
         drawables[num_drawables].transform = mat4();
         drawables[num_drawables].texture_id = tex_char;
         drawables[num_drawables].shader_id = shader_3d_model_skinned;
@@ -624,6 +625,17 @@ void Update(GameState* game_state, const vec2& mouse_rel, float time_step) {
         game_state->character.transform.translation += 
             game_state->character.velocity * char_speed * time_step;
 
+        float walk_anim_speed = 30.0f;
+        game_state->character.walk_cycle_frame += length(game_state->character.velocity) * walk_anim_speed * time_step;
+        // TODO: this could be done much more elegantly using modf or similar
+        while((int)game_state->character.walk_cycle_frame > Character::kWalkCycleEnd){
+            game_state->character.walk_cycle_frame -=
+                (float)(Character::kWalkCycleEnd - Character::kWalkCycleStart);
+        }
+        while((int)game_state->character.walk_cycle_frame < Character::kWalkCycleStart){
+            game_state->character.walk_cycle_frame +=
+                (float)(Character::kWalkCycleEnd - Character::kWalkCycleStart);
+        }
 
         static float char_rotation = 0.0f;
         static const float turn_speed = 10.0f;
@@ -766,7 +778,7 @@ void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
 
     ParseMesh* parse_mesh = game_state->character.parse_mesh;
     int animation = 1;//1;
-    int frame = 31+(ticks/30)%(58-31);
+    int frame = (int)game_state->character.walk_cycle_frame;
     int start_anim_transform = parse_mesh->animations[animation].anim_transform_start +
                                parse_mesh->num_bones * frame;
     for(int bone_index=0; bone_index<parse_mesh->num_bones; ++bone_index){
@@ -894,8 +906,9 @@ int main(int argc, char* argv[]) {
             }
         }
         profiler.StartEvent("Update");
+        float time_scale = 1.0f;// 0.1f;
         int ticks = SDL_GetTicks();
-        Update(&game_state, mouse_rel, (ticks - last_ticks) / 1000.0f);
+        Update(&game_state, mouse_rel, (ticks - last_ticks) / 1000.0f * time_scale);
         last_ticks = ticks;
         profiler.EndEvent();
         profiler.StartEvent("Draw");
