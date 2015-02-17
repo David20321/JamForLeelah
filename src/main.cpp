@@ -94,13 +94,15 @@ enum {
 
 using namespace glm;
 
+class ParseMesh;
+
 struct Character {
     vec3 velocity;
     SeparableTransform transform;
     mat4 display_bone_transforms[128];
     mat4 bind_transforms[128];
     mat4 local_bone_transforms[128];
-    FBXParseScene parse_scene;
+    ParseMesh* parse_mesh;
 };
 
 struct Camera {
@@ -392,7 +394,7 @@ public:
     int StringIndex(const char* str);
     // These could be protected better
     int num_strings;
-    char bone_name[kMaxStrings][kMaxStringLength];
+    char strings[kMaxStrings][kMaxStringLength];
 private:
     Uint32 string_hash[kMaxStrings];
     static Uint32 hash(unsigned char* str);
@@ -419,7 +421,7 @@ int StringHashStore::StringIndex(const char* str) {
     for(int i=0; i<num_strings; ++i){
         if(hash_val == string_hash[i]){
             index = i;
-            if(strcmp(str, bone_name[i]) != 0){
+            if(strcmp(str, strings[i]) != 0){
                 return kStringCollision;
             }
             break;
@@ -431,7 +433,7 @@ int StringHashStore::StringIndex(const char* str) {
         }
         index = num_strings++;
         string_hash[index] = hash_val;
-        strcpy(bone_name[index], str);
+        strcpy(strings[index], str);
     }
     return index;
 }
@@ -910,7 +912,7 @@ void ParseTestFileFromRam(const char* path, ParsePass pass, ParseMeshStraight* m
                             if(strncmp(line, action_frame_bone_header, action_frame_bone_header_len) != 0){
                                 FileParseErr(path, line_num, "Invalid action frame bone header");
                             }
-                            const char* bone_name = &line[action_frame_header_len];
+                            const char* bone_name = &line[action_frame_bone_header_len];
                             int hash_index = mesh->strings.StringIndex(bone_name);
                             if(hash_index < 0){
                                 FileParseErr(path, line_num, "Hash string problem");
@@ -952,6 +954,10 @@ void ParseTestFileFromRam(const char* path, ParsePass pass, ParseMeshStraight* m
 
 class ParseMesh {
 public:
+    struct Animation {
+        int num_frames;
+        int anim_transform_start;
+    };
     int num_vert;
     static const int kFloatsPerVert = 3+2+3+4+4;
     float* vert; //Vert data, 3v 2uv 3n 4bone_index 4bone_weight
@@ -959,7 +965,29 @@ public:
     Uint32* indices;
     int num_bones;
     mat4* rest_mats;
+    int* bone_parents;
+    int num_animations;
+    Animation* animations;
+    mat4* anim_transforms;
+    void Dispose();
+    ~ParseMesh() {
+        SDL_assert(vert == NULL);
+        SDL_assert(indices == NULL);
+        SDL_assert(rest_mats == NULL);
+        SDL_assert(bone_parents == NULL);
+        SDL_assert(animations == NULL);
+        SDL_assert(anim_transforms == NULL);
+    }
 };
+
+void ParseMesh::Dispose() {
+    free(vert); vert = NULL;
+    free(indices); indices = NULL;
+    free(rest_mats); rest_mats = NULL;
+    free(bone_parents); bone_parents = NULL;
+    free(animations); animations = NULL;
+    free(anim_transforms); anim_transforms = NULL;
+}
 
 struct SortBone {
     int index;
@@ -980,29 +1008,29 @@ int SortBonesByWeight(const void* a_ptr, const void* b_ptr) {
 
 void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straight) {
     // Prepare structure for easy lookup of the bone ID of a hash string
-    int deform_bone_id[StringHashStore::kMaxStrings];
+    int bone_id_from_hash[StringHashStore::kMaxStrings];
     for(int i=0; i<StringHashStore::kMaxStrings; ++i){
-        deform_bone_id[i] = -1;
+        bone_id_from_hash[i] = -1;
     }
     for(int i=0; i<mesh_straight->num_bones; ++i){
-        deform_bone_id[mesh_straight->bones[i].name_hash] = i;
+        bone_id_from_hash[mesh_straight->bones[i].name_hash] = i;
     }
 
     float* vert_data;
     vert_data = (float*)malloc(sizeof(float)*ParseMesh::kFloatsPerVert*mesh_straight->num_verts);
     int vert_data_index = 0;
     for(int i=0; i<mesh_straight->num_verts; ++i) {
-        // Copy over vertex and normal data
+        // Copy over vertex and normal data (switching order from Blender to game)
         ParseMeshStraight::Vert* vert = &mesh_straight->verts[i];
-        for(int el=0; el<3; ++el){
-            vert_data[vert_data_index++] = vert->coord[el];
-        }
+        vert_data[vert_data_index++] = vert->coord[0];
+        vert_data[vert_data_index++] = vert->coord[2];
+        vert_data[vert_data_index++] = vert->coord[1] * -1.0f;
         for(int el=0; el<2; ++el){
             vert_data[vert_data_index++] = 0.0f; //UV unknown at this point
         }
-        for(int el=0; el<3; ++el){
-            vert_data[vert_data_index++] = vert->normal[el];
-        }
+        vert_data[vert_data_index++] = vert->normal[0];
+        vert_data[vert_data_index++] = vert->normal[2];
+        vert_data[vert_data_index++] = vert->normal[1] * -1.0f;
         // The rest of this scope is about getting the 4 bone indices
         static const int kMaxIndicesToProcess = 32;
         SortBone sort_bone[kMaxIndicesToProcess];
@@ -1014,7 +1042,7 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
         {
             ParseMeshStraight::VertGroup* vert_group = 
                 &mesh_straight->vert_groups[vert_group_index];
-            int bone_id = deform_bone_id[vert_group->name_hash];
+            int bone_id = bone_id_from_hash[vert_group->name_hash];
             if(bone_id != -1){
                 sort_bone[num_bones].index = bone_id;
                 sort_bone[num_bones].weight = vert_group->weight;
@@ -1099,8 +1127,41 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
     mesh_final->indices = indices;
     free(tri_verts);
     free(vert_data);
-    //free(vert_data_expanded);
-    //free(indices);
+
+    // Process bones
+    mesh_final->num_bones = mesh_straight->num_bones;
+    mesh_final->rest_mats = (mat4*)malloc(sizeof(mat4)*mesh_straight->num_bones);
+    mesh_final->bone_parents = (int*)malloc(sizeof(int)*mesh_straight->num_bones);
+    for(int i=0; i<mesh_straight->num_bones; ++i){
+        mesh_final->rest_mats[i] = mesh_straight->bones[i].rest_mat;
+        mesh_final->bone_parents[i] = bone_id_from_hash[mesh_straight->bones[i].parent_name_hash];
+    }
+
+    // Process animations
+    mesh_final->num_animations = mesh_straight->num_actions;
+    mesh_final->animations = (ParseMesh::Animation*)malloc(sizeof(ParseMesh::Animation)*mesh_straight->num_actions);
+    int num_anim_frames = 0;
+    for(int i=0; i<mesh_final->num_animations; ++i){
+        mesh_final->animations[i].num_frames = mesh_straight->actions[i].num_frames;
+        num_anim_frames += mesh_final->animations[i].num_frames;
+    }
+    int num_anim_transforms = num_anim_frames * mesh_final->num_bones;
+    mesh_final->anim_transforms = (mat4*)malloc(sizeof(mat4)*num_anim_transforms);
+    int anim_transform_index = 0;
+    for(int i=0; i<mesh_final->num_animations; ++i){
+        mesh_final->animations[i].anim_transform_start = anim_transform_index;
+        for(int j=0; j<mesh_final->animations[i].num_frames; ++j){
+            int frame_transform_index = mesh_straight->frames[mesh_straight->actions[i].frame_index].start_index;
+            for(int k=0; k<mesh_final->num_bones; ++k){
+                int bone_id = bone_id_from_hash[mesh_straight->frame_transforms[frame_transform_index].name_hash];
+                SDL_assert(bone_id >= 0 && bone_id < mesh_final->num_bones);
+                mat4 mat = mesh_straight->frame_transforms[frame_transform_index].mat;
+                mesh_final->anim_transforms[anim_transform_index+bone_id] = mat; 
+                ++frame_transform_index;
+            }
+            anim_transform_index += mesh_final->num_bones;
+        }
+    }
 }
 
 void ParseTestFile(const char* path, ParseMesh* mesh_final){
@@ -1205,49 +1266,14 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
     int character_vert_vbo, character_index_vbo, num_character_indices;
     {
-        profiler->StartEvent("Parsing character fbx");
-        profiler->StartEvent("Loading file to RAM");
-        void* mem = malloc(1024*1024*64);
-        int len;
-        char err_title[FileLoadThreadData::kMaxErrMsgLen];
-        char err_msg[FileLoadThreadData::kMaxErrMsgLen];
-        if(!FileLoadThreadData::LoadFile(asset_list[kFBXChar], mem, &len,
-                                         err_title, err_msg) )
-        {
-            FormattedError(err_title, err_msg);
-            exit(1);
+        character.parse_mesh = (ParseMesh*)malloc(sizeof(ParseMesh));
+        ParseTestFile("C:\\Users\\David\\Desktop\\AnimTestExport.txt", character.parse_mesh);
+        character_vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, character.parse_mesh->vert, character.parse_mesh->num_vert*sizeof(float)*16);
+        character_index_vbo = CreateVBO(kElementVBO, kStaticVBO, character.parse_mesh->indices, character.parse_mesh->num_index*sizeof(Uint32));
+        num_character_indices = character.parse_mesh->num_index;
+        for(int bone_index=0; bone_index<character.parse_mesh->num_bones; ++bone_index){
+            character.bind_transforms[bone_index] = character.parse_mesh->rest_mats[bone_index];
         }
-        profiler->EndEvent();
-
-        profiler->StartEvent("Parsing character fbx");
-        const char* names[] = {"RiggedMesh", "rig"};
-        ParseFBXFromRAM(&character.parse_scene, mem, len, names, 2);
-        Mesh& mesh = character.parse_scene.meshes[0];
-        Skeleton& skeleton = character.parse_scene.skeletons[0];
-        profiler->EndEvent();
-
-        RecalculateNormals(&mesh);
-        AttachMeshToSkeleton(&mesh, &skeleton);
-
-        for(int bone_index=0; bone_index<skeleton.num_bones; ++bone_index){
-            mat4 bind_mat;
-            for(int j=0; j<16; ++j){
-                bind_mat[j/4][j%4] = mesh.bind_matrices[bone_index*16+j];
-            }
-            character.bind_transforms[bone_index] = bind_mat;
-        }
-
-        profiler->StartEvent("Creating VBO and adding to scene");
-        vec3 char_bb[2];
-        GetBoundingBox(&mesh, char_bb);
-        //VBOFromSkinnedMesh(&mesh, &character_vert_vbo, &character_index_vbo);
-        //num_character_indices = mesh.num_tris*3;
-
-        ParseMesh mesh_final;
-        ParseTestFile("C:\\Users\\David\\Desktop\\AnimTestExport.txt", &mesh_final);
-        character_vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, mesh_final.vert, mesh_final.num_vert*sizeof(float)*16);
-        character_index_vbo = CreateVBO(kElementVBO, kStaticVBO, mesh_final.indices, mesh_final.num_index*sizeof(Uint32));
-        num_character_indices = mesh_final.num_index;
 
         char_drawable = num_drawables;
         drawables[num_drawables].vert_vbo = character_vert_vbo;
@@ -1550,8 +1576,7 @@ void DrawDrawable(const mat4 &proj_view_mat, Drawable* drawable) {
         glDisableVertexAttribArray(0);
         break;
     case kInterleave_3V2T3N4I4W: {
-        //glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
-        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&mat);
+        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
         GLuint bone_transforms_uniform = glGetUniformLocation(drawable->shader_id, "bone_matrices");
         glUniformMatrix4fv(bone_transforms_uniform, 128, false, (GLfloat*)drawable->bone_transforms);
         glEnableVertexAttribArray(0);
@@ -1594,28 +1619,24 @@ void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
     game_state->drawables[game_state->char_drawable].transform = 
         game_state->character.transform.GetCombination();
 
-    Skeleton* skeleton = &game_state->character.parse_scene.skeletons[0];
-    int animation = 0;//1;
-    int frame = 0;//31+(ticks/30)%(58-31);
-    for(int bone_index=0; bone_index<skeleton->num_bones; ++bone_index){
-        Bone& bone = skeleton->bones[bone_index];
-        mat4 temp;
-        int index = (frame*skeleton->num_bones+bone_index)*16;
-        for(int matrix_element=0; matrix_element<16; ++matrix_element){
-            temp[matrix_element/4][matrix_element%4] = 
-                skeleton->animations[animation].transforms[index+matrix_element];
-        }
-        float size = 0.03f;
+    ParseMesh* parse_mesh = game_state->character.parse_mesh;
+    int animation = 1;//1;
+    int frame = 31+(ticks/30)%(58-31);
+    int start_anim_transform = parse_mesh->animations[animation].anim_transform_start +
+                               parse_mesh->num_bones * frame;
+    for(int bone_index=0; bone_index<parse_mesh->num_bones; ++bone_index){
+        mat4 temp = parse_mesh->anim_transforms[start_anim_transform + bone_index];
         static const bool debug_draw_skeleton = false;
         if(debug_draw_skeleton) {
+            static const float size = 0.03f;
             game_state->lines.Add(vec3(temp*vec4(0,0,size,1.0f)), vec3(temp*vec4(0,0,-size,1.0f)), vec4(1.0f), kDraw, 1);
             game_state->lines.Add(vec3(temp*vec4(0,size,0,1.0f)), vec3(temp*vec4(0,-size,0,1.0f)), vec4(1.0f), kDraw, 1);
             game_state->lines.Add(vec3(temp*vec4(size,0,0,1.0f)), vec3(temp*vec4(-size,0,0,1.0f)), vec4(1.0f), kDraw, 1);
         }
         game_state->character.local_bone_transforms[bone_index] = temp * 
-            inverse(game_state->character.bind_transforms[bone_index]);
+            inverse(parse_mesh->rest_mats[bone_index]);
     }
-
+    
     for(int i=0; i<128; ++i){
         game_state->character.display_bone_transforms[i] = 
             game_state->drawables[game_state->char_drawable].transform * 
@@ -1639,10 +1660,6 @@ void Draw(GraphicsContext* context, GameState* game_state, int ticks) {
 }
 
 int main(int argc, char* argv[]) {
-    /*ParseMesh mesh_final;
-    ParseTestFile("C:\\Users\\David\\Desktop\\AnimTestExport.txt", &mesh_final);
-    return 0;*/
-
     Profiler profiler;
     profiler.Init();
 
@@ -1748,7 +1765,8 @@ int main(int argc, char* argv[]) {
         profiler.EndEvent();
     }
     
-    game_state.character.parse_scene.Dispose();
+    game_state.character.parse_mesh->Dispose();
+    free(game_state.character.parse_mesh);
     // Game code ends here
 
     {
