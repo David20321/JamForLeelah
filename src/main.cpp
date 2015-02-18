@@ -19,7 +19,7 @@ static void RunGame(Profiler* profiler, FileLoadThreadData* file_load_thread_dat
                     AudioContext* audio_context) 
 {
     GameState* game_state;
-    game_state = new((GameState*)stack_allocator->Alloc(sizeof(game_state))) GameState();
+    game_state = new((GameState*)stack_allocator->Alloc(sizeof(GameState))) GameState();
     if(!game_state){
         FormattedError("Error", "Could not alloc memory for game state");
         exit(1);

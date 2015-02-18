@@ -392,39 +392,45 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
         ++num_character_assets;
     }
 
-    num_characters = 0;
     for(int i=0; i<kMaxCharacters; ++i){
-        characters[num_characters].rotation = 0.0f;
-        characters[num_characters].rotation = 0.0f;
-        characters[num_characters].nav_mesh_walker.tri = 0;
-        characters[num_characters].nav_mesh_walker.bary_pos = vec3(1/3.0f);
-        characters[num_characters].character_asset = &character_assets[0];
+        characters[i].exists = false;
+    }
+
+    for(int i=0; i<kMaxCharacters; ++i){
+        characters[i].rotation = 0.0f;
+        characters[i].exists = true;
+        characters[i].nav_mesh_walker.tri = 0;
+        characters[i].nav_mesh_walker.bary_pos = vec3(1/3.0f);
+        characters[i].character_asset = &character_assets[0];
+        characters[i].tether_target = -1;
         if(i == 0){
-            characters[num_characters].transform.translation = vec3(kMapSize,0,kMapSize);
-            characters[num_characters].mind.state = Mind::kPlayerControlled;
+            characters[i].transform.translation = vec3(kMapSize,0,kMapSize);
+            characters[i].mind.state = Mind::kPlayerControlled;
+            characters[i].type = Character::kPlayer;
+            characters[i].revealed = true;
         } else {
-            characters[num_characters].transform.translation = vec3(rand()%(kMapSize*2),0,rand()%(kMapSize*2));
-            //characters[num_characters].mind.state = Mind::kWander;
-            //characters[num_characters].mind.wander_update_time = 0;
-            characters[num_characters].mind.state = Mind::kSeekTarget;
-            characters[num_characters].mind.seek_target = 0;
+            characters[i].transform.translation = vec3(rand()%(kMapSize*2),0,rand()%(kMapSize*2));
+            characters[i].mind.state = Mind::kStand;
+            characters[i].mind.wander_update_time = 0;
+            characters[i].type = (rand()%2==0)?Character::kRed:Character::kGreen;
+            characters[i].revealed = false;
         }
-        characters[num_characters].walk_cycle_frame = (float)(rand()%100);
+        characters[i].energy = 1.0f;
+        characters[i].walk_cycle_frame = (float)(rand()%100);
 
         char_drawable = num_drawables;
         drawables[num_drawables].vert_vbo = 
-            characters[num_characters].character_asset->vert_vbo;
+            characters[i].character_asset->vert_vbo;
         drawables[num_drawables].index_vbo = 
-            characters[num_characters].character_asset->index_vbo;
+            characters[i].character_asset->index_vbo;
         drawables[num_drawables].num_indices = 
-            characters[num_characters].character_asset->parse_mesh.num_index;
+            characters[i].character_asset->parse_mesh.num_index;
         drawables[num_drawables].vbo_layout = kInterleave_3V2T3N4I4W;
         drawables[num_drawables].transform = mat4();
         drawables[num_drawables].texture_id = tex_char;
         drawables[num_drawables].shader_id = shader_3d_model_skinned;
-        drawables[num_drawables].character = &characters[num_characters];
+        drawables[num_drawables].character = &characters[i];
         ++num_drawables;
-        ++num_characters;
     }
 
     // Initialize tile map
@@ -670,9 +676,27 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
         }
         character->transform.rotation = angleAxis(character->rotation, vec3(0,1,0)); 
     }
+
+    character->color = vec4(1,1,1,character->energy);
+    if(character->revealed){
+        switch(character->type){
+            case Character::kRed:
+                character->color = vec4(1,0,0,character->energy);
+                break;
+            case Character::kGreen:
+                character->color = vec4(0,1,0,character->energy);
+                break;
+        }
+    }
+
+    static const float kPlayerEnergyLossPerSecond = 0.01f;
+    if(character->type == Character::kPlayer){
+        character->energy -= time_step * kPlayerEnergyLossPerSecond;
+    }
 }
 
 void GameState::Update(const vec2& mouse_rel, float time_step) {
+    lines.Update();
     float cam_speed = 10.0f;
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     if (state[SDL_SCANCODE_SPACE]) {
@@ -729,39 +753,63 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
         }
 
         int get_ticks = SDL_GetTicks();
-        for(int i=0; i<num_characters; ++i){
-            SDL_assert(characters[i].transform.translation == characters[i].transform.translation);
-            vec3 target_dir;
-            switch(characters[i].mind.state){
-            case Mind::kPlayerControlled:
-                target_dir = controls_target_dir;
-                break;
-            case Mind::kWander:
-                if(get_ticks > characters[i].mind.wander_update_time){
-                    vec2 rand_dir = glm::circularRand(0.5f);
-                    characters[i].mind.dir = vec3(rand_dir[0], 0.0f, rand_dir[1]);
-                    characters[i].mind.wander_update_time = get_ticks + glm::linearRand<int>(1000,5000);
+        for(int i=0; i<kMaxCharacters; ++i){
+            if(characters[i].exists){
+                SDL_assert(characters[i].transform.translation == characters[i].transform.translation);
+                vec3 target_dir;
+                switch(characters[i].mind.state){
+                case Mind::kPlayerControlled:
+                    target_dir = controls_target_dir;
+                    break;
+                case Mind::kStand:
+                    target_dir = vec3(0.0f);
+                    break;
+                case Mind::kWander:
+                    if(get_ticks > characters[i].mind.wander_update_time){
+                        vec2 rand_dir = glm::circularRand(0.5f);
+                        characters[i].mind.dir = vec3(rand_dir[0], 0.0f, rand_dir[1]);
+                        characters[i].mind.wander_update_time = get_ticks + glm::linearRand<int>(1000,5000);
+                    }
+                    target_dir = characters[i].mind.dir;
+                    break;
+                case Mind::kSeekTarget:
+                case Mind::kAvoidTarget:
+                    if(characters[characters[i].mind.seek_target].exists){
+                        target_dir = characters[i].transform.translation - 
+                            characters[characters[i].mind.seek_target].transform.translation;
+                        if(characters[i].mind.state == Mind::kSeekTarget){
+                            target_dir *= -1.0f;
+                        }
+                        if(length2(target_dir) > 0.001f){
+                            target_dir = normalize(target_dir) * 0.5f;
+                        }
+                        SDL_assert(target_dir == target_dir);
+                    } else {
+                        target_dir = vec3(0.0f);
+                    }
+                    break;
                 }
-                target_dir = characters[i].mind.dir;
-                break;
-            case Mind::kSeekTarget:
-            case Mind::kAvoidTarget:
-                target_dir = characters[i].transform.translation - 
-                    characters[characters[i].mind.seek_target].transform.translation;
-                if(characters[i].mind.state == Mind::kSeekTarget){
-                    target_dir *= -1.0f;
-                }
-                if(length2(target_dir) > 0.001f){
-                    target_dir = normalize(target_dir) * 0.5f;
-                }
-                SDL_assert(target_dir == target_dir);
-                break;
+                UpdateCharacter(&characters[i], target_dir, time_step, nav_mesh);
             }
-            UpdateCharacter(&characters[i], target_dir, time_step, nav_mesh);
         }
 
-        for(int i=0; i<num_characters; ++i){
-            if(characters[i].mind.state == Mind::kPlayerControlled){
+        for(int i=0; i<kMaxCharacters; ++i){
+            if(characters[i].exists && characters[i].tether_target != -1 && characters[characters[i].tether_target].exists){
+                vec3 height_vec = vec3(0.0f,0.5f,0.0f);
+                lines.Add(characters[i].transform.translation + height_vec, 
+                          characters[characters[i].tether_target].transform.translation + height_vec,
+                          vec4(0,1,0,1), kUpdate, 1);
+            }
+        }
+
+        for(int i=0; i<kMaxCharacters; ++i){
+            if(characters[i].energy < 0.0f){
+                characters[i].exists = false;
+            }
+        }
+
+        for(int i=0; i<kMaxCharacters; ++i){
+            if(characters[i].exists && characters[i].mind.state == Mind::kPlayerControlled){
                 camera.position = characters[i].transform.translation +
                     camera.GetRotation() * vec3(0,0,1) * 10.0f;
             }
@@ -794,7 +842,9 @@ void DrawCoordinateGrid(GameState* game_state){
 }
 
 void DrawDrawable(const mat4 &proj_mat, const mat4 &view_mat, Drawable* drawable) {
+    CHECK_GL_ERROR();
     glUseProgram(drawable->shader_id);
+    CHECK_GL_ERROR();
 
     GLuint modelview_matrix_uniform = glGetUniformLocation(drawable->shader_id, "mv_mat");
     GLuint projection_matrix_uniform = glGetUniformLocation(drawable->shader_id, "proj_mat");
@@ -858,6 +908,8 @@ void DrawDrawable(const mat4 &proj_mat, const mat4 &view_mat, Drawable* drawable
         for(int i=0; i<128; ++i){
             bone_transforms[i] = drawable->transform * bone_transforms[i];
         }
+        GLuint color_uniform = glGetUniformLocation(drawable->shader_id, "color");
+        glUniform4fv(color_uniform, 1, (GLfloat*)&character->color);
         glUniformMatrix4fv(projection_matrix_uniform, 1, false, (GLfloat*)&proj_mat);
         glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&view_mat);
         GLuint bone_transforms_uniform = glGetUniformLocation(drawable->shader_id, "bone_matrices");
@@ -900,12 +952,16 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
 
     for(int i=0; i<num_drawables; ++i){
         Drawable* drawable = &drawables[i];
+        CHECK_GL_ERROR();
         DrawDrawable(proj_mat, view_mat, drawable);
+        CHECK_GL_ERROR();
     }
 
     static const bool draw_coordinate_grid = false;
     if(draw_coordinate_grid){
+        CHECK_GL_ERROR();
         DrawCoordinateGrid(this);
+        CHECK_GL_ERROR();
     }
     if(kDrawNavMesh){
         nav_mesh.Draw(proj_mat * view_mat);
@@ -925,7 +981,11 @@ void GameState::CharacterCollisions(Character* characters, float time_step) {
         for(int j=0; j<kMaxCharacters; ++j){
             vec3 *translation[] = {&characters[i].transform.translation, 
                                    &characters[j].transform.translation};
-            if(i!=j && distance2(*translation[0], *translation[1]) < kCollideDist2){
+            Character* chars[] = {&characters[i], &characters[j]};
+            int char_ids[] = {i, j};
+            if(i!=j && chars[0]->exists && chars[1]->exists &&
+               distance2(*translation[0], *translation[1]) < kCollideDist2)
+            {
                 vec3 mid = (*translation[0]+*translation[1]) * 0.5f;
                 vec3 dir = *translation[1]-*translation[0];
                 if(length2(dir) > 0.01f){
@@ -943,6 +1003,36 @@ void GameState::CharacterCollisions(Character* characters, float time_step) {
                 }
                 *translation[0] = new_translation[0];
                 *translation[1] = new_translation[1];
+                for(int k=0; k<2; ++k){
+                    if(chars[k]->type == Character::kPlayer){
+                        Character* other = chars[1-k];
+                        if(!other->revealed){
+                            other->revealed = true;
+                            if(other->type == Character::kRed){
+                                other->mind.state = Mind::kSeekTarget;
+                                other->mind.seek_target = char_ids[k];
+                            } else if(other->type == Character::kGreen){
+                                other->tether_target = char_ids[k];
+                            }
+                        }
+                        switch(other->type){
+                        case Character::kRed:
+                            other->energy -= time_step;
+                            chars[k]->energy -= time_step;
+                            break;
+                        case Character::kGreen:
+                            other->energy -= time_step;
+                            chars[k]->energy += time_step;
+                            break;
+                        }
+                    }
+                    if(chars[k]->type == Character::kRed && chars[k]->revealed &&
+                        chars[1-k]->type == Character::kGreen && chars[1-k]->revealed)
+                    {
+                        chars[k]->energy -= time_step;
+                        chars[1-k]->energy -= time_step;
+                    }                    
+                }
             }
         }
     }

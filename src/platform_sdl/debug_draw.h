@@ -27,6 +27,7 @@ struct DebugDrawLines {
     bool Add(const glm::vec3& start, const glm::vec3& end, 
              const glm::vec4& color, DebugDrawLifetime lifetime, int lifetime_int);
     void Draw(const glm::mat4& proj_view_mat);
+    void Update();
 };
 
 void DrawBoundingBox(DebugDrawLines* lines, const glm::mat4& mat, glm::vec3 bb[]);

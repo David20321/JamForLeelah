@@ -1,6 +1,8 @@
 #version 330 
 
 uniform sampler2D texture_id;
+uniform vec4 color;
+uniform float energy;
 in vec3 var_view_pos; 
 in vec2 var_uv; 
 in vec3 var_normal; 
@@ -18,6 +20,7 @@ vec4 ApplyLighting(vec4 color, vec3 normal) {
 
 void main() { 
    outputColor = texture(texture_id, var_uv);
+   outputColor *= color;
    outputColor = ApplyLighting(outputColor, var_normal); 
    outputColor = ApplyFog(outputColor); 
    //outputColor.xyz = var_normal * 0.5 + vec3(0.5); 

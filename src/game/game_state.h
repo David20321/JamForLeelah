@@ -33,7 +33,8 @@ struct Mind {
         kPlayerControlled,
         kWander,
         kSeekTarget,
-        kAvoidTarget
+        kAvoidTarget,
+        kStand
     };
     int wander_update_time;
     int seek_target;
@@ -42,6 +43,12 @@ struct Mind {
 };
 
 struct Character {
+    bool exists;
+    enum Type {
+        kPlayer,
+        kGreen,
+        kRed
+    };
     glm::vec3 velocity;
     SeparableTransform transform;
     NavMeshWalker nav_mesh_walker;
@@ -51,6 +58,11 @@ struct Character {
     CharacterAsset* character_asset;
     float rotation;
     Mind mind;
+    glm::vec4 color;
+    bool revealed;
+    int tether_target;
+    Type type;
+    float energy;
 };
 
 struct Camera {
@@ -90,7 +102,6 @@ public:
     DebugDrawLines lines;
     DebugText debug_text;
     float camera_fov;
-    int num_characters;
     Character characters[kMaxCharacters];
     Camera camera;
     int char_drawable;
