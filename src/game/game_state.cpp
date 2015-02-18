@@ -10,6 +10,8 @@
 #include "internal/memory.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/random.hpp"
+#include "glm/gtx/norm.hpp"
 #include "SDL.h"
 #include "GL/glew.h"
 #include "GL/gl.h"
@@ -392,11 +394,22 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
 
     num_characters = 0;
     for(int i=0; i<kMaxCharacters; ++i){
+        characters[num_characters].rotation = 0.0f;
+        characters[num_characters].rotation = 0.0f;
         characters[num_characters].nav_mesh_walker.tri = 0;
         characters[num_characters].nav_mesh_walker.bary_pos = vec3(1/3.0f);
         characters[num_characters].character_asset = &character_assets[0];
-        characters[num_characters].transform.translation = vec3(kMapSize-i/10,0,kMapSize-i%10);
-        characters[num_characters].walk_cycle_frame = rand()%100;
+        if(i == 0){
+            characters[num_characters].transform.translation = vec3(kMapSize,0,kMapSize);
+            characters[num_characters].mind.state = Mind::kPlayerControlled;
+        } else {
+            characters[num_characters].transform.translation = vec3(rand()%(kMapSize*2),0,rand()%(kMapSize*2));
+            //characters[num_characters].mind.state = Mind::kWander;
+            //characters[num_characters].mind.wander_update_time = 0;
+            characters[num_characters].mind.state = Mind::kSeekTarget;
+            characters[num_characters].mind.seek_target = 0;
+        }
+        characters[num_characters].walk_cycle_frame = (float)(rand()%100);
 
         char_drawable = num_drawables;
         drawables[num_drawables].vert_vbo = 
@@ -571,6 +584,7 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
         }
         rel_vel *= (char_accel * time_step);
         character->velocity += rel_vel;
+        SDL_assert(character->velocity == character->velocity);
     }
     character->transform.translation += 
         character->velocity * char_speed * time_step;
@@ -586,6 +600,7 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
             for(int i=0; i<3; ++i){
                 tri_verts[i] = nav.verts[nav.indices[walker.tri*3+i]];
             }
+            int tri_history[] = {walker.tri, walker.tri};
             vec3 tri_normal = cross(tri_verts[2] - tri_verts[0], tri_verts[1] - tri_verts[0]);
             for(int i=0; i<3; ++i){
                 vec3 plane_n = normalize(cross(tri_verts[(i+1)%3] - tri_verts[(i+2)%3], tri_normal));
@@ -595,8 +610,13 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
                     int neighbor = nav.tri_neighbors[walker.tri*3+(i+1)%3];
                     if(neighbor != -1){
                         // Go to neighboring triangle if possible
+                        tri_history[1] = tri_history[0];
+                        tri_history[0] = walker.tri;
                         walker.tri = neighbor/3;
-                        repeat = true;
+                        // Prevent infinite loops
+                        if(walker.tri != tri_history[0] && walker.tri != tri_history[1]){
+                            repeat = true;
+                        }
                         break;
                     } else {
                         // Otherwise slide along wall
@@ -604,6 +624,7 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
                         float char_vel_d = dot(character->velocity, plane_n);
                         if(char_vel_d > 0.0f){
                             character->velocity -= plane_n * (char_vel_d);
+                            SDL_assert(character->velocity == character->velocity);
                         }
                     }
                 }
@@ -627,7 +648,6 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
 
     target_dir = character->velocity;
 
-    static float char_rotation = 0.0f;
     static const float turn_speed = 10.0f;
     if(length(target_dir) > 0.0f){
         if(length(target_dir) > 1.0f){
@@ -635,7 +655,7 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
         }
         float target_rotation = -atan2f(target_dir[2], target_dir[0])+half_pi<float>();
 
-        float rel_rotation = target_rotation - char_rotation;
+        float rel_rotation = target_rotation - character->rotation;
         // TODO: Do this in a better way, maybe using modf
         while(rel_rotation > pi<float>()){
             rel_rotation -= two_pi<float>();
@@ -644,11 +664,11 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
             rel_rotation += two_pi<float>();
         }
         if(fabsf(rel_rotation) < turn_speed * time_step){
-            char_rotation += rel_rotation;
+            character->rotation += rel_rotation;
         } else {
-            char_rotation += (rel_rotation>0.0f?1.0f:-1.0f) * turn_speed * time_step;
+            character->rotation += (rel_rotation>0.0f?1.0f:-1.0f) * turn_speed * time_step;
         }
-        character->transform.rotation = angleAxis(char_rotation, vec3(0,1,0)); 
+        character->transform.rotation = angleAxis(character->rotation, vec3(0,1,0)); 
     }
 }
 
@@ -689,31 +709,64 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
         vec3 cam_north = normalize(vec3(temp[0], 0.0f, temp[1]));
         vec3 cam_east = normalize(vec3(-cam_north[2], 0.0f, cam_north[0]));
 
-        vec3 target_dir;
+        vec3 controls_target_dir;
         float target_speed = 0.0f;
         if (state[SDL_SCANCODE_W]) {
-            target_dir += cam_north;
+            controls_target_dir += cam_north;
         }
         if (state[SDL_SCANCODE_S]) {
-            target_dir -= cam_north;
+            controls_target_dir -= cam_north;
         }
         if (state[SDL_SCANCODE_D]) {
-            target_dir += cam_east;
+            controls_target_dir += cam_east;
         }
         if (state[SDL_SCANCODE_A]) {
-            target_dir -= cam_east;
+            controls_target_dir -= cam_east;
         }
 
-        if(length(target_dir) > 1.0f){
-            target_dir = normalize(target_dir);
+        if(length2(controls_target_dir) > 1.0f){
+            controls_target_dir = normalize(controls_target_dir);
         }
 
+        int get_ticks = SDL_GetTicks();
         for(int i=0; i<num_characters; ++i){
+            SDL_assert(characters[i].transform.translation == characters[i].transform.translation);
+            vec3 target_dir;
+            switch(characters[i].mind.state){
+            case Mind::kPlayerControlled:
+                target_dir = controls_target_dir;
+                break;
+            case Mind::kWander:
+                if(get_ticks > characters[i].mind.wander_update_time){
+                    vec2 rand_dir = glm::circularRand(0.5f);
+                    characters[i].mind.dir = vec3(rand_dir[0], 0.0f, rand_dir[1]);
+                    characters[i].mind.wander_update_time = get_ticks + glm::linearRand<int>(1000,5000);
+                }
+                target_dir = characters[i].mind.dir;
+                break;
+            case Mind::kSeekTarget:
+            case Mind::kAvoidTarget:
+                target_dir = characters[i].transform.translation - 
+                    characters[characters[i].mind.seek_target].transform.translation;
+                if(characters[i].mind.state == Mind::kSeekTarget){
+                    target_dir *= -1.0f;
+                }
+                if(length2(target_dir) > 0.001f){
+                    target_dir = normalize(target_dir) * 0.5f;
+                }
+                SDL_assert(target_dir == target_dir);
+                break;
+            }
             UpdateCharacter(&characters[i], target_dir, time_step, nav_mesh);
         }
 
-        camera.position = characters[0].transform.translation +
-            camera.GetRotation() * vec3(0,0,1) * 10.0f;
+        for(int i=0; i<num_characters; ++i){
+            if(characters[i].mind.state == Mind::kPlayerControlled){
+                camera.position = characters[i].transform.translation +
+                    camera.GetRotation() * vec3(0,0,1) * 10.0f;
+            }
+        }
+        CharacterCollisions(characters, time_step);
         camera_fov = 0.8f;
     }
     // TODO: we don't really want non-const static variables like this V
@@ -862,4 +915,35 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
     CHECK_GL_ERROR();
     debug_text.Draw(context, ticks/1000.0f);
     CHECK_GL_ERROR();
+}
+
+void GameState::CharacterCollisions(Character* characters, float time_step) {
+    // TODO: this is O(n^2), divide into grid or something
+    static const float kCollideDist = 0.7f;
+    static const float kCollideDist2 = kCollideDist * kCollideDist;
+    for(int i=0; i<kMaxCharacters; ++i){
+        for(int j=0; j<kMaxCharacters; ++j){
+            vec3 *translation[] = {&characters[i].transform.translation, 
+                                   &characters[j].transform.translation};
+            if(i!=j && distance2(*translation[0], *translation[1]) < kCollideDist2){
+                vec3 mid = (*translation[0]+*translation[1]) * 0.5f;
+                vec3 dir = *translation[1]-*translation[0];
+                if(length2(dir) > 0.01f){
+                    dir = normalize(dir);
+                } else {
+                    vec2 circle = glm::circularRand(1.0f);
+                    dir = vec3(circle[0], 0.0f, circle[1]);
+                }
+                vec3 new_translation[2];
+                new_translation[0] = mid - dir * kCollideDist * 0.5f;
+                new_translation[1] = mid + dir * kCollideDist * 0.5f;
+                if(time_step != 0.0f){
+                    characters[i].velocity += (new_translation[0] - *translation[0])/time_step;
+                    characters[j].velocity += (new_translation[1] - *translation[1])/time_step;
+                }
+                *translation[0] = new_translation[0];
+                *translation[1] = new_translation[1];
+            }
+        }
+    }
 }

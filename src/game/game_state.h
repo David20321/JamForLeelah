@@ -28,6 +28,19 @@ struct CharacterAsset {
     int index_vbo;
 };
 
+struct Mind {
+    enum State {
+        kPlayerControlled,
+        kWander,
+        kSeekTarget,
+        kAvoidTarget
+    };
+    int wander_update_time;
+    int seek_target;
+    State state;
+    glm::vec3 dir;
+};
+
 struct Character {
     glm::vec3 velocity;
     SeparableTransform transform;
@@ -36,6 +49,8 @@ struct Character {
     static const int kWalkCycleEnd = 58;
     float walk_cycle_frame;
     CharacterAsset* character_asset;
+    float rotation;
+    Mind mind;
 };
 
 struct Camera {
@@ -89,6 +104,7 @@ public:
     void Update(const glm::vec2& mouse_rel, float time_step);
     void Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator);
     void Draw(GraphicsContext* context, int ticks);
+    void CharacterCollisions(Character* characters, float time_step);
 };
 
 #endif
