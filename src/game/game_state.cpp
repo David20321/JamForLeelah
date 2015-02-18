@@ -652,31 +652,6 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
             (float)(Character::kWalkCycleEnd - Character::kWalkCycleStart);
     }
 
-    target_dir = character->velocity;
-
-    static const float turn_speed = 10.0f;
-    if(length(target_dir) > 0.0f){
-        if(length(target_dir) > 1.0f){
-            target_dir = normalize(target_dir);
-        }
-        float target_rotation = -atan2f(target_dir[2], target_dir[0])+half_pi<float>();
-
-        float rel_rotation = target_rotation - character->rotation;
-        // TODO: Do this in a better way, maybe using modf
-        while(rel_rotation > pi<float>()){
-            rel_rotation -= two_pi<float>();
-        }
-        while(rel_rotation < -pi<float>()){
-            rel_rotation += two_pi<float>();
-        }
-        if(fabsf(rel_rotation) < turn_speed * time_step){
-            character->rotation += rel_rotation;
-        } else {
-            character->rotation += (rel_rotation>0.0f?1.0f:-1.0f) * turn_speed * time_step;
-        }
-        character->transform.rotation = angleAxis(character->rotation, vec3(0,1,0)); 
-    }
-
     character->color = vec4(1,1,1,character->energy);
     if(character->revealed){
         switch(character->type){
@@ -771,6 +746,7 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
             if(characters[i].exists){
                 SDL_assert(characters[i].transform.translation == characters[i].transform.translation);
                 vec3 target_dir;
+                // Check AI to get target movement
                 switch(characters[i].mind.state){
                 case Mind::kPlayerControlled:
                     target_dir = controls_target_dir;
@@ -812,33 +788,37 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
             }
         }
 
+        // Handle tethering
         for(int i=0; i<kMaxCharacters; ++i){
             if(characters[i].exists && characters[i].tether_target != -1 && characters[characters[i].tether_target].exists){
-                vec3 height_vec = vec3(0.0f,0.5f,0.0f);
-                float closest_dist = FLT_MAX;
-                int closest_tether = -1;
-                for(int j=0; j<kMaxCharacters; ++j){
-                    if(j != i){
-                        vec3 pos = characters[j].transform.translation;
-                        vec3 point = ClosestPointOnSegment(pos,
-                            characters[i].transform.translation,
-                            characters[characters[i].tether_target].transform.translation);
-                        if(distance2(point, pos) < 0.4f*0.4f) {
-                            float dist = distance2(characters[i].transform.translation, pos);
-                            if(dist < closest_dist){
-                                closest_dist = dist;
-                                closest_tether = j;
+                { // Characters can steal tethers if they are close to tether and closest to source
+                    float closest_dist = FLT_MAX;
+                    int closest_tether = -1;
+                    for(int j=0; j<kMaxCharacters; ++j){
+                        if(j != i && characters[j].exists){
+                            vec3 pos = characters[j].transform.translation;
+                            vec3 point = ClosestPointOnSegment(pos,
+                                characters[i].transform.translation,
+                                characters[characters[i].tether_target].transform.translation);
+                            if(distance2(point, pos) < 0.4f*0.4f) {
+                                float dist = distance2(characters[i].transform.translation, pos);
+                                if(dist < closest_dist){
+                                    closest_dist = dist;
+                                    closest_tether = j;
+                                }
                             }
                         }
                     }
+                    if(closest_tether != -1){
+                        characters[i].tether_target = closest_tether;
+                    }                
                 }
-                if(closest_tether != -1){
-                    characters[i].tether_target = closest_tether;
-                }                
+                // Draw tether
+                vec3 height_vec = vec3(0.0f,0.5f,0.0f);
                 lines.Add(characters[i].transform.translation + height_vec, 
                           characters[characters[i].tether_target].transform.translation + height_vec,
                           vec4(0,1,0,characters[i].energy), kUpdate, 1);
-
+                // Transfer energy across tether if needed
                 float player_missing_energy = 1.0f-characters[characters[i].tether_target].energy;
                 float amount_transferred = min(player_missing_energy, time_step);
                 characters[i].energy -= amount_transferred;
@@ -846,19 +826,55 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
             }
         }
 
+        // Characters die if energy goes below zero
         for(int i=0; i<kMaxCharacters; ++i){
             if(characters[i].energy < 0.0f){
                 characters[i].exists = false;
             }
         }
 
+        // Set camera to follow player
         for(int i=0; i<kMaxCharacters; ++i){
             if(characters[i].exists && characters[i].mind.state == Mind::kPlayerControlled){
                 camera.position = characters[i].transform.translation +
                     camera.GetRotation() * vec3(0,0,1) * 10.0f;
             }
         }
+
+        // Handle collisions between characters
+        // Includes revealing character colors and combat
         CharacterCollisions(characters, time_step);
+
+        // Set rotation based on velocity
+        for(int i=0; i<kMaxCharacters; ++i){
+            if(characters[i].exists) {
+                Character* character = &characters[i];
+                vec3 target_dir = character->velocity;
+                static const float turn_speed = 10.0f;
+                if(length(target_dir) > 0.0f){
+                    if(length(target_dir) > 1.0f){
+                        target_dir = normalize(target_dir);
+                    }
+                    float target_rotation = -atan2f(target_dir[2], target_dir[0])+half_pi<float>();
+
+                    float rel_rotation = target_rotation - character->rotation;
+                    // TODO: Do this in a better way, maybe using modf
+                    while(rel_rotation > pi<float>()){
+                        rel_rotation -= two_pi<float>();
+                    }
+                    while(rel_rotation < -pi<float>()){
+                        rel_rotation += two_pi<float>();
+                    }
+                    if(fabsf(rel_rotation) < turn_speed * time_step){
+                        character->rotation += rel_rotation;
+                    } else {
+                        character->rotation += (rel_rotation>0.0f?1.0f:-1.0f) * turn_speed * time_step;
+                    }
+                    character->transform.rotation = angleAxis(character->rotation, vec3(0,1,0)); 
+                }
+            }
+        }
+
         camera_fov = 0.8f;
     }
     // TODO: we don't really want non-const static variables like this V
