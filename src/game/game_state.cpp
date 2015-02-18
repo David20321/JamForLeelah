@@ -410,7 +410,7 @@ void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_da
             characters[i].revealed = true;
         } else {
             characters[i].transform.translation = vec3(rand()%(kMapSize*2),0,rand()%(kMapSize*2));
-            characters[i].mind.state = Mind::kStand;
+            characters[i].mind.state = Mind::kWander;
             characters[i].mind.wander_update_time = 0;
             characters[i].type = (rand()%2==0)?Character::kRed:Character::kGreen;
             characters[i].revealed = false;
@@ -695,6 +695,20 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
     }
 }
 
+
+// Adapted from http://paulbourke.net/geometry/pointlineplane/source.c
+vec3 ClosestPointOnSegment( const vec3& point, const vec3& segment_start, 
+                            const vec3& segment_end) 
+{
+    vec3 segment_start_to_point = point - segment_start;
+    vec3 segment_start_to_end   = segment_end - segment_start;
+    float t = dot(segment_start_to_point, segment_start_to_end) / 
+              distance2(segment_end, segment_start);
+    t = clamp(t,0.0f,1.0f);
+    return segment_start + t * segment_start_to_end;
+}
+
+
 void GameState::Update(const vec2& mouse_rel, float time_step) {
     lines.Update();
     float cam_speed = 10.0f;
@@ -766,7 +780,7 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
                     break;
                 case Mind::kWander:
                     if(get_ticks > characters[i].mind.wander_update_time){
-                        vec2 rand_dir = glm::circularRand(0.5f);
+                        vec2 rand_dir = glm::circularRand(glm::linearRand(0.0f,0.5f));
                         characters[i].mind.dir = vec3(rand_dir[0], 0.0f, rand_dir[1]);
                         characters[i].mind.wander_update_time = get_ticks + glm::linearRand<int>(1000,5000);
                     }
@@ -780,8 +794,13 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
                         if(characters[i].mind.state == Mind::kSeekTarget){
                             target_dir *= -1.0f;
                         }
-                        if(length2(target_dir) > 0.001f){
+                        float target_dir_len = length(target_dir);
+                        if(target_dir_len > characters[i].mind.seek_target_distance &&
+                           target_dir_len > 0.001f)
+                        {
                             target_dir = normalize(target_dir) * 0.5f;
+                        } else {
+                            target_dir = vec3(0.0f);
                         }
                         SDL_assert(target_dir == target_dir);
                     } else {
@@ -796,9 +815,34 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
         for(int i=0; i<kMaxCharacters; ++i){
             if(characters[i].exists && characters[i].tether_target != -1 && characters[characters[i].tether_target].exists){
                 vec3 height_vec = vec3(0.0f,0.5f,0.0f);
+                float closest_dist = FLT_MAX;
+                int closest_tether = -1;
+                for(int j=0; j<kMaxCharacters; ++j){
+                    if(j != i){
+                        vec3 pos = characters[j].transform.translation;
+                        vec3 point = ClosestPointOnSegment(pos,
+                            characters[i].transform.translation,
+                            characters[characters[i].tether_target].transform.translation);
+                        if(distance2(point, pos) < 0.4f*0.4f) {
+                            float dist = distance2(characters[i].transform.translation, pos);
+                            if(dist < closest_dist){
+                                closest_dist = dist;
+                                closest_tether = j;
+                            }
+                        }
+                    }
+                }
+                if(closest_tether != -1){
+                    characters[i].tether_target = closest_tether;
+                }                
                 lines.Add(characters[i].transform.translation + height_vec, 
                           characters[characters[i].tether_target].transform.translation + height_vec,
-                          vec4(0,1,0,1), kUpdate, 1);
+                          vec4(0,1,0,characters[i].energy), kUpdate, 1);
+
+                float player_missing_energy = 1.0f-characters[characters[i].tether_target].energy;
+                float amount_transferred = min(player_missing_energy, time_step);
+                characters[i].energy -= amount_transferred;
+                characters[characters[i].tether_target].energy += amount_transferred;
             }
         }
 
@@ -1011,18 +1055,18 @@ void GameState::CharacterCollisions(Character* characters, float time_step) {
                             if(other->type == Character::kRed){
                                 other->mind.state = Mind::kSeekTarget;
                                 other->mind.seek_target = char_ids[k];
+                                other->mind.seek_target_distance = 0.0f;
                             } else if(other->type == Character::kGreen){
                                 other->tether_target = char_ids[k];
+                                other->mind.state = Mind::kSeekTarget;
+                                other->mind.seek_target = char_ids[k];
+                                other->mind.seek_target_distance = 2.0f;
                             }
                         }
                         switch(other->type){
                         case Character::kRed:
                             other->energy -= time_step;
                             chars[k]->energy -= time_step;
-                            break;
-                        case Character::kGreen:
-                            other->energy -= time_step;
-                            chars[k]->energy += time_step;
                             break;
                         }
                     }

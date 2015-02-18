@@ -38,6 +38,7 @@ struct Mind {
     };
     int wander_update_time;
     int seek_target;
+    float seek_target_distance;
     State state;
     glm::vec3 dir;
 };

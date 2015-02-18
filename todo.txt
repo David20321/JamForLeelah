@@ -1,0 +1,3 @@
+-clamp energy to 1.0
+-enemies can steal connections
+-bank allies at lamp posts
