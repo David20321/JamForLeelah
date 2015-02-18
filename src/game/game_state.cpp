@@ -16,6 +16,7 @@
 #include "GL/glew.h"
 #include "GL/gl.h"
 #include <cstring>
+#include "stb_vorbis.c"
 
 using namespace glm;
 
@@ -49,7 +50,15 @@ const char* asset_list[] = {
     ASSET_PATH "shaders/3D_model_skinned",
     ASSET_PATH "shaders/debug_draw",
     ASSET_PATH "shaders/debug_draw_text",
-    ASSET_PATH "shaders/nav_mesh"
+    ASSET_PATH "shaders/nav_mesh",
+    ASSET_PATH "music/UG - Layer 0 - Opt Drone.ogg",
+    ASSET_PATH "music/UG - Pos Layer 1 - Base.ogg",
+    ASSET_PATH "music/UG - Pos Layer 2 - Expanse.ogg",
+    ASSET_PATH "music/UG - Neg Layer 1 - Base.ogg",
+    ASSET_PATH "music/UG - Neg Layer 2 - Expanse.ogg",
+    ASSET_PATH "music/UG - Neg Layer 3 - Isolation.ogg",
+    ASSET_PATH "music/UG - Layer 4 - Drums.ogg",
+    ASSET_PATH "music/UG - Layer 5 - Drums.ogg"
 };
 
 enum {
@@ -82,7 +91,15 @@ enum {
     kShader3DModelSkinned,
     kShaderDebugDraw,
     kShaderDebugDrawText,
-    kShaderNavMesh
+    kShaderNavMesh,
+    kOggLayer0,
+    kOggPosLayer1,
+    kOggPosLayer2,
+    kOggNegLayer1,
+    kOggNegLayer2,
+    kOggNegLayer3,
+    kOggLayer4,
+    kOggLayer5
 };
 
 static const bool kDrawNavMesh = false;
@@ -132,6 +149,40 @@ void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* f
     const char** names = &specific_name;
     ParseFBXFromRAM(parse_scene, file_load_data->memory, file_load_data->memory_len, names, specific_name?1:0);
     EndLoadFile(file_load_data);
+}
+
+struct OggTrack {
+    void* mem;
+    int mem_len;
+    stb_vorbis_alloc vorbis_alloc;
+    stb_vorbis* vorbis;
+};
+
+void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_load_data, StackAllocator* stack_alloc) {
+    StartLoadFile(path, file_load_data);
+    ogg_track->mem_len = file_load_data->memory_len;
+    ogg_track->mem = stack_alloc->Alloc(file_load_data->memory_len);
+    if(!ogg_track->mem){
+        FormattedError("Error", "Failed to allocate memory for ogg file: %s", path);
+    }
+    memcpy(ogg_track->mem, file_load_data->memory, ogg_track->mem_len);
+    EndLoadFile(file_load_data);
+    ogg_track->vorbis_alloc.alloc_buffer_length_in_bytes = 200*1024; // Allocate 200 KB for vorbis decoding
+    ogg_track->vorbis_alloc.alloc_buffer = (char*)stack_alloc->Alloc(
+        ogg_track->vorbis_alloc.alloc_buffer_length_in_bytes);
+    if(!ogg_track->vorbis_alloc.alloc_buffer) {
+        FormattedError("Error", "Failed to allocate memory for ogg decoder for: %s", path);
+    }
+    int err;
+    ogg_track->vorbis = stb_vorbis_open_memory((const unsigned char*)ogg_track->mem, 
+                                               ogg_track->mem_len, 
+                                               &err, 
+                                               &ogg_track->vorbis_alloc);
+    if(!ogg_track->vorbis){
+        if(!ogg_track->vorbis_alloc.alloc_buffer) {
+            FormattedError("Error", "Failed to create ogg decoder for: %s\nError code: %d", path, err);
+        }
+    }
 }
 
 void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_load_data, float pixel_height) {
@@ -278,6 +329,9 @@ void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset,
 }
 
 void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator) {
+    OggTrack ogg_track;
+    LoadOgg(&ogg_track, asset_list[kOggLayer0], file_load_thread_data, stack_allocator);
+
     { // Allocate memory for debug lines
         int mem_needed = lines.AllocMemory(NULL);
         void* mem = stack_allocator->Alloc(mem_needed);
