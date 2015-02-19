@@ -19,7 +19,8 @@ static void MyAudioCallback (void* userdata, Uint8* stream, int len) {
     audio_context->buffer_read_byte += fill_amount;
 }
 
-static const float kGameVolume = 0.3f;
+static const float kMasterGain = 0.0f;
+static const float kMusicGain = 1.0f;
 
 void UpdateAudio(AudioContext* audio_context) {
     const SDL_AudioSpec &spec = audio_context->audio_spec;
@@ -57,7 +58,7 @@ void UpdateAudio(AudioContext* audio_context) {
             }
             for(int i=0, len=buffer_samples*2; i<len; ++i){
                 ogg_track->gain = MoveTowards(ogg_track->gain, ogg_track->target_gain, ogg_track->transition_speed);
-                flt_buf[i] += temp_buf[i] * ogg_track->gain;
+                flt_buf[i] += temp_buf[i] * ogg_track->gain * kMusicGain * kMasterGain;
             }
         }
     }

@@ -52,18 +52,16 @@ void DrawText(TextAtlas *text_atlas, GraphicsContext* context, float x, float y,
     }
     CHECK_GL_ERROR();
 
+    Shader* shader = &context->shaders[text_atlas->shader];
+
     glm::mat4 proj_mat = glm::ortho(0.0f, (float)context->screen_dims[0], 
         (float)context->screen_dims[1], 0.0f, -1.0f, 1.0f);
     CHECK_GL_ERROR();
-    GLuint proj_mat_uniform = glGetUniformLocation(text_atlas->shader, "proj_mat");
+    glUseProgram(shader->gl_id);
     CHECK_GL_ERROR();
-    GLuint texture_uniform = glGetUniformLocation(text_atlas->shader, "texture_id");
+    glUniformMatrix4fv(shader->uniforms[Shader::kProjectionMat4], 1, false, (GLfloat*)&proj_mat);
     CHECK_GL_ERROR();
-    glUseProgram(text_atlas->shader);
-    CHECK_GL_ERROR();
-    glUniformMatrix4fv(proj_mat_uniform, 1, false, (GLfloat*)&proj_mat);
-    CHECK_GL_ERROR();
-    glUniform1i(texture_uniform, 0);
+    glUniform1i(shader->uniforms[Shader::kTextureID], 0);
     CHECK_GL_ERROR();
     glActiveTexture(GL_TEXTURE0);
     CHECK_GL_ERROR();

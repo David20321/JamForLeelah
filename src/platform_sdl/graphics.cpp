@@ -166,6 +166,8 @@ int CreateShader(int type, const char *src) {
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
+
+    graphics_context->num_shaders = 0;
 }
 
 void InitGraphicsData(int *triangle_vbo, int *index_vbo) {

@@ -2,6 +2,7 @@
 #include "internal/memory.h"
 #include "internal/common.h"
 #include "platform_sdl/error.h"
+#include "platform_sdl/graphics.h"
 #include "glm/glm.hpp"
 #include "GL/glew.h"
 #include "GL/gl.h"
@@ -44,12 +45,12 @@ vec3 NavMeshWalker::GetBaryPos(NavMesh* nav_mesh, vec3 pos) {
     return bary;
 }
 
-void NavMesh::Draw(const mat4& proj_view_mat) {
+void NavMesh::Draw(GraphicsContext* graphics_context, const mat4& proj_view_mat) {
+    Shader* the_shader = &graphics_context->shaders[shader];
     glBindBuffer(GL_ARRAY_BUFFER, vert_vbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_vbo);
-    glUseProgram(shader);
-    GLuint modelview_matrix_uniform = glGetUniformLocation(shader, "mv_mat");
-    glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
+    glUseProgram(the_shader->gl_id);
+    glUniformMatrix4fv(the_shader->uniforms[Shader::kModelviewMat4], 1, false, (GLfloat*)&proj_view_mat);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
     glDrawElements(GL_TRIANGLES, num_indices, GL_UNSIGNED_INT, 0);

@@ -119,9 +119,10 @@ public:
     int tile_height[kMapSize * kMapSize];
 
     void Update(const glm::vec2& mouse_rel, float time_step);
-    void Init(AudioContext* audio_context, Profiler* profiler, 
-              FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator);
-    void Draw(GraphicsContext* context, int ticks);
+    void Init(GraphicsContext* graphics_context, AudioContext* audio_context, 
+              Profiler* profiler, FileLoadThreadData* file_load_thread_data, 
+              StackAllocator* stack_allocator);
+    void Draw(GraphicsContext* context, int ticks, Profiler* profiler);
     void CharacterCollisions(Character* characters, float time_step);
 };
 

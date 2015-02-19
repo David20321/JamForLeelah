@@ -34,7 +34,7 @@ bool DebugDrawLines::Add(const vec3& start, const vec3& end,
     }
 }
 
-void DebugDrawLines::Draw(const glm::mat4& proj_view_mat) {
+void DebugDrawLines::Draw(GraphicsContext* graphics_context, const glm::mat4& proj_view_mat) {
     for(int i=0; i<num_lines;){
         DebugDrawCommon& line = common[i];
         if(line.lifetime_int <= 0){
@@ -46,36 +46,21 @@ void DebugDrawLines::Draw(const glm::mat4& proj_view_mat) {
             ++i;
         }
     }
+    Shader* line_shader = &graphics_context->shaders[shader];
 
-    CHECK_GL_ERROR();
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    CHECK_GL_ERROR();
     glBufferData(GL_ARRAY_BUFFER, num_lines*sizeof(GLfloat)*kElementsPerPoint*2, draw_data, GL_STREAM_DRAW);
-    CHECK_GL_ERROR();
-    glUseProgram(shader);
-    CHECK_GL_ERROR();
-    GLuint modelview_matrix_uniform = glGetUniformLocation(shader, "mv_mat");
-    CHECK_GL_ERROR();
-    glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&proj_view_mat);
-    CHECK_GL_ERROR();
+    glUseProgram(line_shader->gl_id);
+    glUniformMatrix4fv(line_shader->uniforms[Shader::kModelviewMat4], 1, false, (GLfloat*)&proj_view_mat);
     glEnableVertexAttribArray(0);
-    CHECK_GL_ERROR();
     glEnableVertexAttribArray(1);
-    CHECK_GL_ERROR();
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), 0);
-    CHECK_GL_ERROR();
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
-    CHECK_GL_ERROR();
     glDrawArrays(GL_LINES, 0, num_lines*2);
-    CHECK_GL_ERROR();
     glDisableVertexAttribArray(1);
-    CHECK_GL_ERROR();
     glDisableVertexAttribArray(0);
-    CHECK_GL_ERROR();
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    CHECK_GL_ERROR();
     glUseProgram(0);
-    CHECK_GL_ERROR();
 
     for(int i=0; i<num_lines; ++i){        
         DebugDrawCommon& line = common[i];

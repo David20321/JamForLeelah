@@ -6,6 +6,7 @@
 #include <cstdint>
 
 class StackAllocator;
+struct GraphicsContext;
 
 class NavMesh {
 public:
@@ -21,7 +22,7 @@ public:
     int tri_neighbors[kMaxNavMeshTris*3];
 
     void CalcNeighbors(StackAllocator* stack_allocator);
-    void Draw(const glm::mat4& proj_view_mat);
+    void Draw(GraphicsContext* graphics_context, const glm::mat4& proj_view_mat);
 };
 
 class NavMeshWalker {

@@ -210,7 +210,7 @@ void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_l
     EndLoadFile(file_load_data);
 }
 
-int CreateProgramFromFile(FileLoadThreadData* file_load_data, const char* path){
+int CreateProgramFromFile(GraphicsContext* graphics_context, FileLoadThreadData* file_load_data, const char* path){
     char shader_path[FileRequest::kMaxFileRequestPathLen];
     static const int kNumShaders = 2;
     int shaders[kNumShaders];
@@ -228,7 +228,17 @@ int CreateProgramFromFile(FileLoadThreadData* file_load_data, const char* path){
     for(int i=0; i<kNumShaders; ++i){
         glDeleteShader(shaders[i]);
     }
-    return shader_program;
+    int shader_id = graphics_context->num_shaders++;
+    Shader* shader = &graphics_context->shaders[shader_id];
+    if(graphics_context->num_shaders == GraphicsContext::kMaxShaders){
+        FormattedError("Error", "Too many shaders");
+        exit(1);
+    }
+    shader->gl_id = shader_program;
+    for(int i=0; i<Shader::kNumUniformNames; ++i){
+        shader->uniforms[i] = glGetUniformLocation(shader->gl_id, shader_uniform_names[i]);
+    }
+    return shader_id;
 }
 
 void VBOFromMesh(const Mesh* mesh, int* vert_vbo, int* index_vbo) {
@@ -335,7 +345,7 @@ void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset,
     drawable->transform = sep_transform.GetCombination();
 }
 
-void GameState::Init(AudioContext* audio_context, Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator) {
+void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_context, Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator) {
     num_ogg_tracks = 0;
     for(int i=kOggDrone; i<=kOggDrums2; ++i){
         if(num_ogg_tracks > kMaxOggTracks){
@@ -415,15 +425,15 @@ void GameState::Init(AudioContext* audio_context, Profiler* profiler, FileLoadTh
 
     profiler->StartEvent("Loading shaders");
     int shader_3d_model = 
-        CreateProgramFromFile(file_load_thread_data, asset_list[kShader3DModel]);
+        CreateProgramFromFile(graphics_context, file_load_thread_data, asset_list[kShader3DModel]);
     int shader_3d_model_skinned = 
-        CreateProgramFromFile(file_load_thread_data, asset_list[kShader3DModelSkinned]);
+        CreateProgramFromFile(graphics_context, file_load_thread_data, asset_list[kShader3DModelSkinned]);
     int shader_debug_draw = 
-        CreateProgramFromFile(file_load_thread_data, asset_list[kShaderDebugDraw]);
+        CreateProgramFromFile(graphics_context, file_load_thread_data, asset_list[kShaderDebugDraw]);
     int shader_debug_draw_text = 
-        CreateProgramFromFile(file_load_thread_data, asset_list[kShaderDebugDrawText]);
+        CreateProgramFromFile(graphics_context, file_load_thread_data, asset_list[kShaderDebugDrawText]);
     int shader_nav_mesh = 
-        CreateProgramFromFile(file_load_thread_data, asset_list[kShaderNavMesh]);
+        CreateProgramFromFile(graphics_context, file_load_thread_data, asset_list[kShaderNavMesh]);
     profiler->EndEvent();
 
     camera.position = vec3(0.0f,0.0f,20.0f);
@@ -1014,22 +1024,24 @@ void DrawCoordinateGrid(GameState* game_state){
                           y_axis_color, kDraw, 1);
 }
 
-void DrawDrawable(const mat4 &proj_mat, const mat4 &view_mat, Drawable* drawable) {
+void DrawDrawable(GraphicsContext* graphics_context, const mat4 &proj_mat, 
+                  const mat4 &view_mat, Drawable* drawable, Profiler* profiler) 
+{
+    Shader *shader = &graphics_context->shaders[drawable->shader_id];
     CHECK_GL_ERROR();
-    glUseProgram(drawable->shader_id);
+    glUseProgram(shader->gl_id);
     CHECK_GL_ERROR();
 
-    GLuint modelview_matrix_uniform = glGetUniformLocation(drawable->shader_id, "mv_mat");
-    GLuint projection_matrix_uniform = glGetUniformLocation(drawable->shader_id, "proj_mat");
-    GLuint normal_matrix_uniform = glGetUniformLocation(drawable->shader_id, "norm_mat");
-
+    profiler->StartEvent("Matrices");
     mat4 model_mat = drawable->transform;
     mat4 modelview_mat = view_mat * model_mat;
     mat3 normal_mat = mat3(model_mat);
-    glUniformMatrix3fv(normal_matrix_uniform, 1, false, (GLfloat*)&normal_mat);
+    profiler->EndEvent();
 
-    GLuint texture_uniform = glGetUniformLocation(drawable->shader_id, "texture_id");
-    glUniform1i(texture_uniform, 0);
+    profiler->StartEvent("Remaining");
+    glUniformMatrix3fv(shader->uniforms[Shader::kNormalMat3], 1, false, (GLfloat*)&normal_mat);
+
+    glUniform1i(shader->uniforms[Shader::kTextureID], 0);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, drawable->texture_id);
@@ -1037,8 +1049,8 @@ void DrawDrawable(const mat4 &proj_mat, const mat4 &view_mat, Drawable* drawable
     glBindBuffer(GL_ARRAY_BUFFER, drawable->vert_vbo);
     switch(drawable->vbo_layout){
     case kSimple_4V:
-        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&modelview_mat);
-        glUniformMatrix4fv(projection_matrix_uniform, 1, false, (GLfloat*)&proj_mat);
+        glUniformMatrix4fv(shader->uniforms[Shader::kModelviewMat4], 1, false, (GLfloat*)&modelview_mat);
+        glUniformMatrix4fv(shader->uniforms[Shader::kProjectionMat4], 1, false, (GLfloat*)&proj_mat);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
@@ -1047,8 +1059,8 @@ void DrawDrawable(const mat4 &proj_mat, const mat4 &view_mat, Drawable* drawable
         glDisableVertexAttribArray(0);
         break;
     case kInterleave_3V2T3N:
-        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&modelview_mat);
-        glUniformMatrix4fv(projection_matrix_uniform, 1, false, (GLfloat*)&proj_mat);
+        glUniformMatrix4fv(shader->uniforms[Shader::kModelviewMat4], 1, false, (GLfloat*)&modelview_mat);
+        glUniformMatrix4fv(shader->uniforms[Shader::kProjectionMat4], 1, false, (GLfloat*)&proj_mat);
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
         glEnableVertexAttribArray(2);
@@ -1081,12 +1093,10 @@ void DrawDrawable(const mat4 &proj_mat, const mat4 &view_mat, Drawable* drawable
         for(int i=0; i<128; ++i){
             bone_transforms[i] = drawable->transform * bone_transforms[i];
         }
-        GLuint color_uniform = glGetUniformLocation(drawable->shader_id, "color");
-        glUniform4fv(color_uniform, 1, (GLfloat*)&character->color);
-        glUniformMatrix4fv(projection_matrix_uniform, 1, false, (GLfloat*)&proj_mat);
-        glUniformMatrix4fv(modelview_matrix_uniform, 1, false, (GLfloat*)&view_mat);
-        GLuint bone_transforms_uniform = glGetUniformLocation(drawable->shader_id, "bone_matrices");
-        glUniformMatrix4fv(bone_transforms_uniform, 128, false, (GLfloat*)bone_transforms);
+        glUniform4fv(shader->uniforms[Shader::kColor], 1, (GLfloat*)&character->color);
+        glUniformMatrix4fv(shader->uniforms[Shader::kProjectionMat4], 1, false, (GLfloat*)&proj_mat);
+        glUniformMatrix4fv(shader->uniforms[Shader::kModelviewMat4], 1, false, (GLfloat*)&view_mat);
+        glUniformMatrix4fv(shader->uniforms[Shader::kBoneMatrices], 128, false, (GLfloat*)bone_transforms);
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
         glEnableVertexAttribArray(2);
@@ -1109,9 +1119,10 @@ void DrawDrawable(const mat4 &proj_mat, const mat4 &view_mat, Drawable* drawable
     }
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
+    profiler->EndEvent();
 }
 
-void GameState::Draw(GraphicsContext* context, int ticks) {
+void GameState::Draw(GraphicsContext* context, int ticks, Profiler* profiler) {
     CHECK_GL_ERROR();
 
     glViewport(0, 0, context->screen_dims[0], context->screen_dims[1]);
@@ -1123,12 +1134,14 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
     mat4 proj_mat = glm::perspective(camera_fov, aspect_ratio, 0.1f, 100.0f);
     mat4 view_mat = inverse(camera.GetMatrix());
 
+    profiler->StartEvent("Draw drawables");
     for(int i=0; i<num_drawables; ++i){
         Drawable* drawable = &drawables[i];
         CHECK_GL_ERROR();
-        DrawDrawable(proj_mat, view_mat, drawable);
+        DrawDrawable(context, proj_mat, view_mat, drawable, profiler);
         CHECK_GL_ERROR();
     }
+    profiler->EndEvent();
 
     static const bool draw_coordinate_grid = false;
     if(draw_coordinate_grid){
@@ -1137,10 +1150,10 @@ void GameState::Draw(GraphicsContext* context, int ticks) {
         CHECK_GL_ERROR();
     }
     if(kDrawNavMesh){
-        nav_mesh.Draw(proj_mat * view_mat);
+        nav_mesh.Draw(context, proj_mat * view_mat);
         CHECK_GL_ERROR();
     }
-    lines.Draw(proj_mat * view_mat);
+    lines.Draw(context, proj_mat * view_mat);
     CHECK_GL_ERROR();
     debug_text.Draw(context, ticks/1000.0f);
     CHECK_GL_ERROR();

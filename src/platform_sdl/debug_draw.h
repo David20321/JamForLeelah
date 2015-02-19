@@ -4,6 +4,8 @@
 
 #include "glm/fwd.hpp"
 
+struct GraphicsContext;
+
 enum DebugDrawLifetime {
     kUpdate,
     kDraw,
@@ -26,7 +28,7 @@ struct DebugDrawLines {
     int AllocMemory(void* memory);
     bool Add(const glm::vec3& start, const glm::vec3& end, 
              const glm::vec4& color, DebugDrawLifetime lifetime, int lifetime_int);
-    void Draw(const glm::mat4& proj_view_mat);
+    void Draw(GraphicsContext* graphics_context, const glm::mat4& proj_view_mat);
     void Update();
 };
 

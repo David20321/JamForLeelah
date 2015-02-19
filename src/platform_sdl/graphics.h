@@ -7,7 +7,34 @@
 
 class FileLoadThreadData;
 
+static const char* shader_uniform_names[] = {
+    "mv_mat",
+    "proj_mat",
+    "norm_mat",
+    "texture_id",
+    "color",
+    "bone_matrices"
+};
+
+struct Shader {
+    enum UniformName {
+        kModelviewMat4,
+        kProjectionMat4,
+        kNormalMat3,
+        kTextureID,
+        kColor,
+        kBoneMatrices,
+        kNumUniformNames
+    };
+
+    int gl_id;
+    int uniforms[kNumUniformNames];
+};
+
 struct GraphicsContext {
+    static const int kMaxShaders = 10;
+    int num_shaders;
+    Shader shaders[kMaxShaders];
     int screen_dims[2];
     SDL_Window* window;
     SDL_GLContext gl_context;
