@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
     profiler.Init();
 
     profiler.StartEvent("Allocate game memory block");
-        static const int kGameMemSize = 1024*1024*64;
+        static const int kGameMemSize = 1024*1024*256;
         StackAllocator stack_allocator;
         stack_allocator.Init(malloc(kGameMemSize), kGameMemSize);
         if(!stack_allocator.mem){

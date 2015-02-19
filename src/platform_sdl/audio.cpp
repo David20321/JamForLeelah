@@ -48,35 +48,36 @@ void UpdateAudio(AudioContext* audio_context) {
         }
     }
     SDL_ConvertAudio(&cvt);*/
+    static float* temp_buf = (float*)malloc(sizeof(float) * buffer_samples * 2);
+    static const int src_sample_size = 2 * sizeof(float);
+    SDL_assert(src_sample_size <= target_sample_size);
+    SDL_AudioCVT cvt;
+    SDL_BuildAudioCVT(&cvt, AUDIO_F32, 2, 48000, spec.format, spec.channels, spec.freq);
+    cvt.len = buffer_samples * src_sample_size;
+    cvt.buf = (Uint8*)audio_context->back_buffer;
+    float* flt_buf = (float*)cvt.buf;
+    for(int i=0, len=buffer_samples*2; i<len; ++i){
+        flt_buf[i] = 0.0f;
+    }
     for(int i=0; i<audio_context->num_ogg_tracks; ++i){
         OggTrack* ogg_track = audio_context->ogg_tracks[i];
         stb_vorbis_info info = stb_vorbis_get_info(ogg_track->vorbis);
-        int src_sample_size = info.channels * sizeof(float);
-        SDL_assert(src_sample_size <= target_sample_size);
-        SDL_AudioCVT cvt;
-        SDL_BuildAudioCVT(&cvt, AUDIO_F32, info.channels, info.sample_rate, spec.format, spec.channels, spec.freq);
-        cvt.len = buffer_samples * src_sample_size;
-        cvt.buf = (Uint8*)audio_context->back_buffer;
+        SDL_assert(info.sample_rate == 48000 && info.channels == 2);
         ogg_track->read_pos += temp_buffer_read_byte / target_sample_size;
         if(ogg_track->read_pos > ogg_track->samples){
             ogg_track->read_pos -= ogg_track->samples;
         }
-        stb_vorbis_seek(ogg_track->vorbis, ogg_track->read_pos);
-        int samples_received = stb_vorbis_get_samples_float_interleaved(
-            ogg_track->vorbis,
-            info.channels,
-            (float*)cvt.buf,
-            buffer_samples * info.channels);
-        if(samples_received < buffer_samples){
-            stb_vorbis_seek(ogg_track->vorbis, 0);
-            stb_vorbis_get_samples_float_interleaved(
-                ogg_track->vorbis,
-                info.channels,
-                (float*)cvt.buf+(samples_received*info.channels),
-                (buffer_samples-samples_received) * info.channels);
+        int samples_remaining = ogg_track->samples - ogg_track->read_pos;
+        int samples_to_read = min(samples_remaining, buffer_samples);
+        memcpy(temp_buf, ogg_track->decoded+ogg_track->read_pos*2, sizeof(float) * 2 * samples_to_read);
+        if(samples_to_read < buffer_samples){
+            memcpy(temp_buf+samples_to_read*2, ogg_track->decoded, sizeof(float) * 2 * (buffer_samples-samples_to_read));
         }
-        SDL_ConvertAudio(&cvt);
+        for(int i=0, len=buffer_samples*2; i<len; ++i){
+            flt_buf[i] += temp_buf[i];
+        }
     }
+    SDL_ConvertAudio(&cvt);
     // fill buffer
     SDL_LockAudioDevice(audio_context->device_id);
     swap(audio_context->curr_buffer, audio_context->back_buffer);

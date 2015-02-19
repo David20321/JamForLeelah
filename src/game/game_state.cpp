@@ -60,7 +60,7 @@ const char* asset_list[] = {
     ASSET_PATH "music/UG - Neg Layer 2 - Expanse.ogg",
     ASSET_PATH "music/UG - Neg Layer 3 - Isolation.ogg",
     ASSET_PATH "music/UG - Layer 4 - Drums.ogg",
-    ASSET_PATH "music/UG - Layer 5 - Drums.ogg"
+    ASSET_PATH "music/UG - Layer 5 - Optional Drum.ogg"
 };
 
 enum {
@@ -180,6 +180,13 @@ void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_loa
     }
     ogg_track->samples = stb_vorbis_stream_length_in_samples(ogg_track->vorbis);
     ogg_track->read_pos = 0;
+    stb_vorbis_info info = stb_vorbis_get_info(ogg_track->vorbis);
+    ogg_track->decoded = (float*)stack_alloc->Alloc(sizeof(float) * ogg_track->samples * info.channels);
+    if(!ogg_track->decoded) {
+        FormattedError("Error", "Failed to allocate memory for decoded ogg: %s", path);
+    }
+    stb_vorbis_get_samples_float_interleaved(ogg_track->vorbis, info.channels, ogg_track->decoded, ogg_track->samples * info.channels);
+
 }
 
 void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_load_data, float pixel_height) {
@@ -326,8 +333,18 @@ void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset,
 }
 
 void GameState::Init(AudioContext* audio_context, Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator) {
-    LoadOgg(&ogg_track, asset_list[kOggPosLayer1], file_load_thread_data, stack_allocator);
-    audio_context->AddOggTrack(&ogg_track);
+    LoadOgg(&ogg_track[0], asset_list[kOggLayer0], file_load_thread_data, stack_allocator);
+    LoadOgg(&ogg_track[1], asset_list[kOggPosLayer1], file_load_thread_data, stack_allocator);
+    LoadOgg(&ogg_track[2], asset_list[kOggPosLayer2], file_load_thread_data, stack_allocator);
+    LoadOgg(&ogg_track[3], asset_list[kOggNegLayer1], file_load_thread_data, stack_allocator);
+    LoadOgg(&ogg_track[4], asset_list[kOggNegLayer2], file_load_thread_data, stack_allocator);
+    LoadOgg(&ogg_track[5], asset_list[kOggNegLayer3], file_load_thread_data, stack_allocator);
+    LoadOgg(&ogg_track[6], asset_list[kOggLayer4], file_load_thread_data, stack_allocator);
+    LoadOgg(&ogg_track[7], asset_list[kOggLayer5], file_load_thread_data, stack_allocator);
+    audio_context->AddOggTrack(&ogg_track[0]);
+    audio_context->AddOggTrack(&ogg_track[1]);
+    audio_context->AddOggTrack(&ogg_track[2]);
+    audio_context->AddOggTrack(&ogg_track[6]);
 
     { // Allocate memory for debug lines
         int mem_needed = lines.AllocMemory(NULL);

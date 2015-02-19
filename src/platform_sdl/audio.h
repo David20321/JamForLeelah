@@ -14,6 +14,7 @@ struct OggTrack {
     int mem_len;
     stb_vorbis_alloc vorbis_alloc;
     stb_vorbis* vorbis;
+    float* decoded;
     int samples;
     int read_pos;
 };

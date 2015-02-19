@@ -111,7 +111,8 @@ public:
     bool editor_mode;
     TextAtlas text_atlas;
     NavMesh nav_mesh;
-    OggTrack ogg_track;
+    static const int kMaxOggTracks = 10;
+    OggTrack ogg_track[kMaxOggTracks];
 
     static const int kMapSize = 30;
     int tile_height[kMapSize * kMapSize];
