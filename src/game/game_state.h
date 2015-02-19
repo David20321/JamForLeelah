@@ -112,6 +112,7 @@ public:
     TextAtlas text_atlas;
     NavMesh nav_mesh;
     static const int kMaxOggTracks = 10;
+    int num_ogg_tracks;
     OggTrack ogg_track[kMaxOggTracks];
 
     static const int kMapSize = 30;

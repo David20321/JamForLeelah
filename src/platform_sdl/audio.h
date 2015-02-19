@@ -17,6 +17,9 @@ struct OggTrack {
     float* decoded;
     int samples;
     int read_pos;
+    float target_gain;
+    float gain;
+    float transition_speed; // gain change per sample
 };
 
 struct AudioContext {

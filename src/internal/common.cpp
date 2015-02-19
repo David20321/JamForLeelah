@@ -29,3 +29,17 @@ int djb2_hash_len(unsigned char* str, int len) {
     }
     return *((int*)&hash_val);
 }
+
+float MoveTowards(float val, float target, float amount) {
+    float diff = val-target;
+    if(diff < 0.0f){
+        diff = -diff;
+    }
+    if(diff < amount) {
+        return target;
+    } else if(val > target) {
+        return val - amount;
+    } else {
+        return val + amount;
+    }
+}

@@ -34,6 +34,8 @@ inline void swap(void* &a, void* &b){
     b = temp;
 }
 
+float MoveTowards(float val, float target, float amount);
+
 inline void VFormatString(char* buf, int buf_size, const char* fmt, va_list args) {
     int val = vsnprintf(buf, buf_size, fmt, args);
     if(val == -1 || val >= buf_size){
