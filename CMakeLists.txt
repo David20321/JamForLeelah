@@ -15,20 +15,17 @@ include(UtilityFunctions)
 
 list(APPEND CMAKE_PREFIX_PATH
     lib/SDL2
-    lib/FBX_SDK_2015.1
 )
 
 ### Find Libraries
 find_package(OpenGL)
 find_package(SDL2 CONFIG)
-find_package(FBXSDK CONFIG)
 
 add_subdirectory(lib/glew glew)
 
 CreateProgram(${PROJECT_NAME}
 DIRS
     src
-    src/fbx/**
     src/internal
     src/game
     src/platform_sdl
@@ -40,12 +37,10 @@ INCLUDES
     lib/glm/
     lib/stb-master
     ${SDL2_INCLUDE_DIRS}
-    ${FBXSDK_INCLUDE_DIRS}
 LINK
     ${SDL2_LIBRARIES}
     glew
     ${OPENGL_gl_LIBRARY}
-    ${FBXSDK_LIBRARIES}
 )
 
 CopyDependentLibs(${PROJECT_NAME})

@@ -6,7 +6,6 @@
 #include "platform_sdl/graphics.h"
 #include "platform_sdl/audio.h"
 #include "platform_sdl/profiler.h"
-#include "fbx/fbx.h"
 #include "internal/common.h"
 #include "internal/memory.h"
 #include "glm/glm.hpp"
@@ -24,28 +23,28 @@ using namespace glm;
 
 const char* asset_list[] = {
     ASSET_PATH "art/street_lamp_export.txt",
-    ASSET_PATH "art/lamp_c.tga",
     ASSET_PATH "art/dry_fountain_export.txt",
-    ASSET_PATH "art/dry_fountain_c.tga",
     ASSET_PATH "art/flower_box_export.txt",
-    ASSET_PATH "art/flowerbox_c.tga",
     ASSET_PATH "art/garden_tall_corner_export.txt",
-    ASSET_PATH "art/garden_tall_corner_c.tga",
     ASSET_PATH "art/garden_tall_nook_export.txt",
-    ASSET_PATH "art/garden_tall_nook_c.tga",
     ASSET_PATH "art/garden_tall_stairs_export.txt",
-    ASSET_PATH "art/garden_tall_stairs.tga",
-    ASSET_PATH "art/garden_tall_wall_export.txt",
-    ASSET_PATH "art/garden_tall_wall_c.tga",
     ASSET_PATH "art/short_wall_export.txt",
-    ASSET_PATH "art/short_wall_c.tga",
+    ASSET_PATH "art/garden_tall_wall_export.txt",
     ASSET_PATH "art/tree_export.txt",
-    ASSET_PATH "art/tree_c.tga",
     ASSET_PATH "art/wall_pillar_export.txt",
-    ASSET_PATH "art/wall_pillar_c.tga",
     ASSET_PATH "art/floor_quad_export.txt",
-    ASSET_PATH "art/tiling_cobbles_c.tga",
     ASSET_PATH "art/main_character_rig_export.txt",
+    ASSET_PATH "art/lamp_c.tga",
+    ASSET_PATH "art/dry_fountain_c.tga",
+    ASSET_PATH "art/flowerbox_c.tga",
+    ASSET_PATH "art/garden_tall_corner_c.tga",
+    ASSET_PATH "art/garden_tall_nook_c.tga",
+    ASSET_PATH "art/garden_tall_stairs.tga",
+    ASSET_PATH "art/garden_tall_wall_c.tga",
+    ASSET_PATH "art/short_wall_c.tga",
+    ASSET_PATH "art/tree_c.tga",
+    ASSET_PATH "art/wall_pillar_c.tga",
+    ASSET_PATH "art/tiling_cobbles_c.tga",
     ASSET_PATH "art/main_character_c.tga",
     ASSET_PATH "fonts/LiberationMono-Regular.ttf",
     ASSET_PATH "shaders/3D_model",
@@ -64,29 +63,29 @@ const char* asset_list[] = {
 };
 
 enum {
-    kFBXLamp,
-    kTexLamp,
-    kFBXFountain,
-    kTexFountain,
-    kFBXFlowerbox,
-    kTexFlowerbox,
-    kFBXGardenTallCorner,
-    kTexGardenTallCorner,
-    kFBXGardenTallNook,
-    kTexGardenTallNook,
-    kFBXGardenTallStairs,
-    kTexGardenTallStairs,
-    kFBXGardenTallWall,
-    kTexGardenTallWall,
-    kFBXShortWall,
-    kTexShortWall,
-    kFBXTree,
-    kTexTree,
-    kFBXWallPillar,
-    kTexWallPillar,
-    kFBXFloor,
-    kTexFloor,
+    kMeshLamp,
+    kMeshFountain,
+    kMeshFlowerbox,
+    kMeshGardenTallCorner,
+    kMeshGardenTallNook,
+    kMeshGardenTallStairs,
+    kMeshShortWall,
+    kMeshGardenTallWall,
+    kMeshTree,
+    kMeshWallPillar,
+    kMeshFloor,
     kModelChar,
+    kTexLamp,
+    kTexFountain,
+    kTexFlowerbox,
+    kTexGardenTallCorner,
+    kTexGardenTallNook,
+    kTexGardenTallStairs,
+    kTexGardenTallWall,
+    kTexShortWall,
+    kTexTree,
+    kTexWallPillar,
+    kTexFloor,
     kTexChar,
     kFontDebug,
     kShader3DModel,
@@ -103,6 +102,16 @@ enum {
     kOggDrums1,
     kOggDrums2
 };
+
+static const int kNumMesh = kMeshFloor-kMeshLamp+1;
+int MeshID(int id){
+    return id - kMeshLamp;
+}
+
+static const int kNumTex = kTexChar-kTexLamp+1;
+int TexID(int id){
+    return id - kTexLamp;
+}
 
 static const bool kDrawNavMesh = true;
 
@@ -144,13 +153,6 @@ void StartLoadFile(const char* path, FileLoadThreadData* file_load_data) {
 
 void EndLoadFile(FileLoadThreadData* file_load_data) {
     SDL_UnlockMutex(file_load_data->mutex);
-}
-
-void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* file_load_data, const char* specific_name) {
-    StartLoadFile(path, file_load_data);
-    const char** names = &specific_name;
-    ParseFBXFromRAM(parse_scene, file_load_data->memory, file_load_data->memory_len, names, specific_name?1:0);
-    EndLoadFile(file_load_data);
 }
 
 void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_load_data, StackAllocator* stack_alloc) {
@@ -241,95 +243,12 @@ int CreateProgramFromFile(GraphicsContext* graphics_context, FileLoadThreadData*
     return shader_id;
 }
 
-void VBOFromMesh(const Mesh* mesh, int* vert_vbo, int* index_vbo) {
-    // TODO: remove duplicated verts
-    int interleaved_size = sizeof(float)*mesh->num_tris*3*8;
-    float* interleaved = (float*)malloc(interleaved_size);
-    int consecutive_size = sizeof(unsigned)*mesh->num_tris*3;
-    unsigned* consecutive = (unsigned*)malloc(consecutive_size);
-    for(int i=0, index=0, len=mesh->num_tris*3; i<len; ++i){
-        for(int j=0; j<3; ++j){
-            interleaved[index++] = mesh->vert_coords[mesh->tri_indices[i]*3+j];
-        }
-        for(int j=0; j<2; ++j){
-            interleaved[index++] = mesh->tri_uvs[i*2+j];
-        }
-        for(int j=0; j<3; ++j){
-            interleaved[index++] = mesh->tri_normals[i*3+j];
-        }
-        consecutive[i] = i;
-    }    
-    *vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, interleaved, interleaved_size);
-    *index_vbo = CreateVBO(kElementVBO, kStaticVBO, consecutive, consecutive_size);
-}
-
-void VBOFromSkinnedMesh(Mesh* mesh, int* vert_vbo, int* index_vbo) {
-    int interleaved_size = sizeof(float)*mesh->num_tris*3*(3+2+3+4+4);
-    float* interleaved = (float*)malloc(interleaved_size);
-    int consecutive_size = sizeof(unsigned)*mesh->num_tris*3;
-    unsigned* consecutive = (unsigned*)malloc(consecutive_size);
-    for(int i=0, index=0, len=mesh->num_tris*3; i<len; ++i){
-        int vert = mesh->tri_indices[i];
-        for(int j=0; j<3; ++j){
-            interleaved[index++] = mesh->vert_coords[vert*3+j];
-        }
-        for(int j=0; j<2; ++j){
-            interleaved[index++] = mesh->tri_uvs[i*2+j];
-        }
-        for(int j=0; j<3; ++j){
-            interleaved[index++] = mesh->tri_normals[i*3+j];
-        }
-        for(int j=0; j<4; ++j){
-            interleaved[index++] = (float)mesh->vert_bone_indices[vert*4+j];
-        }
-        for(int j=0; j<4; ++j){
-            interleaved[index++] = mesh->vert_bone_weights[vert*4+j];
-        }
-        consecutive[i] = i;
-    }    
-    *vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, interleaved, interleaved_size);
-    *index_vbo = CreateVBO(kElementVBO, kStaticVBO, consecutive, consecutive_size);
-}
-
-void RecalculateNormals(Mesh* mesh){
-    for(int tri_index=0; tri_index<mesh->num_tris; ++tri_index){
-        vec3 tri_verts[3];
-        for(int tri_vert=0; tri_vert<3; ++tri_vert){
-            int vert = mesh->tri_indices[tri_index*3+tri_vert];
-            for(int vert_comp=0; vert_comp<3; ++vert_comp){
-                tri_verts[tri_vert][vert_comp] = mesh->vert_coords[vert*3+vert_comp];
-            }            
-        }
-        vec3 normal = normalize(cross(tri_verts[1] - tri_verts[0], 
-                                      tri_verts[2] - tri_verts[0]));
-        for(int tri_vert=0; tri_vert<3; ++tri_vert){
-            int vert = tri_index*3+tri_vert;
-            for(int vert_comp=0; vert_comp<3; ++vert_comp){
-                mesh->tri_normals[vert*3+vert_comp] = normal[vert_comp];
-            }            
-        }
-    }    
-}
-
 struct MeshAsset {
     int vert_vbo;
     int index_vbo;
     int num_index;
     vec3 bounding_box[2];
 };
-
-void LoadMeshAsset(FileLoadThreadData* file_load_thread_data,
-                   MeshAsset* mesh_asset, const char* path) 
-{
-    FBXParseScene parse_scene;
-    LoadFBX(&parse_scene, path, file_load_thread_data, NULL);
-    Mesh& mesh = parse_scene.meshes[0];
-    RecalculateNormals(&mesh);
-    mesh_asset->num_index = mesh.num_tris*3;
-    GetBoundingBox(&mesh, mesh_asset->bounding_box);
-    VBOFromMesh(&mesh, &mesh_asset->vert_vbo, &mesh_asset->index_vbo);
-    parse_scene.Dispose();
-}
 
 void LoadMeshAssetTxt(FileLoadThreadData* file_load_thread_data,
                       MeshAsset* mesh_asset, const char* path) 
@@ -383,31 +302,11 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         }
     }
 
-    MeshAsset fbx_lamp, fbx_floor, fbx_fountain, fbx_flowerbox, 
-              fbx_garden_tall_corner, fbx_garden_tall_nook, fbx_garden_tall_stairs,
-              fbx_garden_tall_wall, fbx_short_wall, fbx_wall_pillar, fbx_tree;
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_lamp, 
-        asset_list[kFBXLamp]);
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_fountain, 
-                  asset_list[kFBXFountain]);
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_flowerbox, 
-        asset_list[kFBXFlowerbox]);
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_garden_tall_corner, 
-                  asset_list[kFBXGardenTallCorner]);
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_garden_tall_nook, 
-                  asset_list[kFBXGardenTallNook]);
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_garden_tall_stairs, 
-                  asset_list[kFBXGardenTallStairs]);
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_garden_tall_wall, 
-                  asset_list[kFBXGardenTallWall]);
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_short_wall, 
-                  asset_list[kFBXShortWall]);
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_wall_pillar, 
-                  asset_list[kFBXWallPillar]);
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_floor, 
-                  asset_list[kFBXFloor]);
-    LoadMeshAssetTxt(file_load_thread_data, &fbx_tree, 
-                  asset_list[kFBXTree]);
+    MeshAsset mesh_assets[kNumMesh];
+    for(int i=0; i<kNumMesh; ++i){
+        LoadMeshAssetTxt(file_load_thread_data, &mesh_assets[i], 
+            asset_list[kMeshLamp+i]);
+    }
                   
     profiler->StartEvent("Loading textures");
     int tex_lamp = 
@@ -560,50 +459,50 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         for(int x=0; x<kMapSize; ++x){
             vec3 translation(x*2,tile_height[z*kMapSize+x]*2,z*2);// Check nooks
             if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)] && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_nook, tex_garden_tall_nook,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallNook)], tex_garden_tall_nook,
                     shader_3d_model, translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(0,0,2);
                 transform.rotation = angleAxis(-half_pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x>0 && z>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)] && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_nook, tex_garden_tall_nook,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallNook)], tex_garden_tall_nook,
                     shader_3d_model, translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,0);
                 transform.rotation = angleAxis(half_pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x>0 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)] && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_nook, tex_garden_tall_nook,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallNook)], tex_garden_tall_nook,
                     shader_3d_model, translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,2);
                 transform.rotation = angleAxis(pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)] && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_nook, tex_garden_tall_nook,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallNook)], tex_garden_tall_nook,
                     shader_3d_model, translation);
             } 
             // Check walls
             else if(x<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_wall, tex_garden_tall_wall,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallWall)], tex_garden_tall_wall,
                     shader_3d_model, translation);
             } else if(x>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_wall, tex_garden_tall_wall,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallWall)], tex_garden_tall_wall,
                     shader_3d_model, translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,2);
                 transform.rotation = angleAxis(pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_wall, tex_garden_tall_wall,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallWall)], tex_garden_tall_wall,
                     shader_3d_model, translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,0);
                 transform.rotation = angleAxis(half_pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_wall, tex_garden_tall_wall,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallWall)], tex_garden_tall_wall,
                     shader_3d_model, translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(0,0,2);
@@ -612,32 +511,32 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
             }
             // Check corners 
             else if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x+1)]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallCorner)], tex_garden_tall_corner,
                     shader_3d_model, translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(0,0,2);
                 transform.rotation = angleAxis(-half_pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x>0 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x-1)]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallCorner)], tex_garden_tall_corner,
                     shader_3d_model, translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,0);
                 transform.rotation = angleAxis(half_pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x>0 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x-1)]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallCorner)], tex_garden_tall_corner,
                     shader_3d_model, translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,2);
                 transform.rotation = angleAxis(pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x+1)]){
-                FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallCorner)], tex_garden_tall_corner,
                     shader_3d_model, translation);
             } // Basic floor
             else {
-                FillStaticDrawable(&drawables[num_drawables++], fbx_floor, tex_floor,
+                FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshFloor)], tex_floor,
                     shader_3d_model, translation);
                 nav_mesh.verts[nav_mesh.num_verts++] = translation;
                 nav_mesh.verts[nav_mesh.num_verts++] = translation + vec3(-2,0,0);
