@@ -3,7 +3,7 @@
 #define GAME_NAV_MESH_H
 
 #include "glm/glm.hpp"
-#include <cstdint>
+#include <stdint.h>
 
 class StackAllocator;
 struct GraphicsContext;
