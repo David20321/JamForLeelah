@@ -18,6 +18,7 @@ public:
     Uint32* indices;
     int num_bones;
     glm::mat4* rest_mats;
+    glm::mat4* inverse_rest_mats;
     int* bone_parents;
     int num_animations;
     Animation* animations;

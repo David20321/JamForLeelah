@@ -628,6 +628,7 @@ void ParseMesh::Dispose() {
     free(vert); vert = NULL;
     free(indices); indices = NULL;
     free(rest_mats); rest_mats = NULL;
+    free(inverse_rest_mats); inverse_rest_mats = NULL;
     free(bone_parents); bone_parents = NULL;
     free(animations); animations = NULL;
     free(anim_transforms); anim_transforms = NULL;
@@ -638,6 +639,7 @@ ParseMesh::~ParseMesh()
     SDL_assert(vert == NULL);
     SDL_assert(indices == NULL);
     SDL_assert(rest_mats == NULL);
+    SDL_assert(inverse_rest_mats == NULL);
     SDL_assert(bone_parents == NULL);
     SDL_assert(animations == NULL);
     SDL_assert(anim_transforms == NULL);
@@ -805,9 +807,11 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
     // Process bones
     mesh_final->num_bones = mesh_straight->num_bones;
     mesh_final->rest_mats = (mat4*)malloc(sizeof(mat4)*mesh_straight->num_bones);
+    mesh_final->inverse_rest_mats = (mat4*)malloc(sizeof(mat4)*mesh_straight->num_bones);
     mesh_final->bone_parents = (int*)malloc(sizeof(int)*mesh_straight->num_bones);
     for(int i=0; i<mesh_straight->num_bones; ++i){
         mesh_final->rest_mats[i] = BlenderMatToGame(mesh_straight->bones[i].rest_mat);
+        mesh_final->inverse_rest_mats[i] = inverse(mesh_final->rest_mats[i]);
         mesh_final->bone_parents[i] = bone_id_from_hash[mesh_straight->bones[i].parent_name_hash];
     }
 

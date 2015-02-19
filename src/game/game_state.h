@@ -25,7 +25,6 @@ class Profiler;
 struct CharacterAsset {
     static const int kMaxBones = 128;
     ParseMesh parse_mesh;
-    glm::mat4 bind_transforms[128];
     int vert_vbo;
     int index_vbo;
 };
@@ -52,6 +51,7 @@ struct Character {
         kGreen,
         kRed
     };
+    int drawable;
     glm::vec3 velocity;
     SeparableTransform transform;
     NavMeshWalker nav_mesh_walker;

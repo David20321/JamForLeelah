@@ -465,10 +465,6 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         character_assets[num_character_assets].index_vbo = 
             CreateVBO(kElementVBO, kStaticVBO, parse_mesh->indices, 
                       parse_mesh->num_index*sizeof(Uint32));
-        for(int bone_index=0; bone_index<parse_mesh->num_bones; ++bone_index){
-            character_assets[num_character_assets].bind_transforms[bone_index] = 
-                parse_mesh->rest_mats[bone_index];
-        }
         ++num_character_assets;
     }
 
@@ -498,7 +494,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         characters[i].energy = 1.0f;
         characters[i].walk_cycle_frame = (float)(rand()%100);
 
-        char_drawable = num_drawables;
+        characters[i].drawable = num_drawables;
         drawables[num_drawables].vert_vbo = 
             characters[i].character_asset->vert_vbo;
         drawables[num_drawables].index_vbo = 
@@ -1027,18 +1023,24 @@ void DrawCoordinateGrid(GameState* game_state){
 void DrawDrawable(GraphicsContext* graphics_context, const mat4 &proj_mat, 
                   const mat4 &view_mat, Drawable* drawable, Profiler* profiler) 
 {
+    mat4 modelview_mat = view_mat * drawable->transform;
+    { // TODO: fix this janky frustum culling (e.g. calc real bounding spheres)
+        vec4 pos = proj_mat * modelview_mat * vec4(0,0,0,1);
+        float bounding_sphere_radius = 6.0f;
+        pos[3] += bounding_sphere_radius;
+        if(pos[0] < -pos[3] || pos[0] >  pos[3] || pos[1] < -pos[3] || 
+           pos[1] >  pos[3] || pos[2] < -pos[3] || pos[2] >  pos[3])
+        {
+            return;
+        }
+    }
+
     Shader *shader = &graphics_context->shaders[drawable->shader_id];
     CHECK_GL_ERROR();
     glUseProgram(shader->gl_id);
     CHECK_GL_ERROR();
 
-    profiler->StartEvent("Matrices");
-    mat4 model_mat = drawable->transform;
-    mat4 modelview_mat = view_mat * model_mat;
-    mat3 normal_mat = mat3(model_mat);
-    profiler->EndEvent();
-
-    profiler->StartEvent("Remaining");
+    mat3 normal_mat = mat3(drawable->transform);
     glUniformMatrix3fv(shader->uniforms[Shader::kNormalMat3], 1, false, (GLfloat*)&normal_mat);
 
     glUniform1i(shader->uniforms[Shader::kTextureID], 0);
@@ -1077,7 +1079,6 @@ void DrawDrawable(GraphicsContext* graphics_context, const mat4 &proj_mat,
     case kInterleave_3V2T3N4I4W: {
         SDL_assert(drawable->character != NULL);
         Character* character = drawable->character;
-        drawable->transform = character->transform.GetCombination();
         ParseMesh* parse_mesh = &character->character_asset->parse_mesh;
         int animation = 1;//1;
         int frame = (int)character->walk_cycle_frame;
@@ -1087,10 +1088,9 @@ void DrawDrawable(GraphicsContext* graphics_context, const mat4 &proj_mat,
         mat4 bone_transforms[128];
         for(int bone_index=0; bone_index<parse_mesh->num_bones; ++bone_index){
             mat4 temp = parse_mesh->anim_transforms[start_anim_transform + bone_index];
-            bone_transforms[bone_index] = temp * 
-                inverse(parse_mesh->rest_mats[bone_index]);
+            bone_transforms[bone_index] = temp * parse_mesh->inverse_rest_mats[bone_index];
         }
-        for(int i=0; i<128; ++i){
+        for(int i=0; i<parse_mesh->num_bones; ++i){
             bone_transforms[i] = drawable->transform * bone_transforms[i];
         }
         glUniform4fv(shader->uniforms[Shader::kColor], 1, (GLfloat*)&character->color);
@@ -1119,7 +1119,6 @@ void DrawDrawable(GraphicsContext* graphics_context, const mat4 &proj_mat,
     }
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
-    profiler->EndEvent();
 }
 
 void GameState::Draw(GraphicsContext* context, int ticks, Profiler* profiler) {
@@ -1133,6 +1132,12 @@ void GameState::Draw(GraphicsContext* context, int ticks, Profiler* profiler) {
     float aspect_ratio = context->screen_dims[0] / (float)context->screen_dims[1];
     mat4 proj_mat = glm::perspective(camera_fov, aspect_ratio, 0.1f, 100.0f);
     mat4 view_mat = inverse(camera.GetMatrix());
+
+    for(int i=0; i<kMaxCharacters; ++i){
+        if(characters[i].exists) {
+            drawables[characters[i].drawable].transform = characters[i].transform.GetCombination();
+        }
+    }
 
     profiler->StartEvent("Draw drawables");
     for(int i=0; i<num_drawables; ++i){
