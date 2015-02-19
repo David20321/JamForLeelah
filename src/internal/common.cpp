@@ -1,6 +1,6 @@
 #include "internal/common.h"
 #include <cstdarg>
-#include <cstdint>
+#include <stdint.h>
 
 void FormatString(char* buf, int buf_size, const char* fmt, ...) {
     va_list args;
