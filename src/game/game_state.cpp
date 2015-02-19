@@ -23,27 +23,27 @@
 using namespace glm;
 
 const char* asset_list[] = {
-    ASSET_PATH "art/street_lamp.fbx",
+    ASSET_PATH "art/street_lamp_export.txt",
     ASSET_PATH "art/lamp_c.tga",
-    ASSET_PATH "art/dry_fountain.fbx",
+    ASSET_PATH "art/dry_fountain_export.txt",
     ASSET_PATH "art/dry_fountain_c.tga",
-    ASSET_PATH "art/flower_box.fbx",
+    ASSET_PATH "art/flower_box_export.txt",
     ASSET_PATH "art/flowerbox_c.tga",
-    ASSET_PATH "art/garden_tall_corner.fbx",
+    ASSET_PATH "art/garden_tall_corner_export.txt",
     ASSET_PATH "art/garden_tall_corner_c.tga",
-    ASSET_PATH "art/garden_tall_nook.fbx",
+    ASSET_PATH "art/garden_tall_nook_export.txt",
     ASSET_PATH "art/garden_tall_nook_c.tga",
-    ASSET_PATH "art/garden_tall_stairs.fbx",
+    ASSET_PATH "art/garden_tall_stairs_export.txt",
     ASSET_PATH "art/garden_tall_stairs.tga",
-    ASSET_PATH "art/garden_tall_wall.fbx",
+    ASSET_PATH "art/garden_tall_wall_export.txt",
     ASSET_PATH "art/garden_tall_wall_c.tga",
-    ASSET_PATH "art/short_wall.fbx",
+    ASSET_PATH "art/short_wall_export.txt",
     ASSET_PATH "art/short_wall_c.tga",
-    ASSET_PATH "art/tree.fbx",
+    ASSET_PATH "art/tree_export.txt",
     ASSET_PATH "art/tree_c.tga",
-    ASSET_PATH "art/wall_pillar.fbx",
+    ASSET_PATH "art/wall_pillar_export.txt",
     ASSET_PATH "art/wall_pillar_c.tga",
-    ASSET_PATH "art/floor_quad.fbx",
+    ASSET_PATH "art/floor_quad_export.txt",
     ASSET_PATH "art/tiling_cobbles_c.tga",
     ASSET_PATH "art/main_character_rig_export.txt",
     ASSET_PATH "art/main_character_c.tga",
@@ -104,7 +104,7 @@ enum {
     kOggDrums2
 };
 
-static const bool kDrawNavMesh = false;
+static const bool kDrawNavMesh = true;
 
 quat Camera::GetRotation() {
     quat xRot = angleAxis(rotation_x, vec3(1,0,0));
@@ -331,6 +331,21 @@ void LoadMeshAsset(FileLoadThreadData* file_load_thread_data,
     parse_scene.Dispose();
 }
 
+void LoadMeshAssetTxt(FileLoadThreadData* file_load_thread_data,
+                      MeshAsset* mesh_asset, const char* path) 
+{
+    ParseMesh parse_mesh;
+    ParseTestFile(path, &parse_mesh);
+    mesh_asset->vert_vbo = 
+        CreateVBO(kArrayVBO, kStaticVBO, parse_mesh.vert, 
+        parse_mesh.num_vert*sizeof(float)*8);
+    mesh_asset->index_vbo = 
+        CreateVBO(kElementVBO, kStaticVBO, parse_mesh.indices, 
+        parse_mesh.num_index*sizeof(Uint32));
+    mesh_asset->num_index = parse_mesh.num_index;
+    parse_mesh.Dispose();
+}
+
 void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset, 
                         int texture, int shader, vec3 translation) 
 {
@@ -371,31 +386,29 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
     MeshAsset fbx_lamp, fbx_floor, fbx_fountain, fbx_flowerbox, 
               fbx_garden_tall_corner, fbx_garden_tall_nook, fbx_garden_tall_stairs,
               fbx_garden_tall_wall, fbx_short_wall, fbx_wall_pillar, fbx_tree;
-    LoadMeshAsset(file_load_thread_data, &fbx_lamp, 
-                  asset_list[kFBXLamp]);
-    LoadMeshAsset(file_load_thread_data, &fbx_fountain, 
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_lamp, 
+        asset_list[kFBXLamp]);
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_fountain, 
                   asset_list[kFBXFountain]);
-    LoadMeshAsset(file_load_thread_data, &fbx_flowerbox, 
-                  asset_list[kFBXFlowerbox]);
-    LoadMeshAsset(file_load_thread_data, &fbx_garden_tall_corner, 
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_flowerbox, 
+        asset_list[kFBXFlowerbox]);
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_garden_tall_corner, 
                   asset_list[kFBXGardenTallCorner]);
-    LoadMeshAsset(file_load_thread_data, &fbx_garden_tall_nook, 
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_garden_tall_nook, 
                   asset_list[kFBXGardenTallNook]);
-    LoadMeshAsset(file_load_thread_data, &fbx_garden_tall_stairs, 
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_garden_tall_stairs, 
                   asset_list[kFBXGardenTallStairs]);
-    LoadMeshAsset(file_load_thread_data, &fbx_garden_tall_wall, 
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_garden_tall_wall, 
                   asset_list[kFBXGardenTallWall]);
-    LoadMeshAsset(file_load_thread_data, &fbx_short_wall, 
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_short_wall, 
                   asset_list[kFBXShortWall]);
-    LoadMeshAsset(file_load_thread_data, &fbx_wall_pillar, 
-                  asset_list[kFBXTree]);
-    LoadMeshAsset(file_load_thread_data, &fbx_wall_pillar, 
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_wall_pillar, 
                   asset_list[kFBXWallPillar]);
-    LoadMeshAsset(file_load_thread_data, &fbx_floor, 
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_floor, 
                   asset_list[kFBXFloor]);
-    LoadMeshAsset(file_load_thread_data, &fbx_tree, 
+    LoadMeshAssetTxt(file_load_thread_data, &fbx_tree, 
                   asset_list[kFBXTree]);
-
+                  
     profiler->StartEvent("Loading textures");
     int tex_lamp = 
         LoadImage(asset_list[kTexLamp], file_load_thread_data);
@@ -472,7 +485,10 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         characters[i].exists = false;
     }
 
-    for(int i=0; i<kMaxCharacters; ++i){
+    static const bool kOnlyOneCharacter = true;
+    int num_chars = kOnlyOneCharacter?1:kMaxCharacters;
+
+    for(int i=0; i<num_chars; ++i){
         characters[i].rotation = 0.0f;
         characters[i].exists = true;
         characters[i].nav_mesh_walker.tri = 0;
@@ -512,7 +528,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
     // Initialize tile map
     for(int z=0; z<kMapSize; ++z){
         for(int j=0; j<kMapSize; ++j){
-            tile_height[z*kMapSize+j] = 0;
+            tile_height[z*kMapSize+j] = rand()%20==0;
         }
     }
 

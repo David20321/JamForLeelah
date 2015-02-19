@@ -442,6 +442,8 @@ void ParseTestFileFromRam(const char* path, ParsePass pass, ParseMeshStraight* m
                         } else if(strncmp(line, skeleton_header, skeleton_header_len) == 0){
                             repeat = true;
                             parse_state = kSkeleton;
+                        } else if(strncmp(line, end_header, end_header_len) == 0){
+                            parse_state = kEnd;
                         } else {
                             if(strncmp(line, header, header_len) != 0){
                                 FileParseErr(path, line_num, "Invalid polygon vertex header");
@@ -683,6 +685,8 @@ mat4 BlenderMatToGame(const mat4 &blender_mat){
 }
 
 void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straight) {
+    bool skinned = (mesh_straight->num_bones != 0);
+    
     // Prepare structure for easy lookup of the bone ID of a hash string
     int bone_id_from_hash[StringHashStore::kMaxStrings];
     for(int i=0; i<StringHashStore::kMaxStrings; ++i){
@@ -692,8 +696,9 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
         bone_id_from_hash[mesh_straight->bones[i].name_hash] = i;
     }
 
+    const int kFloatsPerVert = skinned?ParseMesh::kFloatsPerVert_Skinned:ParseMesh::kFloatsPerVert_Unskinned;
     float* vert_data;
-    vert_data = (float*)malloc(sizeof(float)*ParseMesh::kFloatsPerVert*mesh_straight->num_verts);
+    vert_data = (float*)malloc(sizeof(float)*kFloatsPerVert*mesh_straight->num_verts);
     int vert_data_index = 0;
     for(int i=0; i<mesh_straight->num_verts; ++i) {
         // Copy over vertex and normal data (switching order from Blender to game)
@@ -707,50 +712,52 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
         vert_data[vert_data_index++] = vert->normal[0];
         vert_data[vert_data_index++] = vert->normal[2];
         vert_data[vert_data_index++] = vert->normal[1] * -1.0f;
-        // The rest of this scope is about getting the 4 bone indices
-        static const int kMaxIndicesToProcess = 32;
-        SortBone sort_bone[kMaxIndicesToProcess];
-        int num_bones = 0;
-        // Get all deform bones affecting vert
-        for(int j=0, vert_group_index = vert->vert_group_start_index; 
-            j<vert->num_vert_groups; 
-            ++j, ++vert_group_index) 
-        {
-            ParseMeshStraight::VertGroup* vert_group = 
-                &mesh_straight->vert_groups[vert_group_index];
-            int bone_id = bone_id_from_hash[vert_group->name_hash];
-            if(bone_id != -1){
-                sort_bone[num_bones].index = bone_id;
-                sort_bone[num_bones].weight = vert_group->weight;
-                ++num_bones;
-                SDL_assert(num_bones < kMaxIndicesToProcess);
+        if(skinned){
+            // The rest of this scope is about getting the 4 bone indices
+            static const int kMaxIndicesToProcess = 32;
+            SortBone sort_bone[kMaxIndicesToProcess];
+            int num_bones = 0;
+            // Get all deform bones affecting vert
+            for(int j=0, vert_group_index = vert->vert_group_start_index; 
+                j<vert->num_vert_groups; 
+                ++j, ++vert_group_index) 
+            {
+                ParseMeshStraight::VertGroup* vert_group = 
+                    &mesh_straight->vert_groups[vert_group_index];
+                int bone_id = bone_id_from_hash[vert_group->name_hash];
+                if(bone_id != -1){
+                    sort_bone[num_bones].index = bone_id;
+                    sort_bone[num_bones].weight = vert_group->weight;
+                    ++num_bones;
+                    SDL_assert(num_bones < kMaxIndicesToProcess);
+                }
             }
-        }
-        // Sort bones by weight
-        if(num_bones > 1){
-            qsort(sort_bone, num_bones, sizeof(SortBone), SortBonesByWeight);
-        }
-        // Clip down to 4 bones
-        num_bones = min(4,num_bones);
-        // Normalize to add up to 1
-        float total_weight = 0.0f;
-        for(int i=0; i<num_bones; ++i){
-            total_weight += sort_bone[i].weight;
-        }
-        if(total_weight != 0.0f){
+            // Sort bones by weight
+            if(num_bones > 1){
+                qsort(sort_bone, num_bones, sizeof(SortBone), SortBonesByWeight);
+            }
+            // Clip down to 4 bones
+            num_bones = min(4,num_bones);
+            // Normalize to add up to 1
+            float total_weight = 0.0f;
             for(int i=0; i<num_bones; ++i){
-                sort_bone[i].weight /= total_weight;
+                total_weight += sort_bone[i].weight;
             }
-        }
-        for(int i=num_bones; i<4; ++i){
-            sort_bone[i].weight = 0.0f;
-            sort_bone[i].index = 0;
-        }
-        for(int i=0; i<4; ++i){
-            vert_data[vert_data_index++] = (float)sort_bone[i].index;       
-        }
-        for(int i=0; i<4; ++i){
-            vert_data[vert_data_index++] = sort_bone[i].weight;       
+            if(total_weight != 0.0f){
+                for(int i=0; i<num_bones; ++i){
+                    sort_bone[i].weight /= total_weight;
+                }
+            }
+            for(int i=num_bones; i<4; ++i){
+                sort_bone[i].weight = 0.0f;
+                sort_bone[i].index = 0;
+            }
+            for(int i=0; i<4; ++i){
+                vert_data[vert_data_index++] = (float)sort_bone[i].index;       
+            }
+            for(int i=0; i<4; ++i){
+                vert_data[vert_data_index++] = sort_bone[i].weight;       
+            }
         }
     }
 
@@ -781,7 +788,7 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
     }
 
     float* vert_data_expanded;
-    vert_data_expanded = (float*)malloc(sizeof(float)*ParseMesh::kFloatsPerVert*num_tris*3);
+    vert_data_expanded = (float*)malloc(sizeof(float)*kFloatsPerVert*num_tris*3);
     Uint32* indices = (Uint32*)malloc(sizeof(Uint32)*num_tris*3);
 
     int vert_data_expanded_index = 0;
@@ -789,12 +796,12 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
         ParseMeshStraight::PolygonVert* polygon_vert = 
             &mesh_straight->polygon_verts[tri_verts[i]];
         memcpy(&vert_data_expanded[vert_data_expanded_index],
-            &vert_data[polygon_vert->vert * ParseMesh::kFloatsPerVert],
-            sizeof(float) * ParseMesh::kFloatsPerVert);
+            &vert_data[polygon_vert->vert * kFloatsPerVert],
+            sizeof(float) * kFloatsPerVert);
         vert_data_expanded[vert_data_expanded_index+3] = polygon_vert->uv[0];
         vert_data_expanded[vert_data_expanded_index+4] = polygon_vert->uv[1];
         indices[i] = i;
-        vert_data_expanded_index += ParseMesh::kFloatsPerVert;
+        vert_data_expanded_index += kFloatsPerVert;
     }
 
     mesh_final->num_vert = num_tris*3;
@@ -804,41 +811,49 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
     free(tri_verts);
     free(vert_data);
 
-    // Process bones
-    mesh_final->num_bones = mesh_straight->num_bones;
-    mesh_final->rest_mats = (mat4*)malloc(sizeof(mat4)*mesh_straight->num_bones);
-    mesh_final->inverse_rest_mats = (mat4*)malloc(sizeof(mat4)*mesh_straight->num_bones);
-    mesh_final->bone_parents = (int*)malloc(sizeof(int)*mesh_straight->num_bones);
-    for(int i=0; i<mesh_straight->num_bones; ++i){
-        mesh_final->rest_mats[i] = BlenderMatToGame(mesh_straight->bones[i].rest_mat);
-        mesh_final->inverse_rest_mats[i] = inverse(mesh_final->rest_mats[i]);
-        mesh_final->bone_parents[i] = bone_id_from_hash[mesh_straight->bones[i].parent_name_hash];
-    }
-
-    // Process animations
-    mesh_final->num_animations = mesh_straight->num_actions;
-    mesh_final->animations = (ParseMesh::Animation*)malloc(sizeof(ParseMesh::Animation)*mesh_straight->num_actions);
-    int num_anim_frames = 0;
-    for(int i=0; i<mesh_final->num_animations; ++i){
-        mesh_final->animations[i].num_frames = mesh_straight->actions[i].num_frames;
-        num_anim_frames += mesh_final->animations[i].num_frames;
-    }
-    int num_anim_transforms = num_anim_frames * mesh_final->num_bones;
-    mesh_final->anim_transforms = (mat4*)malloc(sizeof(mat4)*num_anim_transforms);
-    int anim_transform_index = 0;
-    for(int i=0; i<mesh_final->num_animations; ++i){
-        mesh_final->animations[i].anim_transform_start = anim_transform_index;
-        for(int j=0; j<mesh_final->animations[i].num_frames; ++j){
-            int frame_transform_index = mesh_straight->frames[mesh_straight->actions[i].frame_index+j].start_index;
-            for(int k=0; k<mesh_final->num_bones; ++k){
-                int bone_id = bone_id_from_hash[mesh_straight->frame_transforms[frame_transform_index].name_hash];
-                SDL_assert(bone_id >= 0 && bone_id < mesh_final->num_bones);
-                mesh_final->anim_transforms[anim_transform_index+bone_id] = 
-                    BlenderMatToGame(mesh_straight->frame_transforms[frame_transform_index].mat);
-                ++frame_transform_index;
-            }
-            anim_transform_index += mesh_final->num_bones;
+    if(skinned){
+        // Process bones
+        mesh_final->num_bones = mesh_straight->num_bones;
+        mesh_final->rest_mats = (mat4*)malloc(sizeof(mat4)*mesh_straight->num_bones);
+        mesh_final->inverse_rest_mats = (mat4*)malloc(sizeof(mat4)*mesh_straight->num_bones);
+        mesh_final->bone_parents = (int*)malloc(sizeof(int)*mesh_straight->num_bones);
+        for(int i=0; i<mesh_straight->num_bones; ++i){
+            mesh_final->rest_mats[i] = BlenderMatToGame(mesh_straight->bones[i].rest_mat);
+            mesh_final->inverse_rest_mats[i] = inverse(mesh_final->rest_mats[i]);
+            mesh_final->bone_parents[i] = bone_id_from_hash[mesh_straight->bones[i].parent_name_hash];
         }
+
+        // Process animations
+        mesh_final->num_animations = mesh_straight->num_actions;
+        mesh_final->animations = (ParseMesh::Animation*)malloc(sizeof(ParseMesh::Animation)*mesh_straight->num_actions);
+        int num_anim_frames = 0;
+        for(int i=0; i<mesh_final->num_animations; ++i){
+            mesh_final->animations[i].num_frames = mesh_straight->actions[i].num_frames;
+            num_anim_frames += mesh_final->animations[i].num_frames;
+        }
+        int num_anim_transforms = num_anim_frames * mesh_final->num_bones;
+        mesh_final->anim_transforms = (mat4*)malloc(sizeof(mat4)*num_anim_transforms);
+        int anim_transform_index = 0;
+        for(int i=0; i<mesh_final->num_animations; ++i){
+            mesh_final->animations[i].anim_transform_start = anim_transform_index;
+            for(int j=0; j<mesh_final->animations[i].num_frames; ++j){
+                int frame_transform_index = mesh_straight->frames[mesh_straight->actions[i].frame_index+j].start_index;
+                for(int k=0; k<mesh_final->num_bones; ++k){
+                    int bone_id = bone_id_from_hash[mesh_straight->frame_transforms[frame_transform_index].name_hash];
+                    SDL_assert(bone_id >= 0 && bone_id < mesh_final->num_bones);
+                    mesh_final->anim_transforms[anim_transform_index+bone_id] = 
+                        BlenderMatToGame(mesh_straight->frame_transforms[frame_transform_index].mat);
+                    ++frame_transform_index;
+                }
+                anim_transform_index += mesh_final->num_bones;
+            }
+        }
+    } else {
+        mesh_final->rest_mats = NULL;
+        mesh_final->inverse_rest_mats = NULL;
+        mesh_final->bone_parents = NULL;
+        mesh_final->animations = NULL;
+        mesh_final->anim_transforms = NULL;
     }
 }
 

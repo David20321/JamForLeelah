@@ -3,19 +3,19 @@ Version 1
 --BEGIN--
 Mesh
   Vert 0
-    Coords: (-1.000000, -1.000000, 0.000000)
+    Coords: (-2.000000, -2.000000, 0.000000)
     Normals: (0.000000, 0.000000, 1.000000)
     Vertex Groups:
   Vert 1
-    Coords: (-1.000000, 1.000000, 0.000000)
+    Coords: (-2.000000, 0.000000, -0.000000)
     Normals: (0.000000, 0.000000, 1.000000)
     Vertex Groups:
   Vert 2
-    Coords: (1.000000, 1.000000, 0.000000)
+    Coords: (0.000000, 0.000000, -0.000000)
     Normals: (0.000000, 0.000000, 1.000000)
     Vertex Groups:
   Vert 3
-    Coords: (1.000000, -1.000000, 0.000000)
+    Coords: (0.000000, -2.000000, 0.000000)
     Normals: (0.000000, 0.000000, 1.000000)
     Vertex Groups:
   Polygon index: 0, length: 4

@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
             FormattedError("SDL_Init failed", "Could not initialize SDL: %s", SDL_GetError());
             return 1;
         }
-        srand((unsigned)SDL_GetPerformanceCounter());
+        srand((unsigned)SDL_GetPerformanceCounter()); // Set seed for simple rand()
         char* write_dir = SDL_GetPrefPath("Wolfire", "UnderGlass");
     profiler.EndEvent();
 

@@ -40,10 +40,13 @@ def ExportWJFL(path):
     file.write("--BEGIN--\n")    
     #Export mesh
     file.write("Mesh\n")
+    mat_normal = mesh_obj.matrix_world.to_3x3()
     for vert in mesh.vertices:
+        transformed_vert = mesh_obj.matrix_world * vert.co;
+        transformed_normal = mat_normal * vert.normal;
         file.write("  Vert %d\n" % vert.index)
-        file.write("    Coords: (%f, %f, %f)\n" % (vert.co[0], vert.co[1], vert.co[2]))
-        file.write("    Normals: (%f, %f, %f)\n" % (vert.normal[0], vert.normal[1], vert.normal[2]))
+        file.write("    Coords: (%f, %f, %f)\n" % (transformed_vert[0], transformed_vert[1], transformed_vert[2]))
+        file.write("    Normals: (%f, %f, %f)\n" % (transformed_normal[0], transformed_normal[1], transformed_normal[2]))
         file.write("    Vertex Groups:\n" )
         if armature != None:
             for group in vert.groups:

@@ -12,8 +12,9 @@ public:
         int anim_transform_start;
     };
     int num_vert;
-    static const int kFloatsPerVert = 3+2+3+4+4;
-    float* vert; //Vert data, 3v 2uv 3n 4bone_index 4bone_weight
+    static const int kFloatsPerVert_Skinned = 3+2+3+4+4; //Vert data, 3v 2uv 3n 4bone_index 4bone_weight
+    static const int kFloatsPerVert_Unskinned = 3+2+3; //Vert data, 3v 2uv 3n
+    float* vert; 
     int num_index;
     Uint32* indices;
     int num_bones;

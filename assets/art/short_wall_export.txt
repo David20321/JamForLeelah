@@ -1,0 +1,627 @@
+Wolfire JamForLeelah Format
+Version 1
+--BEGIN--
+Mesh
+  Vert 0
+    Coords: (-0.417938, -1.000000, 0.000000)
+    Normals: (-0.061342, -0.000000, -0.998108)
+    Vertex Groups:
+  Vert 1
+    Coords: (-0.417938, -0.000000, -0.000000)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 2
+    Coords: (-0.087226, -0.000000, -0.000000)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 3
+    Coords: (-0.087226, -1.000000, 0.000000)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 4
+    Coords: (-0.417938, -1.000000, 0.832795)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 5
+    Coords: (-0.417938, 0.000000, 0.832795)
+    Normals: (-0.041810, 0.000000, 0.999115)
+    Vertex Groups:
+  Vert 6
+    Coords: (-0.087226, 0.000000, 0.832795)
+    Normals: (0.041810, 0.000000, 0.999115)
+    Vertex Groups:
+  Vert 7
+    Coords: (-0.087226, -1.000000, 0.832795)
+    Normals: (0.041810, 0.000000, 0.999115)
+    Vertex Groups:
+  Vert 8
+    Coords: (-0.417938, -1.000000, 0.749516)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 9
+    Coords: (-0.417938, -0.000000, 0.749516)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 10
+    Coords: (-0.087226, -0.000000, 0.749516)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 11
+    Coords: (-0.087226, -1.000000, 0.749516)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 12
+    Coords: (-0.417938, -0.000000, 0.094451)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 13
+    Coords: (-0.087226, -0.000000, 0.094451)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 14
+    Coords: (-0.087226, -1.000000, 0.094451)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 15
+    Coords: (-0.417938, -1.000000, 0.094451)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 16
+    Coords: (-0.434462, -1.000000, 0.002040)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 17
+    Coords: (-0.434462, -0.000000, 0.002039)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 18
+    Coords: (-0.070702, -0.000000, 0.002039)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 19
+    Coords: (-0.070702, -1.000000, 0.002040)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 20
+    Coords: (-0.434462, -1.000000, 0.831409)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 21
+    Coords: (-0.434462, 0.000000, 0.831409)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 22
+    Coords: (-0.070702, 0.000000, 0.831409)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 23
+    Coords: (-0.070702, -1.000000, 0.831409)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 24
+    Coords: (-0.434462, -1.000000, 0.753766)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 25
+    Coords: (-0.434462, -0.000000, 0.753766)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 26
+    Coords: (-0.070702, -0.000000, 0.753766)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 27
+    Coords: (-0.070702, -1.000000, 0.753766)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 28
+    Coords: (-0.434462, -0.000000, 0.090098)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 29
+    Coords: (-0.070702, -0.000000, 0.090098)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 30
+    Coords: (-0.070702, -1.000000, 0.090098)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 31
+    Coords: (-0.434462, -1.000000, 0.090098)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 32
+    Coords: (-0.417938, 0.000000, 0.832795)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 33
+    Coords: (-0.087226, 0.000000, 0.832795)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 34
+    Coords: (-0.087226, -0.000000, -0.000000)
+    Normals: (0.061342, -0.000000, -0.998108)
+    Vertex Groups:
+  Vert 35
+    Coords: (-0.417938, -0.000000, -0.000000)
+    Normals: (-0.061342, -0.000000, -0.998108)
+    Vertex Groups:
+  Vert 36
+    Coords: (-0.087226, -1.000000, 0.832795)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 37
+    Coords: (-0.417938, -1.000000, 0.832795)
+    Normals: (-0.041810, 0.000000, 0.999115)
+    Vertex Groups:
+  Vert 38
+    Coords: (-0.417938, -1.000000, 0.000000)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 39
+    Coords: (-0.087226, -1.000000, 0.000000)
+    Normals: (0.061342, -0.000000, -0.998108)
+    Vertex Groups:
+  Vert 40
+    Coords: (-0.417938, -1.000000, 0.094451)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 41
+    Coords: (-0.417938, -1.000000, 0.094451)
+    Normals: (-0.254707, 0.000000, 0.967009)
+    Vertex Groups:
+  Vert 42
+    Coords: (-0.417938, -1.000000, 0.749516)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 43
+    Coords: (-0.417938, -1.000000, 0.749516)
+    Normals: (-0.249092, -0.000000, -0.968474)
+    Vertex Groups:
+  Vert 44
+    Coords: (-0.417938, -0.000000, 0.749516)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 45
+    Coords: (-0.417938, -0.000000, 0.749516)
+    Normals: (-0.249092, -0.000000, -0.968474)
+    Vertex Groups:
+  Vert 46
+    Coords: (-0.087226, -1.000000, 0.749516)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 47
+    Coords: (-0.087226, -1.000000, 0.749516)
+    Normals: (0.249092, -0.000000, -0.968474)
+    Vertex Groups:
+  Vert 48
+    Coords: (-0.087226, -0.000000, 0.749516)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 49
+    Coords: (-0.087226, -0.000000, 0.749516)
+    Normals: (0.249092, -0.000000, -0.968474)
+    Vertex Groups:
+  Vert 50
+    Coords: (-0.417938, -0.000000, 0.094451)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 51
+    Coords: (-0.417938, -0.000000, 0.094451)
+    Normals: (-0.254707, 0.000000, 0.967009)
+    Vertex Groups:
+  Vert 52
+    Coords: (-0.087226, -0.000000, 0.094451)
+    Normals: (0.254707, 0.000000, 0.967009)
+    Vertex Groups:
+  Vert 53
+    Coords: (-0.087226, -0.000000, 0.094451)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 54
+    Coords: (-0.087226, -1.000000, 0.094451)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 55
+    Coords: (-0.087226, -1.000000, 0.094451)
+    Normals: (0.254707, 0.000000, 0.967009)
+    Vertex Groups:
+  Vert 56
+    Coords: (-0.434462, -1.000000, 0.753766)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 57
+    Coords: (-0.434462, -1.000000, 0.753766)
+    Normals: (-0.249092, -0.000000, -0.968474)
+    Vertex Groups:
+  Vert 58
+    Coords: (-0.434462, -1.000000, 0.831409)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 59
+    Coords: (-0.434462, -1.000000, 0.831409)
+    Normals: (-0.083560, 0.000000, 0.996490)
+    Vertex Groups:
+  Vert 60
+    Coords: (-0.434462, 0.000000, 0.831409)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 61
+    Coords: (-0.434462, 0.000000, 0.831409)
+    Normals: (-0.083560, 0.000000, 0.996490)
+    Vertex Groups:
+  Vert 62
+    Coords: (-0.434462, -0.000000, 0.090098)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 63
+    Coords: (-0.434462, -0.000000, 0.090098)
+    Normals: (-0.254707, 0.000000, 0.967009)
+    Vertex Groups:
+  Vert 64
+    Coords: (-0.434462, -0.000000, 0.002039)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 65
+    Coords: (-0.434462, -0.000000, 0.002039)
+    Normals: (-0.122471, -0.000000, -0.992462)
+    Vertex Groups:
+  Vert 66
+    Coords: (-0.434462, -1.000000, 0.002040)
+    Normals: (-0.122471, -0.000000, -0.992462)
+    Vertex Groups:
+  Vert 67
+    Coords: (-0.434462, -1.000000, 0.002040)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 68
+    Coords: (-0.070702, -0.000000, 0.090098)
+    Normals: (0.254707, 0.000000, 0.967009)
+    Vertex Groups:
+  Vert 69
+    Coords: (-0.070702, -0.000000, 0.090098)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 70
+    Coords: (-0.070702, -0.000000, 0.002039)
+    Normals: (0.122471, -0.000000, -0.992462)
+    Vertex Groups:
+  Vert 71
+    Coords: (-0.070702, -0.000000, 0.002039)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 72
+    Coords: (-0.070702, 0.000000, 0.831409)
+    Normals: (0.083560, 0.000000, 0.996490)
+    Vertex Groups:
+  Vert 73
+    Coords: (-0.070702, 0.000000, 0.831409)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 74
+    Coords: (-0.070702, -1.000000, 0.831409)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 75
+    Coords: (-0.070702, -1.000000, 0.831409)
+    Normals: (0.083560, 0.000000, 0.996490)
+    Vertex Groups:
+  Vert 76
+    Coords: (-0.070702, -1.000000, 0.090098)
+    Normals: (0.254707, 0.000000, 0.967009)
+    Vertex Groups:
+  Vert 77
+    Coords: (-0.070702, -1.000000, 0.090098)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 78
+    Coords: (-0.070702, -1.000000, 0.002040)
+    Normals: (0.122471, -0.000000, -0.992462)
+    Vertex Groups:
+  Vert 79
+    Coords: (-0.070702, -1.000000, 0.002040)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Vert 80
+    Coords: (-0.434462, -0.000000, 0.753766)
+    Normals: (-1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 81
+    Coords: (-0.434462, -0.000000, 0.753766)
+    Normals: (-0.249092, -0.000000, -0.968474)
+    Vertex Groups:
+  Vert 82
+    Coords: (-0.070702, -0.000000, 0.753766)
+    Normals: (0.249092, -0.000000, -0.968474)
+    Vertex Groups:
+  Vert 83
+    Coords: (-0.070702, -0.000000, 0.753766)
+    Normals: (0.000000, 1.000000, -0.000000)
+    Vertex Groups:
+  Vert 84
+    Coords: (-0.070702, -1.000000, 0.753766)
+    Normals: (1.000000, 0.000000, 0.000000)
+    Vertex Groups:
+  Vert 85
+    Coords: (-0.070702, -1.000000, 0.753766)
+    Normals: (0.249092, -0.000000, -0.968474)
+    Vertex Groups:
+  Vert 86
+    Coords: (-0.434462, -1.000000, 0.090098)
+    Normals: (-0.254707, 0.000000, 0.967009)
+    Vertex Groups:
+  Vert 87
+    Coords: (-0.434462, -1.000000, 0.090098)
+    Normals: (0.000000, -1.000000, 0.000000)
+    Vertex Groups:
+  Polygon index: 0, length: 4
+    Vertex: 32
+    UV: (0.767355, 0.900758)
+    Vertex: 9
+    UV: (0.827061, 0.902237)
+    Vertex: 25
+    UV: (0.823659, 0.914193)
+    Vertex: 60
+    UV: (0.767705, 0.912627)
+  Polygon index: 1, length: 4
+    Vertex: 12
+    UV: (0.741949, 0.027657)
+    Vertex: 13
+    UV: (0.970508, 0.027657)
+    Vertex: 2
+    UV: (0.970508, 0.092933)
+    Vertex: 1
+    UV: (0.741949, 0.092933)
+  Polygon index: 2, length: 4
+    Vertex: 12
+    UV: (0.741949, 0.027657)
+    Vertex: 1
+    UV: (0.741949, 0.092933)
+    Vertex: 17
+    UV: (0.730529, 0.091524)
+    Vertex: 28
+    UV: (0.730529, 0.030665)
+  Polygon index: 3, length: 4
+    Vertex: 14
+    UV: (0.970508, 0.092933)
+    Vertex: 40
+    UV: (0.741949, 0.092933)
+    Vertex: 38
+    UV: (0.741949, 0.027657)
+    Vertex: 3
+    UV: (0.970508, 0.027657)
+  Polygon index: 4, length: 4
+    Vertex: 0
+    UV: (0.941499, 0.618638)
+    Vertex: 35
+    UV: (0.941461, 0.868614)
+    Vertex: 34
+    UV: (0.858791, 0.868602)
+    Vertex: 39
+    UV: (0.858829, 0.618626)
+  Polygon index: 5, length: 4
+    Vertex: 7
+    UV: (0.085338, 0.669208)
+    Vertex: 6
+    UV: (0.767071, 0.669249)
+    Vertex: 5
+    UV: (0.767355, 0.900758)
+    Vertex: 37
+    UV: (0.085621, 0.900717)
+  Polygon index: 6, length: 4
+    Vertex: 52
+    UV: (0.714472, 0.113489)
+    Vertex: 55
+    UV: (0.024561, 0.113489)
+    Vertex: 76
+    UV: (0.024557, 0.101446)
+    Vertex: 68
+    UV: (0.714467, 0.101446)
+  Polygon index: 7, length: 4
+    Vertex: 32
+    UV: (0.767355, 0.900758)
+    Vertex: 33
+    UV: (0.767071, 0.669249)
+    Vertex: 10
+    UV: (0.826394, 0.667501)
+    Vertex: 9
+    UV: (0.827061, 0.902237)
+  Polygon index: 8, length: 4
+    Vertex: 36
+    UV: (0.085338, 0.669208)
+    Vertex: 11
+    UV: (0.025631, 0.667729)
+    Vertex: 27
+    UV: (0.029034, 0.655773)
+    Vertex: 74
+    UV: (0.084987, 0.657339)
+  Polygon index: 9, length: 4
+    Vertex: 36
+    UV: (0.085338, 0.669208)
+    Vertex: 4
+    UV: (0.085621, 0.900717)
+    Vertex: 8
+    UV: (0.026298, 0.902465)
+    Vertex: 11
+    UV: (0.025631, 0.667729)
+  Polygon index: 10, length: 4
+    Vertex: 42
+    UV: (0.023359, 0.113489)
+    Vertex: 44
+    UV: (0.714472, 0.113489)
+    Vertex: 50
+    UV: (0.714472, 0.566213)
+    Vertex: 15
+    UV: (0.023359, 0.566213)
+  Polygon index: 11, length: 4
+    Vertex: 9
+    UV: (0.943032, 0.566213)
+    Vertex: 10
+    UV: (0.714472, 0.566213)
+    Vertex: 13
+    UV: (0.714472, 0.113489)
+    Vertex: 12
+    UV: (0.943032, 0.113489)
+  Polygon index: 12, length: 4
+    Vertex: 48
+    UV: (0.714472, 0.566213)
+    Vertex: 46
+    UV: (0.023359, 0.566213)
+    Vertex: 54
+    UV: (0.023359, 0.113489)
+    Vertex: 53
+    UV: (0.714472, 0.113489)
+  Polygon index: 13, length: 4
+    Vertex: 11
+    UV: (0.943032, 0.566213)
+    Vertex: 8
+    UV: (0.714472, 0.566213)
+    Vertex: 40
+    UV: (0.714472, 0.113489)
+    Vertex: 14
+    UV: (0.943032, 0.113489)
+  Polygon index: 14, length: 4
+    Vertex: 31
+    UV: (0.714467, 0.101446)
+    Vertex: 62
+    UV: (0.024557, 0.101446)
+    Vertex: 64
+    UV: (0.024557, 0.040694)
+    Vertex: 16
+    UV: (0.714467, 0.040694)
+  Polygon index: 15, length: 4
+    Vertex: 29
+    UV: (0.714467, 0.101446)
+    Vertex: 30
+    UV: (0.024557, 0.101446)
+    Vertex: 19
+    UV: (0.024557, 0.040694)
+    Vertex: 18
+    UV: (0.714467, 0.040694)
+  Polygon index: 16, length: 4
+    Vertex: 20
+    UV: (0.085295, 0.912627)
+    Vertex: 21
+    UV: (0.767705, 0.912627)
+    Vertex: 80
+    UV: (0.767705, 0.965612)
+    Vertex: 24
+    UV: (0.085295, 0.965612)
+  Polygon index: 17, length: 4
+    Vertex: 22
+    UV: (0.767398, 0.657339)
+    Vertex: 23
+    UV: (0.084987, 0.657339)
+    Vertex: 84
+    UV: (0.084987, 0.604354)
+    Vertex: 26
+    UV: (0.767398, 0.604354)
+  Polygon index: 18, length: 4
+    Vertex: 41
+    UV: (0.714472, 0.113488)
+    Vertex: 51
+    UV: (0.024561, 0.113489)
+    Vertex: 63
+    UV: (0.024557, 0.101446)
+    Vertex: 86
+    UV: (0.714467, 0.101446)
+  Polygon index: 19, length: 4
+    Vertex: 8
+    UV: (0.026298, 0.902465)
+    Vertex: 4
+    UV: (0.085621, 0.900717)
+    Vertex: 58
+    UV: (0.085295, 0.912627)
+    Vertex: 56
+    UV: (0.029708, 0.914332)
+  Polygon index: 20, length: 4
+    Vertex: 39
+    UV: (0.858829, 0.618626)
+    Vertex: 34
+    UV: (0.858791, 0.868602)
+    Vertex: 70
+    UV: (0.854428, 0.868605)
+    Vertex: 78
+    UV: (0.854466, 0.618629)
+  Polygon index: 21, length: 4
+    Vertex: 6
+    UV: (0.767071, 0.669249)
+    Vertex: 7
+    UV: (0.085338, 0.669208)
+    Vertex: 75
+    UV: (0.084987, 0.657339)
+    Vertex: 72
+    UV: (0.767398, 0.657339)
+  Polygon index: 22, length: 4
+    Vertex: 47
+    UV: (0.084985, 0.592443)
+    Vertex: 49
+    UV: (0.767395, 0.592443)
+    Vertex: 82
+    UV: (0.767398, 0.604354)
+    Vertex: 85
+    UV: (0.084987, 0.604354)
+  Polygon index: 23, length: 4
+    Vertex: 2
+    UV: (0.970508, 0.092933)
+    Vertex: 13
+    UV: (0.970508, 0.027657)
+    Vertex: 69
+    UV: (0.981929, 0.030665)
+    Vertex: 71
+    UV: (0.981928, 0.091524)
+  Polygon index: 24, length: 4
+    Vertex: 45
+    UV: (0.767708, 0.977523)
+    Vertex: 43
+    UV: (0.085297, 0.977523)
+    Vertex: 57
+    UV: (0.085295, 0.965612)
+    Vertex: 81
+    UV: (0.767705, 0.965612)
+  Polygon index: 25, length: 4
+    Vertex: 35
+    UV: (0.941461, 0.868614)
+    Vertex: 0
+    UV: (0.941499, 0.618638)
+    Vertex: 66
+    UV: (0.945863, 0.618636)
+    Vertex: 65
+    UV: (0.945825, 0.868612)
+  Polygon index: 26, length: 4
+    Vertex: 10
+    UV: (0.826394, 0.667501)
+    Vertex: 33
+    UV: (0.767071, 0.669249)
+    Vertex: 73
+    UV: (0.767398, 0.657339)
+    Vertex: 83
+    UV: (0.822985, 0.655634)
+  Polygon index: 27, length: 4
+    Vertex: 37
+    UV: (0.085621, 0.900717)
+    Vertex: 5
+    UV: (0.767355, 0.900758)
+    Vertex: 61
+    UV: (0.767705, 0.912627)
+    Vertex: 59
+    UV: (0.085295, 0.912627)
+  Polygon index: 28, length: 4
+    Vertex: 38
+    UV: (0.741949, 0.027657)
+    Vertex: 40
+    UV: (0.741949, 0.092933)
+    Vertex: 87
+    UV: (0.730529, 0.089925)
+    Vertex: 67
+    UV: (0.730529, 0.029067)
+  Polygon index: 29, length: 4
+    Vertex: 14
+    UV: (0.970508, 0.092933)
+    Vertex: 3
+    UV: (0.970508, 0.027657)
+    Vertex: 79
+    UV: (0.981928, 0.029067)
+    Vertex: 77
+    UV: (0.981928, 0.089925)
+--END--
