@@ -3,6 +3,7 @@
 #include "internal/memory.h"
 #include "internal/common.h"
 #include <SDL.h>
+#include "stb_vorbis.c"
 
 // TODO: handle audio fade-in/out here?
 static void MyAudioCallback (void* userdata, Uint8* stream, int len) {
@@ -18,7 +19,7 @@ static void MyAudioCallback (void* userdata, Uint8* stream, int len) {
     audio_context->buffer_read_byte += fill_amount;
 }
 
-static const float kGameVolume = 0.0f;
+static const float kGameVolume = 0.3f;
 
 void UpdateAudio(AudioContext* audio_context) {
     const SDL_AudioSpec &spec = audio_context->audio_spec;
@@ -26,9 +27,10 @@ void UpdateAudio(AudioContext* audio_context) {
     int temp_buffer_read_byte = audio_context->buffer_read_byte;
     SDL_UnlockAudioDevice(audio_context->device_id);
     int target_sample_size = (spec.size / spec.samples);
+    int buffer_samples = audio_context->buffer_size/target_sample_size;
+    /*
     int src_sample_size = sizeof(float);
     SDL_assert(src_sample_size <= target_sample_size);
-    int buffer_samples = audio_context->buffer_size/target_sample_size;
     SDL_AudioCVT cvt;
     SDL_BuildAudioCVT(&cvt, AUDIO_F32, 1, 48000, spec.format, spec.channels, spec.freq);
     cvt.len = buffer_samples * src_sample_size;
@@ -45,7 +47,36 @@ void UpdateAudio(AudioContext* audio_context) {
             sound_buf[i] *= (buffer_samples - i)/1000.0f;
         }
     }
-    SDL_ConvertAudio(&cvt);
+    SDL_ConvertAudio(&cvt);*/
+    for(int i=0; i<audio_context->num_ogg_tracks; ++i){
+        OggTrack* ogg_track = audio_context->ogg_tracks[i];
+        stb_vorbis_info info = stb_vorbis_get_info(ogg_track->vorbis);
+        int src_sample_size = info.channels * sizeof(float);
+        SDL_assert(src_sample_size <= target_sample_size);
+        SDL_AudioCVT cvt;
+        SDL_BuildAudioCVT(&cvt, AUDIO_F32, info.channels, info.sample_rate, spec.format, spec.channels, spec.freq);
+        cvt.len = buffer_samples * src_sample_size;
+        cvt.buf = (Uint8*)audio_context->back_buffer;
+        ogg_track->read_pos += temp_buffer_read_byte / target_sample_size;
+        if(ogg_track->read_pos > ogg_track->samples){
+            ogg_track->read_pos -= ogg_track->samples;
+        }
+        stb_vorbis_seek(ogg_track->vorbis, ogg_track->read_pos);
+        int samples_received = stb_vorbis_get_samples_float_interleaved(
+            ogg_track->vorbis,
+            info.channels,
+            (float*)cvt.buf,
+            buffer_samples * info.channels);
+        if(samples_received < buffer_samples){
+            stb_vorbis_seek(ogg_track->vorbis, 0);
+            stb_vorbis_get_samples_float_interleaved(
+                ogg_track->vorbis,
+                info.channels,
+                (float*)cvt.buf+(samples_received*info.channels),
+                (buffer_samples-samples_received) * info.channels);
+        }
+        SDL_ConvertAudio(&cvt);
+    }
     // fill buffer
     SDL_LockAudioDevice(audio_context->device_id);
     swap(audio_context->curr_buffer, audio_context->back_buffer);
@@ -54,6 +85,8 @@ void UpdateAudio(AudioContext* audio_context) {
 }
 
 void InitAudio(AudioContext* context, StackAllocator *stack_memory_block) {
+    context->num_ogg_tracks = 0;
+    context->shutting_down = false;
     SDL_AudioSpec target_audio_spec;
     SDL_zero(target_audio_spec);
     target_audio_spec.freq = 48000;
@@ -72,7 +105,7 @@ void InitAudio(AudioContext* context, StackAllocator *stack_memory_block) {
     const SDL_AudioSpec& spec = context->audio_spec;
     int sample_size = spec.size / spec.samples;
     double buffer_time = (double)spec.samples / (double)spec.channels / (double)spec.freq;
-    static const double kMinBufTime = 1.0 / 8.0;
+    static const double kMinBufTime = 1.0f/8.0f;
     buffer_time = max(kMinBufTime, buffer_time);
     int buffer_samples = max((int)(buffer_time * spec.freq), spec.samples);
     context->buffer_size = buffer_samples * sample_size;
@@ -89,4 +122,15 @@ void InitAudio(AudioContext* context, StackAllocator *stack_memory_block) {
     context->buffer_read_byte = 0;
     UpdateAudio(context);
     SDL_PauseAudioDevice(context->device_id, 0);  // start audio playing.
+}
+
+void AudioContext::AddOggTrack(OggTrack* ogg_track) {
+    ogg_tracks[num_ogg_tracks] = ogg_track;
+    ++num_ogg_tracks;
+}
+
+void AudioContext::ShutDown() {
+    SDL_LockAudioDevice(device_id);
+    shutting_down = true;
+    SDL_UnlockAudioDevice(device_id);
 }

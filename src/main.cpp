@@ -18,13 +18,16 @@ static void RunGame(Profiler* profiler, FileLoadThreadData* file_load_thread_dat
                     StackAllocator* stack_allocator, GraphicsContext* graphics_context,
                     AudioContext* audio_context) 
 {
+    /*while(true){
+        UpdateAudio(audio_context);
+    }*/
     GameState* game_state;
     game_state = new((GameState*)stack_allocator->Alloc(sizeof(GameState))) GameState();
     if(!game_state){
         FormattedError("Error", "Could not alloc memory for game state");
         exit(1);
     }
-    game_state->Init(profiler, file_load_thread_data, stack_allocator);
+    game_state->Init(audio_context, profiler, file_load_thread_data, stack_allocator);
     int last_ticks = SDL_GetTicks();
     bool game_running = true;
     while(game_running){

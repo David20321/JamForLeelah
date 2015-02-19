@@ -4,6 +4,7 @@
 #include "platform_sdl/error.h"
 #include "platform_sdl/file_io.h"
 #include "platform_sdl/graphics.h"
+#include "platform_sdl/audio.h"
 #include "platform_sdl/profiler.h"
 #include "fbx/fbx.h"
 #include "internal/common.h"
@@ -16,6 +17,7 @@
 #include "GL/glew.h"
 #include "GL/gl.h"
 #include <cstring>
+#define STB_VORBIS_HEADER_ONLY
 #include "stb_vorbis.c"
 
 using namespace glm;
@@ -151,13 +153,6 @@ void LoadFBX(FBXParseScene* parse_scene, const char* path, FileLoadThreadData* f
     EndLoadFile(file_load_data);
 }
 
-struct OggTrack {
-    void* mem;
-    int mem_len;
-    stb_vorbis_alloc vorbis_alloc;
-    stb_vorbis* vorbis;
-};
-
 void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_load_data, StackAllocator* stack_alloc) {
     StartLoadFile(path, file_load_data);
     ogg_track->mem_len = file_load_data->memory_len;
@@ -183,6 +178,8 @@ void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_loa
             FormattedError("Error", "Failed to create ogg decoder for: %s\nError code: %d", path, err);
         }
     }
+    ogg_track->samples = stb_vorbis_stream_length_in_samples(ogg_track->vorbis);
+    ogg_track->read_pos = 0;
 }
 
 void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_load_data, float pixel_height) {
@@ -328,9 +325,9 @@ void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset,
     drawable->transform = sep_transform.GetCombination();
 }
 
-void GameState::Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator) {
-    OggTrack ogg_track;
-    LoadOgg(&ogg_track, asset_list[kOggLayer0], file_load_thread_data, stack_allocator);
+void GameState::Init(AudioContext* audio_context, Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator) {
+    LoadOgg(&ogg_track, asset_list[kOggPosLayer1], file_load_thread_data, stack_allocator);
+    audio_context->AddOggTrack(&ogg_track);
 
     { // Allocate memory for debug lines
         int mem_needed = lines.AllocMemory(NULL);

@@ -8,6 +8,7 @@
 #include "platform_sdl/blender_file_io.h"
 #include "platform_sdl/debug_draw.h"
 #include "platform_sdl/debug_text.h"
+#include "platform_sdl/audio.h"
 
 #ifdef WIN32
 #define ASSET_PATH "../assets/"
@@ -17,6 +18,7 @@
 
 class FileLoadThreadData;
 struct GraphicsContext;
+struct AudioContext;
 class ParseMesh;
 class Profiler;
 
@@ -109,12 +111,14 @@ public:
     bool editor_mode;
     TextAtlas text_atlas;
     NavMesh nav_mesh;
+    OggTrack ogg_track;
 
     static const int kMapSize = 30;
     int tile_height[kMapSize * kMapSize];
 
     void Update(const glm::vec2& mouse_rel, float time_step);
-    void Init(Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator);
+    void Init(AudioContext* audio_context, Profiler* profiler, 
+              FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator);
     void Draw(GraphicsContext* context, int ticks);
     void CharacterCollisions(Character* characters, float time_step);
 };
