@@ -156,7 +156,7 @@ int NavMeshID(int id){
 }
 
 
-static const bool kDrawNavMesh = true;
+static const bool kDrawNavMesh = false;
 
 quat Camera::GetRotation() {
     quat xRot = angleAxis(rotation_x, vec3(1,0,0));
@@ -438,8 +438,8 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         characters[i].exists = false;
     }
 
-    static const bool kOnlyOneCharacter = true;
-    int num_chars = kOnlyOneCharacter?0:kMaxCharacters;
+    static const bool kOnlyOneCharacter = false;
+    int num_chars = kOnlyOneCharacter?1:kMaxCharacters;
 
     for(int i=0; i<num_chars; ++i){
         characters[i].rotation = 0.0f;
@@ -481,7 +481,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
     // Initialize tile map
     for(int z=0; z<kMapSize; ++z){
         for(int j=0; j<kMapSize; ++j){
-            tile_height[z*kMapSize+j] = rand()%20==0;
+            tile_height[z*kMapSize+j] = 0;//rand()%20==0;
         }
     }
 
