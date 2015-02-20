@@ -10,5 +10,6 @@ void FormattedError(const char* title, const char* msg_fmt, ...) {
     va_start(args, msg_fmt);
     VFormatString(error_msg, kBufSize, msg_fmt, args);
     va_end(args);
+    SDL_Log("%s", error_msg);
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, error_msg, NULL);
 }
