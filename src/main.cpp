@@ -80,7 +80,7 @@ int main(int argc, char* argv[]) {
     profiler.EndEvent();
 
     profiler.StartEvent("Initializing SDL");
-        if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER | SDL_INIT_AUDIO) < 0) {
+        if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO) < 0) {
             FormattedError("SDL_Init failed", "Could not initialize SDL: %s", SDL_GetError());
             return 1;
         }
