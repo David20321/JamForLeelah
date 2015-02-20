@@ -15,7 +15,7 @@ void DrawText(TextAtlas *text_atlas, GraphicsContext* context, float x, float y,
     int num_draw_chars = 0;
     int vert_index=0, index_index=0;
     for(char* text_iter = text; *text_iter != '\0'; ++text_iter) {
-        if (*text_iter >= 32 && *text_iter < 128 && num_draw_chars < kMaxDrawStringLength) {
+        if (*text_iter >= 32 && (*text_iter & 0x7f) && num_draw_chars < kMaxDrawStringLength) {
             int vert_ref = num_draw_chars*4;
             ++num_draw_chars;
             stbtt_aligned_quad q;

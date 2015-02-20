@@ -14,7 +14,7 @@ void FormatString(char* buf, int buf_size, const char* fmt, ...) {
 int djb2_hash(unsigned char* str) {
     uint32_t hash_val = 5381;
     int c;
-    while (c = *str++) {
+    while ((c = *str++)) {
         hash_val = ((hash_val << 5) + hash_val) + c; /* hash * 33 + c */
     }
     return *((int*)&hash_val);
