@@ -127,5 +127,5 @@ void NavMesh::CalcNeighbors(StackAllocator* stack_allocator) {
             tri_neighbors[unique_verts[i-1].tri_index] = unique_verts[i].tri_index;
         }
     }
-    stack_allocator->Free();
+    stack_allocator->Free(unique_verts);
 }

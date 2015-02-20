@@ -22,7 +22,7 @@
 using namespace glm;
 
 const char* asset_list[] = {
-    "start_meshes",
+    "start_static_draw_meshes",
     ASSET_PATH "art/street_lamp_export.txt",
     ASSET_PATH "art/dry_fountain_export.txt",
     ASSET_PATH "art/flower_box_export.txt",
@@ -34,7 +34,10 @@ const char* asset_list[] = {
     ASSET_PATH "art/tree_export.txt",
     ASSET_PATH "art/wall_pillar_export.txt",
     ASSET_PATH "art/floor_quad_export.txt",
-    "end_meshes",
+    "end_static_draw_meshes",
+    "start_nav_meshes",
+    ASSET_PATH "art/garden_tall_wall_nav_export.txt",
+    "end_nav_meshes",
     ASSET_PATH "art/main_character_rig_export.txt",
     "start_textures",
     ASSET_PATH "art/lamp_c.tga",
@@ -73,7 +76,7 @@ const char* asset_list[] = {
 };
 
 enum {
-    kStartMeshes,
+    kStartStaticDrawMeshes,
     kMeshLamp,
     kMeshFountain,
     kMeshFlowerbox,
@@ -85,7 +88,11 @@ enum {
     kMeshTree,
     kMeshWallPillar,
     kMeshFloor,
-    kEndMeshes,
+    kEndStaticDrawMeshes,
+
+    kStartNavMeshes,
+    kNavGardenTallWall,
+    kEndNavMeshes,
 
     kModelChar,
     
@@ -128,9 +135,9 @@ enum {
     kEndMusic
 };
 
-static const int kNumMesh = kEndMeshes-kStartMeshes-1;
+static const int kNumMesh = kEndStaticDrawMeshes-kStartStaticDrawMeshes-1;
 int MeshID(int id){
-    return id - kStartMeshes - 1;
+    return id - kStartStaticDrawMeshes - 1;
 }
 
 static const int kNumTex = kEndTextures-kStartTextures-1;
@@ -142,6 +149,12 @@ static const int kNumShaders = kEndShaders-kStartShaders-1;
 int ShaderID(int id){
     return id - kStartShaders - 1;
 }
+
+static const int kNumNavMesh = kEndNavMeshes-kStartNavMeshes-1;
+int NavMeshID(int id){
+    return id - kStartNavMeshes - 1;
+}
+
 
 static const bool kDrawNavMesh = true;
 
@@ -280,6 +293,19 @@ struct MeshAsset {
     vec3 bounding_box[2];
 };
 
+struct NavMeshAsset {
+    int num_verts;
+    vec3* verts;
+    int num_indices;
+    int* indices;
+    ~NavMeshAsset();
+};
+
+NavMeshAsset::~NavMeshAsset() {
+    SDL_assert(verts == NULL);
+    SDL_assert(indices == NULL);
+}
+
 void LoadMeshAssetTxt(FileLoadThreadData* file_load_thread_data,
                       MeshAsset* mesh_asset, const char* path) 
 {
@@ -335,7 +361,34 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
     MeshAsset mesh_assets[kNumMesh];
     for(int i=0; i<kNumMesh; ++i){
         LoadMeshAssetTxt(file_load_thread_data, &mesh_assets[i], 
-            asset_list[kStartMeshes+i+1]);
+            asset_list[kStartStaticDrawMeshes+i+1]);
+    }
+
+    NavMeshAsset nav_mesh_assets[kNumNavMesh];
+    for(int i=0; i<kNumNavMesh; ++i){
+        ParseMesh parse_mesh;
+        ParseTestFile(asset_list[kStartNavMeshes+i+1], &parse_mesh);
+        nav_mesh_assets[i].num_verts = parse_mesh.num_vert;
+        nav_mesh_assets[i].num_indices = parse_mesh.num_index;
+        nav_mesh_assets[i].verts = (vec3*)stack_allocator->Alloc(parse_mesh.num_vert*sizeof(vec3));
+        if(!nav_mesh_assets[i].verts){
+            FormattedError("Error","Failed to alloc memory for nav mesh asset verts");
+            exit(1);
+        }
+        nav_mesh_assets[i].indices = (int*)stack_allocator->Alloc(parse_mesh.num_index*sizeof(int));
+        if(!nav_mesh_assets[i].indices){
+            FormattedError("Error","Failed to alloc memory for nav mesh asset indices");
+            exit(1);
+        }
+        for(int j=0; j<parse_mesh.num_vert; ++j){
+            for(int k=0; k<3; ++k){
+                nav_mesh_assets[i].verts[j][k] = parse_mesh.vert[j*8+k];
+            }
+        }
+        for(int j=0; j<parse_mesh.num_index; ++j){
+            nav_mesh_assets[i].indices[j] = parse_mesh.indices[j];
+        }
+        parse_mesh.Dispose();
     }
 
     int textures[kNumTex];
@@ -386,7 +439,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
     }
 
     static const bool kOnlyOneCharacter = true;
-    int num_chars = kOnlyOneCharacter?1:kMaxCharacters;
+    int num_chars = kOnlyOneCharacter?0:kMaxCharacters;
 
     for(int i=0; i<num_chars; ++i){
         characters[i].rotation = 0.0f;
@@ -508,7 +561,18 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
                 SeparableTransform transform;
                 transform.translation = translation + vec3(0,0,2);
                 transform.rotation = angleAxis(-half_pi<float>(), vec3(0,1,0));
-                drawables[num_drawables-1].transform = transform.GetCombination();
+                mat4 mat = transform.GetCombination();
+                drawables[num_drawables-1].transform = mat;
+                NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavGardenTallWall)];
+                int start_verts = nav_mesh.num_verts;
+                for(int i=0; i<nav_mesh_asset->num_verts; ++i){
+                    nav_mesh.verts[nav_mesh.num_verts++] = 
+                        vec3(mat * vec4(nav_mesh_asset->verts[i], 1));
+                }
+                for(int i=0; i<nav_mesh_asset->num_indices; ++i){
+                    nav_mesh.indices[nav_mesh.num_indices++] =
+                        start_verts + nav_mesh_asset->indices[i];
+                }
             }
             // Check corners 
             else if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x+1)]){
@@ -564,6 +628,12 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
                           vec4(1), kPersistent, 1);        
             }
         }
+    }
+    for(int i=kNumNavMesh-1; i>=0; --i){
+        stack_allocator->Free(nav_mesh_assets[i].indices);
+        nav_mesh_assets[i].indices = NULL;
+        stack_allocator->Free(nav_mesh_assets[i].verts);
+        nav_mesh_assets[i].verts = NULL;
     }
     nav_mesh.CalcNeighbors(stack_allocator);
 }

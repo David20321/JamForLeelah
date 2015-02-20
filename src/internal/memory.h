@@ -6,7 +6,7 @@ class StackAllocator {
 public:
     void Init(void* mem, int size);
     void* Alloc(int size);
-    void Free();
+    void Free(void* ptr);
     void* mem;
 
 private:
