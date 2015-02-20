@@ -3,7 +3,6 @@
 #define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
 #include "stb_truetype.h"
 #include "GL/glew.h"
-#include "GL/GL.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "internal/common.h"

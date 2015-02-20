@@ -5,7 +5,6 @@
 #include "platform_sdl/graphics.h"
 #include "glm/glm.hpp"
 #include "GL/glew.h"
-#include "GL/gl.h"
 
 using namespace glm;
 

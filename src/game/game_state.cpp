@@ -14,7 +14,6 @@
 #include "glm/gtx/norm.hpp"
 #include "SDL.h"
 #include "GL/glew.h"
-#include "GL/gl.h"
 #include <cstring>
 #define STB_VORBIS_HEADER_ONLY
 #include "stb_vorbis.c"
