@@ -18,6 +18,8 @@
 #define STB_VORBIS_HEADER_ONLY
 #include "stb_vorbis.c"
 
+const int GameState::kMapSize;
+
 using namespace glm;
 
 const char* asset_list[] = {
