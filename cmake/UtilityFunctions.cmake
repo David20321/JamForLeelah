@@ -82,6 +82,11 @@ function(_BuildDynamicTarget name type)
             set(_mode "prefix")
         elseif(dir STREQUAL "FLAGS")
             set(_mode "flags")
+        elseif(dir STREQUAL "FEATURES")
+            if(NOT COMMAND "target_compile_features")
+                message(FATAL_ERROR "CMake 3.1+ is required to use this feature")
+            endif()
+            set(_mode ${dir})
         elseif(dir STREQUAL "LINK")
             set(_mode "link")
         elseif(dir STREQUAL "PROPERTIES")
@@ -144,6 +149,10 @@ function(_BuildDynamicTarget name type)
                 )
             elseif(_mode STREQUAL "flags")
                 list(APPEND _flags
+                    ${dir}
+                )
+            elseif(_mode STREQUAL "FEATURES")
+                list(APPEND _features
                     ${dir}
                 )
             elseif(_mode STREQUAL "link")
@@ -306,6 +315,10 @@ function(_BuildDynamicTarget name type)
         _SetDefaultScope(_definitions PRIVATE)
         target_compile_definitions(${name} ${_definitions})
     endif()
+    if(_features)
+        _SetDefaultScope(_features PRIVATE)
+        target_compile_features(${name} ${_features})
+    endif()
     if(_link_libs)
         target_link_libraries(${name} ${_link_libs})
     endif()
@@ -348,6 +361,8 @@ endfunction()
 ## DEFINES    followed by a list of compiler defines.
 ##                      These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
 ## FLAGS      followed by a list of compiler flags.
+##                      These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
+## FEATURES   followed by a list of compiler features (cmake 3.1+).
 ##                      These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
 ## PREFIX     followed by a header. Basic prefix header support..  currently only GCC/Clang is supported.
 ## LINK       followed by a list of link targets.  Can use Generator expressions (see CMAKE documentation)
@@ -443,6 +458,9 @@ function(FindLinkedLibs target libs)
 endfunction()
 
 function(CopyDependentLibs target)
+    if(EMSCRIPTEN)
+        return()
+    endif()
     set(_mode "lib")
 
     FindLinkedLibs(${target} __libs 2)
@@ -500,7 +518,7 @@ function(CopyDependentLibs target)
         "      endforeach()\n"
         "    endforeach()\n"
         "  else()\n"
-        "    message(ERROR \"App Not found? \${BUNDLE_APP}\")\n"
+        "    message(WARNING \"App Not found? \${BUNDLE_APP}\")\n"
         "  endif()\n"
         "else() # Not an OS X bundle\n"
         "  set(executable \"\${BUNDLE_APP}\")\n"
@@ -614,71 +632,4 @@ if(EMSCRIPTEN)
         set_source_files_properties(${_data_file} ${_preload_file} PROPERTIES GENERATED TRUE)
         set(${out_js_file} ${_preload_file} PARENT_SCOPE)
     endfunction()
-
-    function(SetupEmscriptenTestPage target)
-        set(_mode "none")
-
-        foreach(entry ${ARGN})
-            if(entry STREQUAL "PRELOAD")
-                set(_mode "preload")
-            elseif(entry STREQUAL "ASM_FLAG")
-                set(_mode "asmflag")
-            elseif(entry STREQUAL "PRE_JS")
-                set(_mode "prejs")
-            elseif(entry STREQUAL "JS_LIBS")
-                set(_mode "lib")
-            else()
-                if("${_mode}" STREQUAL "preload")
-                    list(APPEND _preload_file_list
-                        --preload-file
-                        ${entry}
-                    )
-                elseif("${_mode}" STREQUAL "asmflag")
-                    list(APPEND _asm_flags
-                        -s
-                        "${entry}"
-                    )
-                elseif("${_mode}" STREQUAL "prejs")
-                    list(APPEND _prejs
-                        --pre-js
-                        "${entry}"
-                    )
-                    list(APPEND _prejs_source
-                        "${entry}"
-                    )
-                elseif("${_mode}" STREQUAL "lib")
-                    list(APPEND _libs
-                        --js-library
-                        "${entry}"
-                    )
-                else()
-                    message(FATAL_ERROR "Unknown mode ${_mode}")
-                endif()
-            endif()
-        endforeach()
-
-        add_custom_target(${target}_preload
-            DEPENDS ${_prejs_source}
-        )
-
-        add_custom_command(TARGET ${target}
-            POST_BUILD
-                COMMENT "Producting test html rig for ${target}"
-                DEPENDS ${target}_preload
-                COMMAND
-                    ${CMAKE_C_COMPILER}
-                ARGS
-                    ${CMAKE_C_FLAGS}
-                    $<$<CONFIG:Debug>:${CMAKE_C_FLAGS_DEBUG}>
-                    $<$<CONFIG:Release>:${CMAKE_C_FLAGS_RELEASE}>
-                    $<TARGET_FILE:${target}>
-                    -o ${target}.html
-                    ${_preload_file_list}
-                    ${_asm_flags}
-                    ${_prejs}
-                    ${_libs}
-        )
-        add_dependencies(${target} ${target}_preload)
-    endfunction()
-
 endif()
