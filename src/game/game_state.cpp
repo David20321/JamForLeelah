@@ -22,6 +22,7 @@
 using namespace glm;
 
 const char* asset_list[] = {
+    "start_meshes",
     ASSET_PATH "art/street_lamp_export.txt",
     ASSET_PATH "art/dry_fountain_export.txt",
     ASSET_PATH "art/flower_box_export.txt",
@@ -33,7 +34,9 @@ const char* asset_list[] = {
     ASSET_PATH "art/tree_export.txt",
     ASSET_PATH "art/wall_pillar_export.txt",
     ASSET_PATH "art/floor_quad_export.txt",
+    "end_meshes",
     ASSET_PATH "art/main_character_rig_export.txt",
+    "start_textures",
     ASSET_PATH "art/lamp_c.tga",
     ASSET_PATH "art/dry_fountain_c.tga",
     ASSET_PATH "art/flowerbox_c.tga",
@@ -46,12 +49,18 @@ const char* asset_list[] = {
     ASSET_PATH "art/wall_pillar_c.tga",
     ASSET_PATH "art/tiling_cobbles_c.tga",
     ASSET_PATH "art/main_character_c.tga",
+    "end_textures",
+    "start_fonts",
     ASSET_PATH "fonts/LiberationMono-Regular.ttf",
+    "end_fonts",
+    "start_shaders",
     ASSET_PATH "shaders/3D_model",
     ASSET_PATH "shaders/3D_model_skinned",
     ASSET_PATH "shaders/debug_draw",
     ASSET_PATH "shaders/debug_draw_text",
     ASSET_PATH "shaders/nav_mesh",
+    "end_shaders",
+    "start_music",
     ASSET_PATH "music/UG - Layer 0 - Opt Drone.ogg",
     ASSET_PATH "music/UG - Pos Layer 1 - Base.ogg",
     ASSET_PATH "music/UG - Pos Layer 2 - Expanse.ogg",
@@ -59,10 +68,12 @@ const char* asset_list[] = {
     ASSET_PATH "music/UG - Neg Layer 2 - Expanse.ogg",
     ASSET_PATH "music/UG - Neg Layer 3 - Isolation.ogg",
     ASSET_PATH "music/UG - Layer 4 - Drums.ogg",
-    ASSET_PATH "music/UG - Layer 5 - Optional Drum.ogg"
+    ASSET_PATH "music/UG - Layer 5 - Optional Drum.ogg",
+    "end_music"
 };
 
 enum {
+    kStartMeshes,
     kMeshLamp,
     kMeshFountain,
     kMeshFlowerbox,
@@ -74,7 +85,11 @@ enum {
     kMeshTree,
     kMeshWallPillar,
     kMeshFloor,
+    kEndMeshes,
+
     kModelChar,
+    
+    kStartTextures,
     kTexLamp,
     kTexFountain,
     kTexFlowerbox,
@@ -87,12 +102,21 @@ enum {
     kTexWallPillar,
     kTexFloor,
     kTexChar,
+    kEndTextures,
+
+    kStartFonts,
     kFontDebug,
+    kEndFonts,
+
+    kStartShaders,
     kShader3DModel,
     kShader3DModelSkinned,
     kShaderDebugDraw,
     kShaderDebugDrawText,
     kShaderNavMesh,
+    kEndShaders,
+
+    kStartMusic,
     kOggDrone,
     kOggPosLayer1,
     kOggPosLayer2,
@@ -100,17 +124,23 @@ enum {
     kOggNegLayer2,
     kOggNegLayer3,
     kOggDrums1,
-    kOggDrums2
+    kOggDrums2,
+    kEndMusic
 };
 
-static const int kNumMesh = kMeshFloor-kMeshLamp+1;
+static const int kNumMesh = kEndMeshes-kStartMeshes-1;
 int MeshID(int id){
-    return id - kMeshLamp;
+    return id - kStartMeshes - 1;
 }
 
-static const int kNumTex = kTexChar-kTexLamp+1;
+static const int kNumTex = kEndTextures-kStartTextures-1;
 int TexID(int id){
-    return id - kTexLamp;
+    return id - kStartTextures - 1;
+}
+
+static const int kNumShaders = kEndShaders-kStartShaders-1;
+int ShaderID(int id){
+    return id - kStartShaders - 1;
 }
 
 static const bool kDrawNavMesh = true;
@@ -305,37 +335,30 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
     MeshAsset mesh_assets[kNumMesh];
     for(int i=0; i<kNumMesh; ++i){
         LoadMeshAssetTxt(file_load_thread_data, &mesh_assets[i], 
-            asset_list[kMeshLamp+i]);
+            asset_list[kStartMeshes+i+1]);
     }
 
     int textures[kNumTex];
     for(int i=0; i<kNumTex; ++i){
-        textures[i] = LoadImage(asset_list[kTexLamp+i], file_load_thread_data);
+        textures[i] = LoadImage(asset_list[kStartTextures+i+1], file_load_thread_data);
+    }
+
+    int shaders[kNumShaders];
+    for(int i=0; i<kNumShaders; ++i){
+        shaders[i] = CreateProgramFromFile(graphics_context, file_load_thread_data, 
+                                           asset_list[kStartShaders+i+1]);
     }
                   
-    profiler->StartEvent("Loading shaders");
-    int shader_3d_model = 
-        CreateProgramFromFile(graphics_context, file_load_thread_data, asset_list[kShader3DModel]);
-    int shader_3d_model_skinned = 
-        CreateProgramFromFile(graphics_context, file_load_thread_data, asset_list[kShader3DModelSkinned]);
-    int shader_debug_draw = 
-        CreateProgramFromFile(graphics_context, file_load_thread_data, asset_list[kShaderDebugDraw]);
-    int shader_debug_draw_text = 
-        CreateProgramFromFile(graphics_context, file_load_thread_data, asset_list[kShaderDebugDrawText]);
-    int shader_nav_mesh = 
-        CreateProgramFromFile(graphics_context, file_load_thread_data, asset_list[kShaderNavMesh]);
-    profiler->EndEvent();
-
     camera.position = vec3(0.0f,0.0f,20.0f);
     camera.rotation_x = 0.0f;
     camera.rotation_y = 0.0f;
 
     editor_mode = false;
 
-    lines.shader = shader_debug_draw;
+    lines.shader = shaders[ShaderID(kShaderDebugDraw)];
 
     LoadTTF(asset_list[kFontDebug], &text_atlas, file_load_thread_data, 18.0f);
-    text_atlas.shader = shader_debug_draw_text;
+    text_atlas.shader = shaders[ShaderID(kShaderDebugDrawText)];
     text_atlas.vert_vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
     text_atlas.index_vbo = CreateVBO(kElementVBO, kStreamVBO, NULL, 0);
     debug_text.Init(&text_atlas);
@@ -397,7 +420,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         drawables[num_drawables].vbo_layout = kInterleave_3V2T3N4I4W;
         drawables[num_drawables].transform = mat4();
         drawables[num_drawables].texture_id = textures[TexID(kTexChar)];
-        drawables[num_drawables].shader_id = shader_3d_model_skinned;
+        drawables[num_drawables].shader_id = shaders[ShaderID(kShader3DModelSkinned)];;
         drawables[num_drawables].character = &characters[i];
         ++num_drawables;
     }
@@ -438,50 +461,50 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
             vec3 translation(x*2,tile_height[z*kMapSize+x]*2,z*2);// Check nooks
             if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)] && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallNook)], textures[TexID(kTexGardenTallNook)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(0,0,2);
                 transform.rotation = angleAxis(-half_pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x>0 && z>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)] && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallNook)], textures[TexID(kTexGardenTallNook)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,0);
                 transform.rotation = angleAxis(half_pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x>0 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)] && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallNook)], textures[TexID(kTexGardenTallNook)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,2);
                 transform.rotation = angleAxis(pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)] && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallNook)], textures[TexID(kTexGardenTallNook)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
             } 
             // Check walls
             else if(x<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallWall)], textures[TexID(kTexGardenTallWall)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
             } else if(x>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallWall)], textures[TexID(kTexGardenTallWall)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,2);
                 transform.rotation = angleAxis(pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallWall)], textures[TexID(kTexGardenTallWall)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,0);
                 transform.rotation = angleAxis(half_pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallWall)], textures[TexID(kTexGardenTallWall)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(0,0,2);
                 transform.rotation = angleAxis(-half_pi<float>(), vec3(0,1,0));
@@ -490,32 +513,32 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
             // Check corners 
             else if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x+1)]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallCorner)], textures[TexID(kTexGardenTallCorner)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(0,0,2);
                 transform.rotation = angleAxis(-half_pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x>0 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x-1)]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallCorner)], textures[TexID(kTexGardenTallCorner)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,0);
                 transform.rotation = angleAxis(half_pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x>0 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x-1)]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallCorner)], textures[TexID(kTexGardenTallCorner)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
                 SeparableTransform transform;
                 transform.translation = translation + vec3(-2,0,2);
                 transform.rotation = angleAxis(pi<float>(), vec3(0,1,0));
                 drawables[num_drawables-1].transform = transform.GetCombination();
             } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x+1)]){
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshGardenTallCorner)], textures[TexID(kTexGardenTallCorner)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
             } // Basic floor
             else {
                 FillStaticDrawable(&drawables[num_drawables++], mesh_assets[MeshID(kMeshFloor)], textures[TexID(kTexFloor)],
-                    shader_3d_model, translation);
+                    shaders[ShaderID(kShader3DModel)], translation);
                 nav_mesh.verts[nav_mesh.num_verts++] = translation;
                 nav_mesh.verts[nav_mesh.num_verts++] = translation + vec3(-2,0,0);
                 nav_mesh.verts[nav_mesh.num_verts++] = translation + vec3(-2,0,2);
@@ -532,7 +555,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
 
     nav_mesh.vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, nav_mesh.verts, nav_mesh.num_verts*sizeof(vec3));
     nav_mesh.index_vbo = CreateVBO(kElementVBO, kStaticVBO, nav_mesh.indices, nav_mesh.num_indices*sizeof(Uint32));
-    nav_mesh.shader = shader_nav_mesh;
+    nav_mesh.shader = shaders[ShaderID(kShaderNavMesh)];
     if(kDrawNavMesh) {
         for(int i=0; i<nav_mesh.num_indices; i+=3){
             for(int j=0; j<3; ++j){
