@@ -92,7 +92,7 @@ void NavMesh::CalcNeighbors(StackAllocator* stack_allocator) {
             vec3 edge_verts[2] = {verts[indices[i+j]], verts[indices[i+(j+1)%3]]};
             for(int k=0; k<2; ++k){
                 for(int l=0; l<3; ++l){
-                    verts[k][l] = round<float>(verts[k][l]*100.0f)/100.0f;
+                    edge_verts[k][l] = round<float>(edge_verts[k][l]*100.0f)/100.0f;
                 }
             }
             // Make sure that identical edges have verts in the same order

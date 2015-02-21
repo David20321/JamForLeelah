@@ -167,7 +167,7 @@ int NavMeshID(int id){
 }
 
 
-static const bool kDrawNavMesh = true;
+static const bool kDrawNavMesh = false;
 
 quat Camera::GetRotation() {
     quat xRot = angleAxis(rotation_x, vec3(1,0,0));
@@ -549,6 +549,33 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
     tiles[15*kMapSize+16] = kStairs;
     tiles[16*kMapSize+15] = kNothing;
     tiles[16*kMapSize+16] = kNothing;
+    tiles[15*kMapSize+19] = kNothing;
+    tiles[15*kMapSize+20] = kStairs;
+    tiles[16*kMapSize+19] = kNothing;
+    tiles[16*kMapSize+20] = kNothing;
+    rotation[15*kMapSize+20] = 2;
+    tiles[17*kMapSize+17] = kNothing;
+    tiles[17*kMapSize+18] = kStairs;
+    tiles[18*kMapSize+17] = kNothing;
+    tiles[18*kMapSize+18] = kNothing;
+    rotation[17*kMapSize+18] = 3;
+    tiles[13*kMapSize+17] = kNothing;
+    tiles[13*kMapSize+18] = kStairs;
+    tiles[14*kMapSize+17] = kNothing;
+    tiles[14*kMapSize+18] = kNothing;
+    rotation[13*kMapSize+18] = 1;
+    tiles[17*kMapSize+16] = kCorner;
+    tiles[14*kMapSize+16] = kCorner;
+    rotation[14*kMapSize+16] = 1;
+    tiles[14*kMapSize+19] = kCorner;
+    rotation[14*kMapSize+19] = 2;
+    tiles[17*kMapSize+19] = kCorner;
+    rotation[17*kMapSize+19] = 3;
+
+    tile_height[15*kMapSize+17] = 1;
+    tile_height[16*kMapSize+17] = 1;
+    tile_height[15*kMapSize+18] = 1;
+    tile_height[16*kMapSize+18] = 1;
 
     static const bool kTilesFromTileHeight;
     if(kTilesFromTileHeight){
@@ -611,21 +638,24 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
             vec3 translation(x*2,tile_height[z*kMapSize+x]*2,z*2);
             switch(rotation[index]){
             case 0:
-                transform.translation = translation;
                 break;
             case 1:
-                transform.translation = translation + vec3(0,0,2);
+                transform.translation = vec3(0,0,2);
                 transform.rotation = angleAxis(-half_pi<float>(), vec3(0,1,0));
                 break;
             case 2:
-                transform.translation = translation + vec3(-2,0,2);
+                transform.translation = vec3(-2,0,2);
                 transform.rotation = angleAxis(pi<float>(), vec3(0,1,0));
                 break;
             case 3:
-                transform.translation = translation + vec3(-2,0,0);
+                transform.translation = vec3(-2,0,0);
                 transform.rotation = angleAxis(half_pi<float>(), vec3(0,1,0));
                 break;
             }
+            if(tiles[index] == kStairs){
+                transform.translation *= 2.0f;
+            }
+            transform.translation += translation;
             mat4 mat = transform.GetCombination();
 
             switch(tiles[index]){
