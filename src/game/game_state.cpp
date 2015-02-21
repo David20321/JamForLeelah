@@ -42,6 +42,7 @@ const char* asset_list[] = {
     ASSET_PATH "art/garden_tall_wall_nav_export.txt",
     ASSET_PATH "art/garden_tall_corner_nav_export.txt",
     ASSET_PATH "art/garden_tall_nook_nav_export.txt",
+    ASSET_PATH "art/garden_tall_stairs_nav_export.txt",
     ASSET_PATH "art/floor_quad_export.txt",
     "end_nav_meshes",
     ASSET_PATH "art/main_character_rig_export.txt",
@@ -100,6 +101,7 @@ enum {
     kNavGardenTallWall,
     kNavGardenTallCorner,
     kNavGardenTallNook,
+    kNavGardenTallStairs,
     kNavFloor,
     kEndNavMeshes,
 
@@ -502,13 +504,6 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         ++num_drawables;
     }
 
-    // Initialize tile map
-    for(int z=0; z<kMapSize; ++z){
-        for(int j=0; j<kMapSize; ++j){
-            tile_height[z*kMapSize+j] = rand()%20==0;
-        }
-    }
-
     /*
     FillStaticDrawable(&drawables[num_drawables++], fbx_lamp, tex_lamp,
         shader_3d_model, vec3(0,0,2));
@@ -533,61 +528,88 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
     nav_mesh.num_verts = 0;
     nav_mesh.num_indices = 0;
 
+    enum TileType {
+        kNothing,
+        kFloor,
+        kWall,
+        kCorner,
+        kNook,
+        kStairs
+    };
+    TileType tiles[kMapSize * kMapSize];
+    int rotation[kMapSize * kMapSize];
+
+    for(int i=0, len=kMapSize*kMapSize; i<len; ++i){
+        tiles[i] = kFloor;
+        rotation[i] = 0;
+        tile_height[i] = 0;//rand()%20==0;
+    }
+
+    tiles[15*kMapSize+15] = kNothing;
+    tiles[15*kMapSize+16] = kStairs;
+    tiles[16*kMapSize+15] = kNothing;
+    tiles[16*kMapSize+16] = kNothing;
+
+    static const bool kTilesFromTileHeight;
+    if(kTilesFromTileHeight){
+        for(int z=0; z<kMapSize; ++z){
+            for(int x=0; x<kMapSize; ++x){
+                int rotation;
+                TileType tile_type;
+
+                if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)] && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
+                    tile_type = kNook;
+                    rotation = 1;
+                } else if(x>0 && z>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)] && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
+                    tile_type = kNook;
+                    rotation = 3;
+                } else if(x>0 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)] && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
+                    tile_type = kNook;
+                    rotation = 2;
+                } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)] && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
+                    tile_type = kNook;
+                    rotation = 0;
+                } else if(x<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)]){
+                    tile_type = kWall;
+                    rotation = 0;
+                } else if(x>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)]){
+                    tile_type = kWall;
+                    rotation = 2;
+                } else if(z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
+                    tile_type = kWall;
+                    rotation = 3;
+                } else if(z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
+                    tile_type = kWall;
+                    rotation = 1;
+                } else if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x+1)]){
+                    tile_type = kCorner;
+                    rotation = 1;
+                } else if(x>0 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x-1)]){
+                    tile_type = kCorner;
+                    rotation = 3;
+                } else if(x>0 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x-1)]){
+                    tile_type = kCorner;
+                    rotation = 2;
+                } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x+1)]){
+                    tile_type = kCorner;
+                    rotation = 0;
+                } else {
+                    tile_type = kFloor;
+                    rotation = 0;
+                }
+            }
+        }
+    }
+
     for(int z=0; z<kMapSize; ++z){
         for(int x=0; x<kMapSize; ++x){
-            enum TileType {
-                kFloor,
-                kWall,
-                kCorner,
-                kNook
-            };
-            int rotation;
-            TileType tile_type;
-
-            if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)] && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
-                tile_type = kNook;
-                rotation = 1;
-            } else if(x>0 && z>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)] && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
-                tile_type = kNook;
-                rotation = 3;
-            } else if(x>0 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)] && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
-                tile_type = kNook;
-                rotation = 2;
-            } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)] && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
-                tile_type = kNook;
-                rotation = 0;
-            } else if(x<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x+1)]){
-                tile_type = kWall;
-                rotation = 0;
-            } else if(x>0 && tile_height[z*kMapSize+x] < tile_height[z*kMapSize+(x-1)]){
-                tile_type = kWall;
-                rotation = 2;
-            } else if(z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+x]){
-                tile_type = kWall;
-                rotation = 3;
-            } else if(z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+x]){
-                tile_type = kWall;
-                rotation = 1;
-            } else if(x<kMapSize-1 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x+1)]){
-                tile_type = kCorner;
-                rotation = 1;
-            } else if(x>0 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x-1)]){
-                tile_type = kCorner;
-                rotation = 3;
-            } else if(x>0 && z<kMapSize-1 && tile_height[z*kMapSize+x] < tile_height[(z+1)*kMapSize+(x-1)]){
-                tile_type = kCorner;
-                rotation = 2;
-            } else if(x<kMapSize-1 && z>0 && tile_height[z*kMapSize+x] < tile_height[(z-1)*kMapSize+(x+1)]){
-                tile_type = kCorner;
-                rotation = 0;
-            } else {
-                tile_type = kFloor;
-                rotation = 0;
+            int index = z*kMapSize + x;
+            if(tiles[index] == kNothing){
+                continue;
             }
-
             SeparableTransform transform;
             vec3 translation(x*2,tile_height[z*kMapSize+x]*2,z*2);
-            switch(rotation){
+            switch(rotation[index]){
             case 0:
                 transform.translation = translation;
                 break;
@@ -606,12 +628,12 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
             }
             mat4 mat = transform.GetCombination();
 
-            switch(tile_type){
+            switch(tiles[index]){
             case kNook: {
                 FillStaticDrawable(&drawables[num_drawables++], 
-                                   mesh_assets[MeshID(kMeshGardenTallNook)], 
-                                   textures[TexID(kTexGardenTallNook)],
-                                   shaders[ShaderID(kShader3DModel)], vec3(0));
+                    mesh_assets[MeshID(kMeshGardenTallNook)], 
+                    textures[TexID(kTexGardenTallNook)],
+                    shaders[ShaderID(kShader3DModel)], vec3(0));
                 NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavGardenTallNook)];
                 int start_verts = nav_mesh.num_verts;
                 for(int i=0; i<nav_mesh_asset->num_verts; ++i){
@@ -622,13 +644,13 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
                     nav_mesh.indices[nav_mesh.num_indices++] =
                         start_verts + nav_mesh_asset->indices[i];
                 }
-                } break;
+                        } break;
             case kWall: {
                 FillStaticDrawable(&drawables[num_drawables++], 
-                                   mesh_assets[MeshID(kMeshGardenTallWall)], 
-                                   textures[TexID(kTexGardenTallWall)],
-                                   shaders[ShaderID(kShader3DModel)], 
-                                   translation);
+                    mesh_assets[MeshID(kMeshGardenTallWall)], 
+                    textures[TexID(kTexGardenTallWall)],
+                    shaders[ShaderID(kShader3DModel)], 
+                    translation);
                 NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavGardenTallWall)];
                 int start_verts = nav_mesh.num_verts;
                 for(int i=0; i<nav_mesh_asset->num_verts; ++i){
@@ -639,13 +661,13 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
                     nav_mesh.indices[nav_mesh.num_indices++] =
                         start_verts + nav_mesh_asset->indices[i];
                 }
-                } break;
+                        } break;
             case kCorner: {
                 FillStaticDrawable(&drawables[num_drawables++], 
-                                   mesh_assets[MeshID(kMeshGardenTallCorner)], 
-                                   textures[TexID(kTexGardenTallCorner)],
-                                   shaders[ShaderID(kShader3DModel)], 
-                                   translation);
+                    mesh_assets[MeshID(kMeshGardenTallCorner)], 
+                    textures[TexID(kTexGardenTallCorner)],
+                    shaders[ShaderID(kShader3DModel)], 
+                    translation);
                 NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavGardenTallCorner)];
                 int start_verts = nav_mesh.num_verts;
                 for(int i=0; i<nav_mesh_asset->num_verts; ++i){
@@ -656,14 +678,31 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
                     nav_mesh.indices[nav_mesh.num_indices++] =
                         start_verts + nav_mesh_asset->indices[i];
                 }
-                } break;
+                          } break;
             case kFloor: {
                 FillStaticDrawable(&drawables[num_drawables++], 
-                                   mesh_assets[MeshID(kMeshFloor)], 
-                                   textures[TexID(kTexFloor)],
-                                   shaders[ShaderID(kShader3DModel)], 
-                                   translation);
+                    mesh_assets[MeshID(kMeshFloor)], 
+                    textures[TexID(kTexFloor)],
+                    shaders[ShaderID(kShader3DModel)], 
+                    translation);
                 NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavFloor)];
+                int start_verts = nav_mesh.num_verts;
+                for(int i=0; i<nav_mesh_asset->num_verts; ++i){
+                    nav_mesh.verts[nav_mesh.num_verts++] = 
+                        vec3(mat * vec4(nav_mesh_asset->verts[i], 1));
+                }
+                for(int i=0; i<nav_mesh_asset->num_indices; ++i){
+                    nav_mesh.indices[nav_mesh.num_indices++] =
+                        start_verts + nav_mesh_asset->indices[i];
+                }
+                         } break;
+            case kStairs: {
+                FillStaticDrawable(&drawables[num_drawables++], 
+                    mesh_assets[MeshID(kMeshGardenTallStairs)], 
+                    textures[TexID(kTexGardenTallStairs)],
+                    shaders[ShaderID(kShader3DModel)], 
+                    translation);
+                NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavGardenTallStairs)];
                 int start_verts = nav_mesh.num_verts;
                 for(int i=0; i<nav_mesh_asset->num_verts; ++i){
                     nav_mesh.verts[nav_mesh.num_verts++] = 
@@ -679,6 +718,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         }
     }
 
+    nav_mesh.CalcNeighbors(stack_allocator);
     nav_mesh.vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, nav_mesh.verts, nav_mesh.num_verts*sizeof(vec3));
     nav_mesh.index_vbo = CreateVBO(kElementVBO, kStaticVBO, nav_mesh.indices, nav_mesh.num_indices*sizeof(Uint32));
     nav_mesh.shader = shaders[ShaderID(kShaderNavMesh)];
@@ -697,7 +737,6 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         stack_allocator->Free(nav_mesh_assets[i].verts);
         nav_mesh_assets[i].verts = NULL;
     }
-    nav_mesh.CalcNeighbors(stack_allocator);
 }
 
 static void UpdateCharacter(Character* character, vec3 target_dir, float time_step,
@@ -731,7 +770,13 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
                 tri_verts[i] = nav.verts[nav.indices[walker.tri*3+i]];
             }
             int tri_history[] = {walker.tri, walker.tri};
-            vec3 tri_normal = cross(tri_verts[2] - tri_verts[0], tri_verts[1] - tri_verts[0]);
+            vec3 tri_normal = normalize(cross(tri_verts[2] - tri_verts[0], tri_verts[1] - tri_verts[0]));
+            SDL_assert(tri_normal == tri_normal);
+            float char_norm_d = dot(pos, tri_normal);
+            float tri_norm_d = dot(tri_verts[0], tri_normal);
+            SDL_assert(pos == pos);
+            pos += tri_normal * (tri_norm_d - char_norm_d);
+            SDL_assert(pos == pos);
             for(int i=0; i<3; ++i){
                 vec3 plane_n = normalize(cross(tri_verts[(i+1)%3] - tri_verts[(i+2)%3], tri_normal));
                 float plane_d = dot(tri_verts[(i+1)%3], plane_n);
@@ -759,6 +804,7 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
                     }
                 }
             }
+            SDL_assert(pos == pos);
         } while(repeat);
 
         character->transform.translation = pos;
