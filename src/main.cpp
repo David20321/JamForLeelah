@@ -112,6 +112,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         file_load_thread_data.wants_to_quit = false;
+#ifdef HAVE_THREADS
         file_load_thread_data.mutex = SDL_CreateMutex();
         if (!file_load_thread_data.mutex) {
             FormattedError("SDL_CreateMutex failed", "Could not create file load mutex: %s", SDL_GetError());
@@ -122,6 +123,7 @@ int main(int argc, char* argv[]) {
             FormattedError("SDL_CreateThread failed", "Could not create file loader thread: %s", SDL_GetError());
             return 1;
         }
+#endif
     profiler.EndEvent();
 
     profiler.StartEvent("Set up graphics context");
@@ -150,6 +152,7 @@ int main(int argc, char* argv[]) {
     SDL_GL_DeleteContext(graphics_context.gl_context);  
     SDL_DestroyWindow(graphics_context.window);
     // Cleanly shut down file load thread 
+#ifdef HAVE_THREADS
     if (SDL_LockMutex(file_load_thread_data.mutex) == 0) {
         file_load_thread_data.wants_to_quit = true;
         SDL_UnlockMutex(file_load_thread_data.mutex);
@@ -158,6 +161,7 @@ int main(int argc, char* argv[]) {
         FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
         exit(1);
     }
+#endif
     SDL_free(write_dir);
     SDL_Quit();
     free(stack_allocator.mem);

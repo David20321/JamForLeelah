@@ -180,6 +180,7 @@ void StartLoadFile(const char* path, FileLoadThreadData* file_load_data) {
         FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
         exit(1);
     }
+#ifdef HAVE_THREADS
     if (SDL_LockMutex(file_load_data->mutex) == 0) {
         FileRequest* request = file_load_data->queue.AddNewRequest();
         for(int i=0; i<path_len + 1; ++i){
@@ -195,10 +196,24 @@ void StartLoadFile(const char* path, FileLoadThreadData* file_load_data) {
         FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
         exit(1);
     }
+#else
+    file_load_data->err = !FileLoadThreadData::LoadFile(
+        path, 
+        file_load_data->memory, 
+        &file_load_data->memory_len, 
+        file_load_data->err_title, 
+        file_load_data->err_msg);
+    if(file_load_data->err){
+        FormattedError(file_load_data->err_title, file_load_data->err_msg);
+        exit(1);
+    }
+#endif
 }
 
 void EndLoadFile(FileLoadThreadData* file_load_data) {
+#ifdef HAVE_THREADS
     SDL_UnlockMutex(file_load_data->mutex);
+#endif
 }
 
 void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_load_data, StackAllocator* stack_alloc) {
@@ -246,7 +261,7 @@ void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_l
     unsigned char temp_bitmap[kAtlasSize*kAtlasSize];
     stbtt_BakeFontBitmap((const unsigned char*)file_load_data->memory, 0, 
         pixel_height, temp_bitmap, 512, 512, 32, 96, text_atlas->cdata); // no guarantee this fits!
-    SDL_UnlockMutex(file_load_data->mutex);
+    EndLoadFile(file_load_data);
     GLuint tmp_texture;
     glGenTextures(1, &tmp_texture);
     text_atlas->texture = tmp_texture;
@@ -255,7 +270,6 @@ void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_l
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, kAtlasSize, kAtlasSize, 0,
         GL_RED, GL_UNSIGNED_BYTE, temp_bitmap);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    EndLoadFile(file_load_data);
 }
 
 int CreateProgramFromFile(GraphicsContext* graphics_context, FileLoadThreadData* file_load_data, const char* path){

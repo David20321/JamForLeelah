@@ -257,6 +257,7 @@ int LoadImage(const char* path, FileLoadThreadData* file_load_data){
         exit(1);
     }
     int texture = -1;
+#ifdef HAVE_THREADS
     if (SDL_LockMutex(file_load_data->mutex) == 0) {
         FileRequest* request = file_load_data->queue.AddNewRequest();
         for(int i=0; i<path_len + 1; ++i){
@@ -264,14 +265,24 @@ int LoadImage(const char* path, FileLoadThreadData* file_load_data){
         }
         request->condition = SDL_CreateCond();
         SDL_CondWait(request->condition, file_load_data->mutex);
+#else
+    // TODO: this is just a copy of the same code in GameState StartLoadFile
+    file_load_data->err = !FileLoadThreadData::LoadFile(
+        path, 
+        file_load_data->memory, 
+        &file_load_data->memory_len, 
+        file_load_data->err_title, 
+        file_load_data->err_msg);
+#endif
         if(file_load_data->err){
             FormattedError(file_load_data->err_title, file_load_data->err_msg);
             exit(1);
         }
         int x,y,comp;
         unsigned char *data = stbi_load_from_memory((const stbi_uc*)file_load_data->memory, file_load_data->memory_len, &x, &y, &comp, STBI_default);
+#ifdef HAVE_THREADS
         SDL_UnlockMutex(file_load_data->mutex);
-
+#endif
         GLint internal_format = -1;
         switch(comp){
         case 1:
@@ -318,9 +329,11 @@ int LoadImage(const char* path, FileLoadThreadData* file_load_data){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, kMaxAnisotropy);
         stbi_image_free(data);
+#ifdef HAVE_THREADS
     } else {
         FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
         exit(1);
     }
+#endif
     return texture;
 }

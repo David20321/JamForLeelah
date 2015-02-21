@@ -4,6 +4,8 @@
 
 #include <SDL.h>
 
+//#define HAVE_THREADS
+
 struct FileRequest {
     static const int kMaxFileRequestPathLen = 512;
     char path[kMaxFileRequestPathLen];
