@@ -86,6 +86,11 @@ void NavMesh::CalcNeighbors(StackAllocator* stack_allocator) {
     if(!unique_verts){
         FormattedError("Error", "Could not allocate memory for Navmesh::CalcNeighbors unique_verts");
     }
+    for(int i=0; i<num_verts; ++i){
+        for(int k=0; k<3; ++k){
+            verts[i][k] = round<float>(verts[i][k]*10.0f)/10.0f;
+        }
+    }
     for(int i=0; i<num_indices; i+=3){
         for(int j=0; j<3; ++j){
             tri_neighbors[i+j] = -1;

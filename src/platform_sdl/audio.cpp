@@ -19,7 +19,7 @@ static void MyAudioCallback (void* userdata, Uint8* stream, int len) {
     audio_context->buffer_read_byte += fill_amount;
 }
 
-static const float kMasterGain = 1.0f;
+static const float kMasterGain = 0.0f;
 static const float kMusicGain = 1.0f;
 
 void UpdateAudio(AudioContext* audio_context) {
