@@ -14,13 +14,64 @@
 #include <sys/stat.h>
 #include <new>
 
+struct GameLoopParams {
+    Profiler* profiler;
+    FileLoadThreadData* file_load_thread_data; 
+    StackAllocator* stack_allocator;
+    GraphicsContext* graphics_context;
+    AudioContext* audio_context;
+    GameState* game_state;
+    bool *game_running;
+    int *last_ticks;
+};
+
+void GameLoop(void* game_loop_params_ptr) {
+    GameLoopParams* params = (GameLoopParams*)game_loop_params_ptr;
+    Profiler* profiler = params->profiler;
+    FileLoadThreadData* file_load_thread_data = params->file_load_thread_data;
+    StackAllocator* stack_allocator = params->stack_allocator;
+    GraphicsContext* graphics_context = params->graphics_context;
+    AudioContext* audio_context = params->audio_context;
+    GameState* game_state = params->game_state;
+    bool* game_running = params->game_running;
+    int* last_ticks = params->last_ticks;
+
+    profiler->StartEvent("Game loop");
+    SDL_Event event;
+    glm::vec2 mouse_rel;
+    while(SDL_PollEvent(&event)){
+        switch(event.type){
+        case SDL_QUIT:
+            *game_running = false;
+            break;
+        case SDL_MOUSEMOTION:
+            mouse_rel[0] += event.motion.xrel;
+            mouse_rel[1] += event.motion.yrel;
+            break;
+        }
+    }
+    profiler->StartEvent("Update");
+    float time_scale = 1.0f;// 0.1f;
+    int ticks = SDL_GetTicks();
+    game_state->Update(mouse_rel, (ticks - *last_ticks) / 1000.0f * time_scale);
+    *last_ticks = ticks;
+    profiler->EndEvent();
+    profiler->StartEvent("Draw");
+    game_state->Draw(graphics_context, SDL_GetTicks(), profiler);
+    profiler->EndEvent();
+    profiler->StartEvent("Audio");
+    UpdateAudio(audio_context);
+    profiler->EndEvent();
+    profiler->StartEvent("Swap");
+    SDL_GL_SwapWindow(graphics_context->window);
+    profiler->EndEvent();
+    profiler->EndEvent();
+}
+
 static void RunGame(Profiler* profiler, FileLoadThreadData* file_load_thread_data, 
                     StackAllocator* stack_allocator, GraphicsContext* graphics_context,
                     AudioContext* audio_context) 
 {
-    /*while(true){
-        UpdateAudio(audio_context);
-    }*/
     GameState* game_state;
     game_state = new((GameState*)stack_allocator->Alloc(sizeof(GameState))) GameState();
     if(!game_state){
@@ -31,38 +82,23 @@ static void RunGame(Profiler* profiler, FileLoadThreadData* file_load_thread_dat
                      stack_allocator);
     int last_ticks = SDL_GetTicks();
     bool game_running = true;
-    while(game_running){
-        profiler->StartEvent("Game loop");
-        SDL_Event event;
-        glm::vec2 mouse_rel;
-        while(SDL_PollEvent(&event)){
-            switch(event.type){
-            case SDL_QUIT:
-                game_running = false;
-                break;
-            case SDL_MOUSEMOTION:
-                mouse_rel[0] += event.motion.xrel;
-                mouse_rel[1] += event.motion.yrel;
-                break;
-            }
-        }
-        profiler->StartEvent("Update");
-        float time_scale = 1.0f;// 0.1f;
-        int ticks = SDL_GetTicks();
-        game_state->Update(mouse_rel, (ticks - last_ticks) / 1000.0f * time_scale);
-        last_ticks = ticks;
-        profiler->EndEvent();
-        profiler->StartEvent("Draw");
-        game_state->Draw(graphics_context, SDL_GetTicks(), profiler);
-        profiler->EndEvent();
-        profiler->StartEvent("Audio");
-        UpdateAudio(audio_context);
-        profiler->EndEvent();
-        profiler->StartEvent("Swap");
-        SDL_GL_SwapWindow(graphics_context->window);
-        profiler->EndEvent();
-        profiler->EndEvent();
+
+    GameLoopParams params;
+    params.profiler = profiler;
+    params.file_load_thread_data = file_load_thread_data;
+    params.stack_allocator = stack_allocator;
+    params.graphics_context = graphics_context;
+    params.audio_context = audio_context;
+    params.game_state = game_state;
+    params.game_running = &game_running;
+    params.last_ticks = &last_ticks;
+#ifdef EMSCRIPTEN
+    emscripten_set_main_loop_arg(GameLoop, 0, 1, params);
+#else
+    while (game_running) {
+        GameLoop(&params);
     }
+#endif
 }
 
 int main(int argc, char* argv[]) {
