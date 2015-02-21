@@ -167,7 +167,7 @@ int NavMeshID(int id){
 }
 
 
-static const bool kDrawNavMesh = false;
+static const bool kDrawNavMesh = true;
 
 quat Camera::GetRotation() {
     quat xRot = angleAxis(rotation_x, vec3(1,0,0));
@@ -444,7 +444,11 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
     lines.num_lines = 0;
     num_drawables = 0;
 
-    lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 0);
+    lines.vbo = CreateVBO(kArrayVBO, kStreamVBO, NULL, 
+                          DebugDrawLines::kMaxLines * 
+                          DebugDrawLines::kElementsPerPoint * 
+                          2 * sizeof(GLfloat));
+
 
     num_character_assets = 0;
     {
@@ -1285,7 +1289,7 @@ void GameState::Draw(GraphicsContext* context, int ticks, Profiler* profiler) {
         profiler->EndEvent();
     }
     profiler->StartEvent("Draw debug lines");
-    lines.Draw(context, proj_mat * view_mat);
+    lines.Draw(context, profiler, proj_mat * view_mat);
     profiler->EndEvent();
     CHECK_GL_ERROR();
     debug_text.Draw(context, ticks/1000.0f);

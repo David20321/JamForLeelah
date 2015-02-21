@@ -3,6 +3,7 @@
 #include "GL/glew.h"
 #include <cstring>
 #include "platform_sdl/graphics.h"
+#include "platform_sdl/profiler.h"
 
 using namespace glm;
 
@@ -34,7 +35,8 @@ bool DebugDrawLines::Add(const vec3& start, const vec3& end,
     }
 }
 
-void DebugDrawLines::Draw(GraphicsContext* graphics_context, const glm::mat4& proj_view_mat) {
+void DebugDrawLines::Draw(GraphicsContext* graphics_context, Profiler* profiler, const glm::mat4& proj_view_mat) {
+    profiler->StartEvent("memory copying");
     for(int i=0; i<num_lines;){
         DebugDrawCommon& line = common[i];
         if(line.lifetime_int <= 0){
@@ -46,10 +48,14 @@ void DebugDrawLines::Draw(GraphicsContext* graphics_context, const glm::mat4& pr
             ++i;
         }
     }
+    profiler->EndEvent();
     Shader* line_shader = &graphics_context->shaders[shader];
 
+    profiler->StartEvent("gl calls");
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, num_lines*sizeof(GLfloat)*kElementsPerPoint*2, draw_data, GL_STREAM_DRAW);
+    profiler->StartEvent("glBufferData call");
+    glBufferSubData(GL_ARRAY_BUFFER, 0, num_lines*sizeof(GLfloat)*kElementsPerPoint*2, draw_data);
+    profiler->EndEvent();
     glUseProgram(line_shader->gl_id);
     glUniformMatrix4fv(line_shader->uniforms[Shader::kModelviewMat4], 1, false, (GLfloat*)&proj_view_mat);
     glEnableVertexAttribArray(0);
@@ -61,13 +67,16 @@ void DebugDrawLines::Draw(GraphicsContext* graphics_context, const glm::mat4& pr
     glDisableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
+    profiler->EndEvent();
 
+    profiler->StartEvent("checking draw lifetime");
     for(int i=0; i<num_lines; ++i){        
         DebugDrawCommon& line = common[i];
         if(line.lifetime == kDraw){
             --line.lifetime_int;
         }
     }
+    profiler->EndEvent();
 }
 
 void DebugDrawLines::Update() {
