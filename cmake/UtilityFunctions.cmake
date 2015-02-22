@@ -592,9 +592,9 @@ if(EMSCRIPTEN)
                 if (_mode STREQUAL "preload")
                     list(APPEND preload_map ${entry})
 
-                    string(REGEX MATCH "^([^@]+)@?" _path "${entry}")
+                    string(REGEX REPLACE "^([^@]+)@?.*" "\\1" _path "${entry}")
 
-                    if(NOT IS_ABSOLUTE _path)
+                    if(NOT IS_ABSOLUTE ${_path})
                         set(_path ${CMAKE_CURRENT_BINARY_DIR}/${_path})
                     endif()
 
