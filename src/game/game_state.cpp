@@ -44,8 +44,10 @@ const char* asset_list[] = {
     ASSET_PATH "art/floor_quad_export.txt",
     ASSET_PATH "art/street_lamp_nav_export.txt",
     "end_nav_meshes",
+    "start_character_assets",
     ASSET_PATH "art/main_character_rig_export.txt",
     ASSET_PATH "art/woman_npc_rig_export.txt",
+    "end_character_assets",
     "start_textures",
     ASSET_PATH "art/lamp_c.tga",
     ASSET_PATH "art/dry_fountain_c.tga",
@@ -61,6 +63,7 @@ const char* asset_list[] = {
     ASSET_PATH "art/main_character_c.tga",
     ASSET_PATH "art/woman_npc_c.tga",
     ASSET_PATH "art/woman_npc_2_c.tga",
+    ASSET_PATH "art/lampshadow.png",
     "end_textures",
     "start_fonts",
     ASSET_PATH "fonts/LiberationMono-Regular.ttf",
@@ -116,8 +119,10 @@ enum {
     kNavLamp,
     kEndNavMeshes,
 
+    kStartCharacterAssets,
     kModelChar,
     kModelWomanNPC,
+    kEndCharacterAssets,
     
     kStartTextures,
     kTexLamp,
@@ -134,6 +139,7 @@ enum {
     kTexChar,
     kTexWomanNPC1,
     kTexWomanNPC2,
+    kTexLampShadow,
     kEndTextures,
 
     kStartFonts,
@@ -180,6 +186,10 @@ int NavMeshID(int id){
     return id - kStartNavMeshes - 1;
 }
 
+static const int kNumCharacterAssets = kEndCharacterAssets-kStartCharacterAssets-1;
+int CharacterAssetID(int id){
+    return id - kStartCharacterAssets - 1;
+}
 
 static const bool kDrawNavMesh = false;
 
@@ -498,6 +508,8 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         shaders[i] = CreateProgramFromFile(graphics_context, file_load_thread_data, 
                                            asset_list[kStartShaders+i+1]);
     }
+            
+    lamp_shadow_tex = textures[TexID(kTexLampShadow)];
                   
     camera.position = vec3(0.0f,0.0f,20.0f);
     camera.rotation_x = 0.0f;
@@ -520,18 +532,17 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
                           DebugDrawLines::kMaxLines * 
                           DebugDrawLines::kElementsPerPoint * 
                           2 * sizeof(GLfloat));
-
-
+    
     num_character_assets = 0;
-    {
+    for(int i=0; i<kNumCharacterAssets; ++i){
         ParseMesh* parse_mesh = &character_assets[num_character_assets].parse_mesh;
-        ParseTestFile(asset_list[kModelChar], parse_mesh);
+        ParseTestFile(asset_list[kStartCharacterAssets+i+1], parse_mesh);
         character_assets[num_character_assets].vert_vbo = 
             CreateVBO(kArrayVBO, kStaticVBO, parse_mesh->vert, 
-                      parse_mesh->num_vert*sizeof(float)*16);
+            parse_mesh->num_vert*sizeof(float)*16);
         character_assets[num_character_assets].index_vbo = 
             CreateVBO(kElementVBO, kStaticVBO, parse_mesh->indices, 
-                      parse_mesh->num_index*sizeof(Uint32));
+            parse_mesh->num_index*sizeof(Uint32));
         BoundingBoxFromParseMesh(parse_mesh, character_assets[num_character_assets].bounding_box);
         ++num_character_assets;
     }
@@ -549,7 +560,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         characters[i].exists = true;
         characters[i].nav_mesh_walker.tri = 0;
         characters[i].nav_mesh_walker.bary_pos = vec3(1/3.0f);
-        characters[i].character_asset = &character_assets[0];
+        characters[i].character_asset = &character_assets[1];
         characters[i].tether_target = -1;
         if(i == 0){
             characters[i].transform.translation = vec3(kMapSize,0,kMapSize);
@@ -957,7 +968,7 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
             (float)(Character::kWalkCycleEnd - Character::kWalkCycleStart);
     }
 
-    character->color = vec4(1,1,1,character->energy);
+    character->color = vec4(1,1,1,1);
     if(character->revealed){
         switch(character->type){
             case Character::kRed:
@@ -1156,8 +1167,15 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
                     camera.GetRotation() * vec3(0,0,1) * 10.0f;
                 player_alive = true;
                 num_lights = 2;
-                lights[0].pos = characters[i].transform.translation + vec3(0,1,0);
-                lights[1].pos = characters[i].transform.translation + vec3(14,1,14);
+                light_pos[0] = characters[i].transform.translation + vec3(0,1,0);
+                light_color[0] = vec3(5.0f,3.0f,0.0f);
+                light_color[0] *= characters[i].energy;    
+                light_type[0] = 0;
+                light_pos[1] = vec3(13*2,2,13*2);
+                light_pos[1]+= vec3(-0.8,0,1.0);
+                light_color[1] = vec3(5.0f,3.0f,0.0f) * 10.0f;       
+                light_color[1] *= sin(SDL_GetTicks()/1000.0f)*0.5f+0.5f;      
+                light_type[1] = 1;        
             }
         }
 
@@ -1275,11 +1293,21 @@ void DrawDrawable(float *frustum_planes, GameState* game_state,
     mat3 normal_mat = mat3(drawable->transform);
     glUniformMatrix3fv(shader->uniforms[Shader::kNormalMat3], 1, false, (GLfloat*)&normal_mat);
 
+    CHECK_GL_ERROR();
     glUniform1i(shader->uniforms[Shader::kNumLights], game_state->num_lights);
-    glUniform3fv(shader->uniforms[Shader::kLights], game_state->num_lights, (GLfloat*)game_state->lights);
+    glUniform3fv(shader->uniforms[Shader::kLightPos], game_state->num_lights, (GLfloat*)game_state->light_pos);
+    glUniform3fv(shader->uniforms[Shader::kLightColor], game_state->num_lights, (GLfloat*)game_state->light_color);
+    glUniform1iv(shader->uniforms[Shader::kLightType], game_state->num_lights, game_state->light_type);
+    glUniform3fv(shader->uniforms[Shader::kFogColor], 1, (GLfloat*)&game_state->fog_color);
+    glUniform1f(shader->uniforms[Shader::kTime], SDL_GetTicks()/1000.0f);
+    glUniform1i(shader->uniforms[Shader::kLampTexID], 1);
+    CHECK_GL_ERROR();
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, drawable->texture_id);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, game_state->lamp_shadow_tex);
+    CHECK_GL_ERROR();
 
     glBindBuffer(GL_ARRAY_BUFFER, drawable->vert_vbo);
     switch(drawable->vbo_layout){
@@ -1386,8 +1414,10 @@ void SetProjectionMatrix(mat4 *proj_mat, float* planes, float fovy, float aspect
 void GameState::Draw(GraphicsContext* context, int ticks, Profiler* profiler) {
     CHECK_GL_ERROR();
 
+    fog_color = vec3(0.1,0.2,0.3);
+
     glViewport(0, 0, context->screen_dims[0], context->screen_dims[1]);
-    glClearColor(0.1,0.1,0.1,1);
+    glClearColor(fog_color[0],fog_color[1],fog_color[2],1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 

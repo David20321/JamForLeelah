@@ -18,8 +18,13 @@ static const char* shader_uniform_names[] = {
     "norm_mat",
     "texture_id",
     "num_lights",
-    "lights",
+    "light_pos",
+    "light_color",
+    "light_type",
+    "lamp_tex_id",
+    "fog_color",
     "color",
+    "time",
     "bone_matrices"
 };
 
@@ -31,8 +36,13 @@ struct Shader {
         kNormalMat3,
         kTextureID,
         kNumLights,
-        kLights,
+        kLightPos,
+        kLightColor,
+        kLightType,
+        kLampTexID,
+        kFogColor,
         kColor,
+        kTime,
         kBoneMatrices,
         kNumUniformNames
     };

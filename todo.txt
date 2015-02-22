@@ -1,3 +1,9 @@
--clamp energy to 1.0
--enemies can steal connections
--bank allies at lamp posts
+- lamp light source
+- fog effect
+- main menu
+- finish emscripten port
+- better ogg decompress
+- crnlib texture compression
+- bake zip package
+- enemy attacks
+- connection effect (like filament)
