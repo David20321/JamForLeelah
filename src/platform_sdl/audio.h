@@ -3,17 +3,35 @@
 #define PLATFORM_SDL_AUDIO_HPP
 
 #include <SDL.h>
-#define STB_VORBIS_HEADER_ONLY
-#include "stb_vorbis.c"
-#undef STB_VORBIS_HEADER_ONLY
+#ifdef USE_STB_VORBIS
+    #define STB_VORBIS_HEADER_ONLY
+    #include "stb_vorbis.c"
+    #undef STB_VORBIS_HEADER_ONLY
+#else
+    #include <vorbis/vorbisfile.h>
+
+extern ov_callbacks OV_MEMORY_CALLBACKS;
+
+struct tOGVMemoryReader {
+    char* buff;
+    ogg_int64_t buff_size;
+    ogg_int64_t buff_pos;
+
+    tOGVMemoryReader(const void* aBuff, size_t aBuffSize) : buff((char*)aBuff), buff_size(aBuffSize), buff_pos(0) {}
+};
+#endif
 
 class StackAllocator;
 
 struct OggTrack {
     void* mem;
     int mem_len;
+#ifdef USE_STB_VORBIS
     stb_vorbis_alloc vorbis_alloc;
     stb_vorbis* vorbis;
+#else
+    OggVorbis_File vorbis;
+#endif
     float* decoded;
     int samples;
     int read_pos;

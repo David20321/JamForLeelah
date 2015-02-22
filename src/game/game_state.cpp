@@ -15,8 +15,6 @@
 #include <SDL.h>
 #include <GL/glew.h>
 #include <cstring>
-#define STB_VORBIS_HEADER_ONLY
-#include "stb_vorbis.c"
 
 #ifndef WIN32
 const int GameState::kMapSize;
@@ -235,6 +233,7 @@ void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_loa
     }
     memcpy(ogg_track->mem, file_load_data->memory, ogg_track->mem_len);
     EndLoadFile(file_load_data);
+#ifdef USE_STB_VORBIS
     ogg_track->vorbis_alloc.alloc_buffer_length_in_bytes = 200*1024; // Allocate 200 KB for vorbis decoding
     ogg_track->vorbis_alloc.alloc_buffer = (char*)stack_alloc->Alloc(
         ogg_track->vorbis_alloc.alloc_buffer_length_in_bytes);
@@ -262,7 +261,45 @@ void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_loa
         FormattedError("Error", "Failed to allocate memory for decoded ogg: %s", path);
     }
     stb_vorbis_get_samples_float_interleaved(ogg_track->vorbis, info.channels, ogg_track->decoded, ogg_track->samples * info.channels);
+#else
+    tOGVMemoryReader *memfile = new tOGVMemoryReader(ogg_track->mem, ogg_track->mem_len);
+    int res = ov_open_callbacks(memfile, &ogg_track->vorbis, NULL, 0, OV_MEMORY_CALLBACKS);
+    if (res < 0) {
+        FormattedError("Error", "Could not open ogg: %s", path);
+    }
+    vorbis_info *info = ov_info(&ogg_track->vorbis, -1);
+    SDL_assert(info->rate == 48000 && info->channels == 2);
+    ogg_track->samples = ov_pcm_total(&ogg_track->vorbis, -1);
+    ogg_track->read_pos = 0;
+    ogg_track->gain = 0.0f;
+    ogg_track->target_gain = 0.0f;
+    ogg_track->transition_speed = 0.0000003f;
+    ogg_track->decoded = (float*)stack_alloc->Alloc(sizeof(float) * ogg_track->samples * info->channels);
+    if(!ogg_track->decoded) {
+        FormattedError("Error", "Failed to allocate memory for decoded ogg: %s", path);
+    }
+    int total_read = 0;
 
+    while (1) {
+        float **streams;
+        int bitstream;
+
+        int numread = ov_read_float(&ogg_track->vorbis, &streams, ogg_track->samples, &bitstream);
+        if (numread < 0) {
+            FormattedError("Error", "Failed to read ogg samples: %s", path);
+            break;
+        } else if (numread == 0) {
+            break;
+        }
+        // Interleave the data
+        for (int f = 0; f < numread; ++f) {
+            for (int c = 0; c < info->channels; ++c) {
+                ogg_track->decoded[total_read + f * info->channels + c] = streams[c][f];
+            }
+        }
+        total_read += numread * info->channels;
+    }
+#endif
 }
 
 void LoadTTF(const char* path, TextAtlas* text_atlas, FileLoadThreadData* file_load_data, float pixel_height) {
