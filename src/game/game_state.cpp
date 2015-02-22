@@ -45,7 +45,8 @@ const char* asset_list[] = {
     ASSET_PATH "art/garden_tall_stairs_nav_export.txt",
     ASSET_PATH "art/floor_quad_export.txt",
     "end_nav_meshes",
-    ASSET_PATH "art/main_character_rig_export.txt",
+    //ASSET_PATH "art/main_character_rig_export.txt",
+    ASSET_PATH "art/woman_npc_rig_export.txt",
     "start_textures",
     ASSET_PATH "art/lamp_c.tga",
     ASSET_PATH "art/dry_fountain_c.tga",
@@ -58,7 +59,8 @@ const char* asset_list[] = {
     ASSET_PATH "art/tree_c.tga",
     ASSET_PATH "art/wall_pillar_c.tga",
     ASSET_PATH "art/tiling_cobbles_c.tga",
-    ASSET_PATH "art/main_character_c.tga",
+    //ASSET_PATH "art/main_character_c.tga",
+    ASSET_PATH "art/woman_npc_2_c.tga",
     "end_textures",
     "start_fonts",
     ASSET_PATH "fonts/LiberationMono-Regular.ttf",
@@ -167,7 +169,7 @@ int NavMeshID(int id){
 }
 
 
-static const bool kDrawNavMesh = true;
+static const bool kDrawNavMesh = false;
 
 quat Camera::GetRotation() {
     quat xRot = angleAxis(rotation_x, vec3(1,0,0));
@@ -581,7 +583,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
     tile_height[15*kMapSize+18] = 1;
     tile_height[16*kMapSize+18] = 1;
 
-    static const bool kTilesFromTileHeight;
+    static const bool kTilesFromTileHeight = false;
     if(kTilesFromTileHeight){
         for(int z=0; z<kMapSize; ++z){
             for(int x=0; x<kMapSize; ++x){
@@ -1209,7 +1211,7 @@ void DrawDrawable(GraphicsContext* graphics_context, const mat4 &proj_mat,
         Character* character = drawable->character;
         ParseMesh* parse_mesh = &character->character_asset->parse_mesh;
         int animation = 1;//1;
-        int frame = (int)character->walk_cycle_frame;
+        int frame = (int)character->walk_cycle_frame - parse_mesh->animations[animation].first_frame;
         int start_anim_transform = 
             parse_mesh->animations[animation].anim_transform_start +
             parse_mesh->num_bones * frame;

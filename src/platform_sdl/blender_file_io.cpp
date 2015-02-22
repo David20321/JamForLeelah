@@ -130,6 +130,7 @@ struct ParseMeshStraight {
         Uint32 name_hash;
         int num_frames;
         int frame_index;
+        int first_frame;
     };
     struct Bone {
         Uint32 name_hash;
@@ -556,6 +557,7 @@ void ParseTestFileFromRam(const char* path, ParsePass pass, ParseMeshStraight* m
                             mesh->actions[mesh->num_actions].name_hash = hash_index;
                             mesh->actions[mesh->num_actions].num_frames = 0;
                             mesh->actions[mesh->num_actions].frame_index = mesh->num_frames;
+                            mesh->actions[mesh->num_actions].first_frame = -1;
                         }
                         ++mesh->num_actions;
                         parse_state = kActionFrame;
@@ -567,6 +569,9 @@ void ParseTestFileFromRam(const char* path, ParsePass pass, ParseMeshStraight* m
                         int frame = atoi(&line[action_frame_header_len]);
                         if(pass == kStore){
                             ++mesh->actions[mesh->num_actions-1].num_frames;
+                            if(mesh->actions[mesh->num_actions-1].first_frame == -1){
+                                mesh->actions[mesh->num_actions-1].first_frame = frame;
+                            }
                             mesh->frames[mesh->num_frames].num_bones = 0;
                             mesh->frames[mesh->num_frames].start_index = mesh->num_frame_transforms;
                         }
@@ -829,6 +834,7 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
         int num_anim_frames = 0;
         for(int i=0; i<mesh_final->num_animations; ++i){
             mesh_final->animations[i].num_frames = mesh_straight->actions[i].num_frames;
+            mesh_final->animations[i].first_frame = mesh_straight->actions[i].first_frame;
             num_anim_frames += mesh_final->animations[i].num_frames;
         }
         int num_anim_transforms = num_anim_frames * mesh_final->num_bones;

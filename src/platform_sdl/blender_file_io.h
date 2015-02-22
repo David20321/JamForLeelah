@@ -10,6 +10,7 @@ public:
     struct Animation {
         int num_frames;
         int anim_transform_start;
+        int first_frame;
     };
     int num_vert;
     static const int kFloatsPerVert_Skinned = 3+2+3+4+4; //Vert data, 3v 2uv 3n 4bone_index 4bone_weight
