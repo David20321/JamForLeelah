@@ -21,6 +21,9 @@ list(APPEND CMAKE_PREFIX_PATH
 find_package(OpenGL)
 find_package(SDL2 CONFIG NO_CMAKE_FIND_ROOT_PATH)
 
+add_subdirectory(lib/ogg ogg)
+add_subdirectory(lib/vorbis vorbis)
+
 if(NOT EMSCRIPTEN)
     add_subdirectory(lib/glew glew)
 else()
@@ -57,6 +60,7 @@ LINK
     ${SDL2_LIBRARIES}
     $<$<NOT:$<BOOL:${EMSCRIPTEN}>>:glew>
     ${OPENGL_gl_LIBRARY}
+    vorbis
 )
 
 if(EMSCRIPTEN)

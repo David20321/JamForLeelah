@@ -1,5 +1,5 @@
-#include "SDL.h"
-#include "GL/glew.h"
+#include <SDL.h>
+#include <GL/glew.h>
 #include "glm/glm.hpp"
 #include "platform_sdl/audio.h"
 #include "platform_sdl/error.h"

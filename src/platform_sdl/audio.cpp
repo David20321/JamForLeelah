@@ -3,7 +3,77 @@
 #include "internal/memory.h"
 #include "internal/common.h"
 #include <SDL.h>
-#include "stb_vorbis.c"
+#ifdef USE_STB_VORBIS
+    #include "stb_vorbis.c"
+#else
+    #include <vorbis/vorbisfile.h>
+
+size_t OGVmemoryRead(void * buff, size_t b, size_t nelts, void *data);
+int OGVmemorySeek(void *data, ogg_int64_t seek, int type);
+long OGVmemoryTell(void* data);
+int OGVmemoryClose(void *data);
+
+ov_callbacks OV_MEMORY_CALLBACKS = {
+    OGVmemoryRead,
+    OGVmemorySeek,
+    OGVmemoryClose,
+    OGVmemoryTell
+};
+
+size_t OGVmemoryRead(void * buff, size_t b, size_t nelts, void *data)
+{
+    tOGVMemoryReader *of = reinterpret_cast<tOGVMemoryReader*>(data);
+    size_t len = b * nelts;
+    if (of->buff_pos + len > of->buff_size) {
+        len = of->buff_size - of->buff_pos;
+    }
+    if (len)
+        memcpy(buff, of->buff + of->buff_pos, len );
+    of->buff_pos += len;
+    return len;
+}
+
+int OGVmemorySeek(void *data, ogg_int64_t seek, int type)
+{
+    tOGVMemoryReader *of = reinterpret_cast<tOGVMemoryReader*>(data);
+    switch (type) {
+        case SEEK_CUR:
+            of->buff_pos += seek;
+            break;
+        case SEEK_END:
+            of->buff_pos = of->buff_size - seek;
+            break;
+        case SEEK_SET:
+            of->buff_pos = seek;
+            break;
+        default:
+            return -1;
+    }
+    if ( of->buff_pos < 0) {
+        of->buff_pos = 0;
+        return -1;
+    }
+    if ( of->buff_pos > of->buff_size) {
+        of->buff_pos = of->buff_size;
+        return -1;
+    }
+    return 0;
+}
+
+int OGVmemoryClose(void* data)
+{
+    tOGVMemoryReader *of = reinterpret_cast<tOGVMemoryReader*>(data);
+    delete of;
+    return 0;
+}
+
+long OGVmemoryTell(void* data)
+{
+    tOGVMemoryReader *of = reinterpret_cast<tOGVMemoryReader*>(data);
+    return of->buff_pos;
+}
+
+#endif
 
 // TODO: handle audio fade-in/out here?
 static void MyAudioCallback (void* userdata, Uint8* stream, int len) {
@@ -43,8 +113,10 @@ void UpdateAudio(AudioContext* audio_context) {
     }
     for(int i=0; i<audio_context->num_ogg_tracks; ++i){
         OggTrack* ogg_track = audio_context->ogg_tracks[i];
+#ifdef USE_STB_VORBIS
         stb_vorbis_info info = stb_vorbis_get_info(ogg_track->vorbis);
         SDL_assert(info.sample_rate == 48000 && info.channels == 2);
+#endif
         ogg_track->read_pos += temp_buffer_read_byte / target_sample_size;
         if(ogg_track->read_pos > ogg_track->samples){
             ogg_track->read_pos -= ogg_track->samples;

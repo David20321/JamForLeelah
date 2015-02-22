@@ -2,7 +2,7 @@
 #include "platform_sdl/error.h"
 #include <cstdio>
 #include <cstdlib>
-#include "SDL.h"
+#include <SDL.h>
 
 void* StackAllocator::Alloc(int requested_size) {
     if(stack_block_pts[stack_blocks] + requested_size < size && stack_blocks < kMaxBlocks-2){

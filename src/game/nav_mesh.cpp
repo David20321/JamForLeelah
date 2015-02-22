@@ -4,7 +4,7 @@
 #include "platform_sdl/error.h"
 #include "platform_sdl/graphics.h"
 #include "glm/glm.hpp"
-#include "GL/glew.h"
+#include <GL/glew.h>
 
 using namespace glm;
 
@@ -92,7 +92,7 @@ void NavMesh::CalcNeighbors(StackAllocator* stack_allocator) {
             vec3 edge_verts[2] = {verts[indices[i+j]], verts[indices[i+(j+1)%3]]};
             for(int k=0; k<2; ++k){
                 for(int l=0; l<3; ++l){
-                    edge_verts[k][l] = round<float>(edge_verts[k][l]*100.0f)/100.0f;
+                    edge_verts[k][l] = roundf(edge_verts[k][l]*100.0f)/100.0f;
                 }
             }
             // Make sure that identical edges have verts in the same order
