@@ -41,6 +41,9 @@ DIRS
     src/internal
     src/game
     src/platform_sdl
+REFERENCE
+    assets/shaders/*.vert
+    assets/shaders/*.frag
 DEFINES
     $<$<BOOL:${WIN32}>:_CRT_SECURE_NO_WARNINGS>
 INCLUDES
@@ -62,6 +65,9 @@ LINK
     ${OPENGL_gl_LIBRARY}
     vorbis
 )
+
+source_group("Source" REGULAR_EXPRESSION "\\.(cpp|h)$")
+source_group("Shadres" REGULAR_EXPRESSION "\\.(frag|vert)$")
 
 if(EMSCRIPTEN)
     set(EM_TARGET_JS ${PROJECT_NAME}.js)
