@@ -48,6 +48,7 @@ REFERENCE
     assets/shaders_gles/*.frag
 DEFINES
     $<$<BOOL:${WIN32}>:_CRT_SECURE_NO_WARNINGS>
+    GLM_FORCE_CXX03
 INCLUDES
     src
 
