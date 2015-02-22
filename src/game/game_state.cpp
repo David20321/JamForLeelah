@@ -42,6 +42,7 @@ const char* asset_list[] = {
     ASSET_PATH "art/garden_tall_nook_nav_export.txt",
     ASSET_PATH "art/garden_tall_stairs_nav_export.txt",
     ASSET_PATH "art/floor_quad_export.txt",
+    ASSET_PATH "art/street_lamp_nav_export.txt",
     "end_nav_meshes",
     ASSET_PATH "art/main_character_rig_export.txt",
     ASSET_PATH "art/woman_npc_rig_export.txt",
@@ -112,6 +113,7 @@ enum {
     kNavGardenTallNook,
     kNavGardenTallStairs,
     kNavFloor,
+    kNavLamp,
     kEndNavMeshes,
 
     kModelChar,
@@ -281,7 +283,7 @@ void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_loa
     }
     vorbis_info *info = ov_info(&ogg_track->vorbis, -1);
     SDL_assert(info->rate == 48000 && info->channels == 2);
-    ogg_track->samples = ov_pcm_total(&ogg_track->vorbis, -1);
+    ogg_track->samples = (int)ov_pcm_total(&ogg_track->vorbis, -1);
     ogg_track->read_pos = 0;
     ogg_track->gain = 0.0f;
     ogg_track->target_gain = 0.0f;
@@ -613,7 +615,8 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         kWall,
         kCorner,
         kNook,
-        kStairs
+        kStairs,
+        kLamp
     };
     TileType tiles[kMapSize * kMapSize];
     int rotation[kMapSize * kMapSize];
@@ -624,6 +627,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         tile_height[i] = 0;//rand()%20==0;
     }
 
+    tiles[13*kMapSize+13] = kLamp;
     tiles[15*kMapSize+15] = kNothing;
     tiles[15*kMapSize+16] = kStairs;
     tiles[16*kMapSize+15] = kNothing;
@@ -805,6 +809,28 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
                         start_verts + nav_mesh_asset->indices[i];
                 }
                          } break;
+            case kLamp: {
+                FillStaticDrawable(&drawables[num_drawables++], 
+                    mesh_assets[MeshID(kMeshLamp)], 
+                    textures[TexID(kTexLamp)],
+                    shaders[ShaderID(kShader3DModel)], 
+                    translation);
+                FillStaticDrawable(&drawables[num_drawables++], 
+                    mesh_assets[MeshID(kMeshFloor)], 
+                    textures[TexID(kTexFloor)],
+                    shaders[ShaderID(kShader3DModel)], 
+                    translation);
+                NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavLamp)];
+                int start_verts = nav_mesh.num_verts;
+                for(int i=0; i<nav_mesh_asset->num_verts; ++i){
+                    nav_mesh.verts[nav_mesh.num_verts++] = 
+                        vec3(mat * vec4(nav_mesh_asset->verts[i], 1));
+                }
+                for(int i=0; i<nav_mesh_asset->num_indices; ++i){
+                    nav_mesh.indices[nav_mesh.num_indices++] =
+                        start_verts + nav_mesh_asset->indices[i];
+                }
+                } break;
             case kStairs: {
                 FillStaticDrawable(&drawables[num_drawables++], 
                     mesh_assets[MeshID(kMeshGardenTallStairs)], 
@@ -1129,6 +1155,9 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
                 camera.position = characters[i].transform.translation +
                     camera.GetRotation() * vec3(0,0,1) * 10.0f;
                 player_alive = true;
+                num_lights = 2;
+                lights[0].pos = characters[i].transform.translation + vec3(0,1,0);
+                lights[1].pos = characters[i].transform.translation + vec3(14,1,14);
             }
         }
 
@@ -1246,7 +1275,8 @@ void DrawDrawable(float *frustum_planes, GameState* game_state,
     mat3 normal_mat = mat3(drawable->transform);
     glUniformMatrix3fv(shader->uniforms[Shader::kNormalMat3], 1, false, (GLfloat*)&normal_mat);
 
-    glUniform1i(shader->uniforms[Shader::kTextureID], 0);
+    glUniform1i(shader->uniforms[Shader::kNumLights], game_state->num_lights);
+    glUniform3fv(shader->uniforms[Shader::kLights], game_state->num_lights, (GLfloat*)game_state->lights);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, drawable->texture_id);
@@ -1266,6 +1296,7 @@ void DrawDrawable(float *frustum_planes, GameState* game_state,
     case kInterleave_3V2T3N:
         glUniformMatrix4fv(shader->uniforms[Shader::kModelviewMat4], 1, false, (GLfloat*)&modelview_mat);
         glUniformMatrix4fv(shader->uniforms[Shader::kProjectionMat4], 1, false, (GLfloat*)&proj_mat);
+        glUniformMatrix4fv(shader->uniforms[Shader::kWorldMat4], 1, false, (GLfloat*)&drawable->transform);
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
         glEnableVertexAttribArray(2);
@@ -1356,7 +1387,7 @@ void GameState::Draw(GraphicsContext* context, int ticks, Profiler* profiler) {
     CHECK_GL_ERROR();
 
     glViewport(0, 0, context->screen_dims[0], context->screen_dims[1]);
-    glClearColor(0.5,0.5,0.5,1);
+    glClearColor(0.1,0.1,0.1,1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 

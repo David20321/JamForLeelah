@@ -12,6 +12,7 @@ layout(location = 4) in vec4 weights;
 out vec2 var_uv; 
 out vec3 var_normal; 
 out vec3 var_view_pos; 
+out vec3 var_world_pos; 
 
 void main() { 
 	mat4 skinned_mat = mat4(0.0);
@@ -26,4 +27,5 @@ void main() {
 	var_uv.y *= -1.0;
 	var_normal = normalize(mat3(skinned_mat) * normal);
 	var_view_pos = vec3(mv_mat * skinned_mat * vec4(position, 1.0));
+	var_world_pos = vec3(skinned_mat * vec4(position, 1.0));
 }

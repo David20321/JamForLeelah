@@ -96,6 +96,10 @@ struct Drawable {
     glm::mat4 transform;
 };
 
+struct Light {
+    glm::vec3 pos;
+};
+
 class GameState {
 public:
     static const int kMaxDrawables = 1000;
@@ -117,6 +121,9 @@ public:
     static const int kMaxOggTracks = 10;
     int num_ogg_tracks;
     OggTrack ogg_track[kMaxOggTracks];
+    static const int kMaxLights = 10;
+    int num_lights;
+    Light lights[kMaxLights];
 
     static const int kMapSize = 30;
     int tile_height[kMapSize * kMapSize];

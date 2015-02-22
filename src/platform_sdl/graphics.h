@@ -14,8 +14,11 @@ class FileLoadThreadData;
 static const char* shader_uniform_names[] = {
     "mv_mat",
     "proj_mat",
+    "world_mat",
     "norm_mat",
     "texture_id",
+    "num_lights",
+    "lights",
     "color",
     "bone_matrices"
 };
@@ -24,8 +27,11 @@ struct Shader {
     enum UniformName {
         kModelviewMat4,
         kProjectionMat4,
+        kWorldMat4,
         kNormalMat3,
         kTextureID,
+        kNumLights,
+        kLights,
         kColor,
         kBoneMatrices,
         kNumUniformNames
