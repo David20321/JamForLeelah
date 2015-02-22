@@ -65,11 +65,19 @@ const char* asset_list[] = {
     ASSET_PATH "fonts/LiberationMono-Regular.ttf",
     "end_fonts",
     "start_shaders",
+#ifdef USE_OPENGLES
+    ASSET_PATH "shaders_gles/3D_model",
+    ASSET_PATH "shaders_gles/3D_model_skinned",
+    ASSET_PATH "shaders_gles/debug_draw",
+    ASSET_PATH "shaders_gles/debug_draw_text",
+    ASSET_PATH "shaders_gles/nav_mesh",
+#else
     ASSET_PATH "shaders/3D_model",
     ASSET_PATH "shaders/3D_model_skinned",
     ASSET_PATH "shaders/debug_draw",
     ASSET_PATH "shaders/debug_draw_text",
     ASSET_PATH "shaders/nav_mesh",
+#endif
     "end_shaders",
     "start_music",
     ASSET_PATH "music/UG - Layer 0 - Opt Drone.ogg",

@@ -13,6 +13,9 @@
 #include <cstdio>
 #include <sys/stat.h>
 #include <new>
+#ifdef EMSCRIPTEN
+#include <emscripten/emscripten.h>
+#endif
 
 struct GameLoopParams {
     Profiler* profiler;
@@ -93,7 +96,7 @@ static void RunGame(Profiler* profiler, FileLoadThreadData* file_load_thread_dat
     params.game_running = &game_running;
     params.last_ticks = &last_ticks;
 #ifdef EMSCRIPTEN
-    emscripten_set_main_loop_arg(GameLoop, 0, 1, params);
+    emscripten_set_main_loop_arg(GameLoop, &params, 0, 1);
 #else
     while (game_running) {
         GameLoop(&params);

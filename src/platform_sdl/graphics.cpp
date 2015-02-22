@@ -110,16 +110,23 @@ int CreateShader(int type, const char *src) {
  }
 
  void InitGraphicsContext(GraphicsContext *graphics_context) {
-    static const bool kForceModernOpenGL = true;
     Profiler profiler;
     profiler.Init();
     graphics_context->screen_dims[0] = 1280;
     graphics_context->screen_dims[1] = 720;
+#ifdef USE_OPENGLES
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
+    static const bool kForceModernOpenGL = true;
+
     if(kForceModernOpenGL){
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     }
+#endif
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (kMSAA==0)?0:1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, kMSAA); // Why does this have to be before createwindow?
     graphics_context->window = SDL_CreateWindow("Under Glass", 
@@ -144,12 +151,14 @@ int CreateShader(int type, const char *src) {
         FormattedError("glewInit failed", "Error: %s", glewGetErrorString(err));
         exit(1);
     }
+#ifndef USE_OPENGLES
     if(kForceModernOpenGL) {
         if (!GLEW_VERSION_3_2) {
             FormattedError("OpenGL 3.2 not supported", "OpenGL 3.2 is required");
             exit(1);
         }
     }
+#endif
 
     int multisample_buffers, multisample_samples;
     SDL_GL_GetAttribute(SDL_GL_MULTISAMPLEBUFFERS, &multisample_buffers);
@@ -159,9 +168,11 @@ int CreateShader(int type, const char *src) {
     glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
     // Enable vSync
+#ifndef EMSCRIPTEN
     if(!SDL_GL_SetSwapInterval(-1)) {
         SDL_GL_SetSwapInterval(1);
     }
+#endif
 
     GLuint vao;
     glGenVertexArrays(1, &vao);

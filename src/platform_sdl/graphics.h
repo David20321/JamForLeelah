@@ -5,6 +5,10 @@
 #include <SDL.h>
 #include "glm/glm.hpp"
 
+#ifdef EMSCRIPTEN
+#define USE_OPENGLES
+#endif
+
 class FileLoadThreadData;
 
 static const char* shader_uniform_names[] = {

@@ -44,6 +44,8 @@ DIRS
 REFERENCE
     assets/shaders/*.vert
     assets/shaders/*.frag
+    assets/shaders_gles/*.vert
+    assets/shaders_gles/*.frag
 DEFINES
     $<$<BOOL:${WIN32}>:_CRT_SECURE_NO_WARNINGS>
 INCLUDES
@@ -56,7 +58,7 @@ PRE_JS
     ${DATA_FILE}
 ASM_FLAG
 ## Once we figure out the memory needed we use TOTAL_MEMORY (otherwise asm.js optimizations won't be enabled)
-#    TOTAL_MEMORY=134217728
+    TOTAL_MEMORY=268435456
 ## For now we allow memory growth
     ALLOW_MEMORY_GROWTH=1
 LINK
@@ -67,7 +69,8 @@ LINK
 )
 
 source_group("Source" REGULAR_EXPRESSION "\\.(cpp|h)$")
-source_group("Shadres" REGULAR_EXPRESSION "\\.(frag|vert)$")
+source_group("Shaders" REGULAR_EXPRESSION "ers/.*\\.(frag|vert)$")
+source_group("Shaders ES" REGULAR_EXPRESSION "gles/.*\\.(frag|vert)$")
 
 if(EMSCRIPTEN)
     set(EM_TARGET_JS ${PROJECT_NAME}.js)
