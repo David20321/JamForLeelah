@@ -4,7 +4,7 @@
 #include "platform_sdl/error.h"
 #include "platform_sdl/graphics.h"
 #include "glm/glm.hpp"
-#include "GL/glew.h"
+#include <GL/glew.h>
 
 using namespace glm;
 

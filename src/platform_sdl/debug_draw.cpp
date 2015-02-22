@@ -1,6 +1,6 @@
 #include "platform_sdl/debug_draw.h"
 #include "glm/glm.hpp"
-#include "GL/glew.h"
+#include <GL/glew.h>
 #include <cstring>
 #include "platform_sdl/graphics.h"
 #include "platform_sdl/profiler.h"

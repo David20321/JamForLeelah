@@ -1,7 +1,7 @@
 #include "platform_sdl/blender_file_io.h"
 #include "platform_sdl/error.h"
 #include "glm/glm.hpp"
-#include "SDL.h"
+#include <SDL.h>
 #include <cstring>
 #include "internal/common.h"
 

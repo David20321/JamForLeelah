@@ -12,8 +12,8 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/random.hpp"
 #include "glm/gtx/norm.hpp"
-#include "SDL.h"
-#include "GL/glew.h"
+#include <SDL.h>
+#include <GL/glew.h>
 #include <cstring>
 #define STB_VORBIS_HEADER_ONLY
 #include "stb_vorbis.c"
