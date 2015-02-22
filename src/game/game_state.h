@@ -27,6 +27,7 @@ struct CharacterAsset {
     ParseMesh parse_mesh;
     int vert_vbo;
     int index_vbo;
+    glm::vec3 bounding_box[2];
 };
 
 struct Mind {
@@ -88,6 +89,8 @@ struct Drawable {
     int index_vbo;
     int num_indices;
     int shader_id;
+    glm::vec3 bounding_sphere_center;
+    float bounding_sphere_radius;
     Character* character;
     VBO_Setup vbo_layout;
     glm::mat4 transform;

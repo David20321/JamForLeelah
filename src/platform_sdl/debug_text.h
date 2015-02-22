@@ -17,7 +17,6 @@ struct TextAtlas {
 };
 
 struct DebugTextEntry {
-    bool display;
     static const int kDebugTextStrMaxLen = 512;
     float fade_time;
     char str[kDebugTextStrMaxLen];

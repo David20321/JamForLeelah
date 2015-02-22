@@ -88,7 +88,7 @@ void DebugText::Draw(GraphicsContext* context, float time) {
     int num_draw = 0;
     for(int i=0; i<kMaxDebugTextEntries; ++i){
         DebugTextEntry& entry = entries[i];
-        if(entry.display && time < entry.fade_time){
+        if(time < entry.fade_time){
             DrawText(text_atlas, context, 40.0f, 40.0f + num_draw * text_atlas->pixel_height * 1.15f, entry.str);
             ++num_draw;
         }
@@ -101,7 +101,7 @@ void DebugText::Init(TextAtlas* p_text_atlas) {
         free_queue[i] = i;
     }
     for(int i=0; i<kMaxDebugTextEntries; ++i){
-        entries[i].display = false;
+        entries[i].fade_time = 0.0f;
     }
     free_queue_start = 0;
     free_queue_end = kMaxDebugTextEntries-1;
@@ -110,7 +110,6 @@ void DebugText::Init(TextAtlas* p_text_atlas) {
 int DebugText::GetDebugTextHandle() {
     if(free_queue_start != free_queue_end){
         int ret = free_queue[free_queue_start];
-        entries[ret].display = true;
         free_queue_start = (free_queue_start+1)%kMaxDebugTextEntries;
         return ret;
     } else {
@@ -120,13 +119,12 @@ int DebugText::GetDebugTextHandle() {
 }
 
 void DebugText::ReleaseDebugTextHandle(int handle) {
-    entries[handle].display = false;
     free_queue_end = (free_queue_end+1)%kMaxDebugTextEntries;
     free_queue[free_queue_end] = handle;
 }
 
 void DebugText::UpdateDebugTextV(int handle, float fade_time, const char* fmt, va_list args) {
-    SDL_assert(handle >= 0 && handle < kMaxDebugTextEntries && entries[handle].display);
+    SDL_assert(handle >= 0 && handle < kMaxDebugTextEntries);
     VFormatString(entries[handle].str, DebugTextEntry::kDebugTextStrMaxLen, fmt, args);
     entries[handle].fade_time = fade_time;
 }

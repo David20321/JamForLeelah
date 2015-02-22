@@ -45,7 +45,7 @@ const char* asset_list[] = {
     ASSET_PATH "art/garden_tall_stairs_nav_export.txt",
     ASSET_PATH "art/floor_quad_export.txt",
     "end_nav_meshes",
-    //ASSET_PATH "art/main_character_rig_export.txt",
+    ASSET_PATH "art/main_character_rig_export.txt",
     ASSET_PATH "art/woman_npc_rig_export.txt",
     "start_textures",
     ASSET_PATH "art/lamp_c.tga",
@@ -59,7 +59,8 @@ const char* asset_list[] = {
     ASSET_PATH "art/tree_c.tga",
     ASSET_PATH "art/wall_pillar_c.tga",
     ASSET_PATH "art/tiling_cobbles_c.tga",
-    //ASSET_PATH "art/main_character_c.tga",
+    ASSET_PATH "art/main_character_c.tga",
+    ASSET_PATH "art/woman_npc_c.tga",
     ASSET_PATH "art/woman_npc_2_c.tga",
     "end_textures",
     "start_fonts",
@@ -108,6 +109,7 @@ enum {
     kEndNavMeshes,
 
     kModelChar,
+    kModelWomanNPC,
     
     kStartTextures,
     kTexLamp,
@@ -122,6 +124,8 @@ enum {
     kTexWallPillar,
     kTexFloor,
     kTexChar,
+    kTexWomanNPC1,
+    kTexWomanNPC2,
     kEndTextures,
 
     kStartFonts,
@@ -333,6 +337,20 @@ NavMeshAsset::~NavMeshAsset() {
     SDL_assert(indices == NULL);
 }
 
+void BoundingBoxFromParseMesh(ParseMesh* parse_mesh, vec3* bounding_box){
+    bounding_box[0] = vec3(FLT_MAX);
+    bounding_box[1] = vec3(-FLT_MAX);
+    for(int i=0, vert_index=0; 
+        i<parse_mesh->num_vert; 
+        ++i, vert_index+=ParseMesh::kFloatsPerVert_Unskinned)
+    {
+        for(int k=0; k<3; ++k){
+            bounding_box[1][k] = max(bounding_box[1][k], parse_mesh->vert[vert_index+k]);
+            bounding_box[0][k] = min(bounding_box[0][k], parse_mesh->vert[vert_index+k]);
+        }
+    }
+}
+
 void LoadMeshAssetTxt(FileLoadThreadData* file_load_thread_data,
                       MeshAsset* mesh_asset, const char* path) 
 {
@@ -345,12 +363,17 @@ void LoadMeshAssetTxt(FileLoadThreadData* file_load_thread_data,
         CreateVBO(kElementVBO, kStaticVBO, parse_mesh.indices, 
         parse_mesh.num_index*sizeof(Uint32));
     mesh_asset->num_index = parse_mesh.num_index;
+    BoundingBoxFromParseMesh(&parse_mesh, mesh_asset->bounding_box);
     parse_mesh.Dispose();
 }
 
 void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset, 
                         int texture, int shader, vec3 translation) 
 {
+    drawable->bounding_sphere_center = 
+        (mesh_asset.bounding_box[0]+mesh_asset.bounding_box[1]) * 0.5f;
+    drawable->bounding_sphere_radius = 
+        length(mesh_asset.bounding_box[1] - mesh_asset.bounding_box[0])*0.5f;
     drawable->vert_vbo = mesh_asset.vert_vbo;
     drawable->index_vbo = mesh_asset.index_vbo;
     drawable->num_indices = mesh_asset.num_index;
@@ -462,6 +485,7 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         character_assets[num_character_assets].index_vbo = 
             CreateVBO(kElementVBO, kStaticVBO, parse_mesh->indices, 
                       parse_mesh->num_index*sizeof(Uint32));
+        BoundingBoxFromParseMesh(parse_mesh, character_assets[num_character_assets].bounding_box);
         ++num_character_assets;
     }
 
@@ -507,6 +531,10 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         drawables[num_drawables].texture_id = textures[TexID(kTexChar)];
         drawables[num_drawables].shader_id = shaders[ShaderID(kShader3DModelSkinned)];;
         drawables[num_drawables].character = &characters[i];
+        drawables[num_drawables].bounding_sphere_center = 
+            (characters[i].character_asset->bounding_box[0]+characters[i].character_asset->bounding_box[1]) * 0.5f;
+        drawables[num_drawables].bounding_sphere_radius = 
+            length(characters[i].character_asset->bounding_box[1] - characters[i].character_asset->bounding_box[0])*0.5f;
         ++num_drawables;
     }
 
@@ -1150,21 +1178,21 @@ void DrawCoordinateGrid(GameState* game_state){
                           y_axis_color, kDraw, 1);
 }
 
-void DrawDrawable(GraphicsContext* graphics_context, const mat4 &proj_mat, 
+void DrawDrawable(float *frustum_planes, GameState* game_state, 
+                  GraphicsContext* graphics_context, const mat4 &proj_mat, 
                   const mat4 &view_mat, Drawable* drawable, Profiler* profiler) 
 {
     mat4 modelview_mat = view_mat * drawable->transform;
-    { // TODO: fix this janky frustum culling (e.g. calc real bounding spheres)
-        vec4 pos = proj_mat * modelview_mat * vec4(0,0,0,1);
-        float bounding_sphere_radius = 6.0f;
-        pos[3] += bounding_sphere_radius;
-        if(pos[0] < -pos[3] || pos[0] >  pos[3] || pos[1] < -pos[3] || 
-           pos[1] >  pos[3] || pos[2] < -pos[3] || pos[2] >  pos[3])
-        {
-            return;
+    {
+        vec3 test_pos(modelview_mat * vec4(drawable->bounding_sphere_center,1));
+        for(int i=0; i<24; i+=4){
+            float* plane = &frustum_planes[i];
+            float val = dot(test_pos, normalize(vec3(plane[0], plane[1], plane[2])));
+            if(val > plane[3] + drawable->bounding_sphere_radius){
+                return;
+            }
         }
     }
-
     Shader *shader = &graphics_context->shaders[drawable->shader_id];
     CHECK_GL_ERROR();
     glUseProgram(shader->gl_id);
@@ -1251,6 +1279,34 @@ void DrawDrawable(GraphicsContext* graphics_context, const mat4 &proj_mat,
     glUseProgram(0);
 }
 
+// Adapted from http://www.iquilezles.org/www/articles/frustum/frustum.htm
+void iqFrustumF_CreatePerspective( float *frus, float fovy, float aspect, 
+                                   float znear, float zfar )
+{
+    const float an = fovy * 0.5f;
+    const float si = sinf(an);
+    const float co = cosf(an);
+    frus[ 0] =  0.0f; frus[ 1] = -co;      frus[ 2] =  si;        frus[ 3] =  0.0f;
+    frus[ 4] =  0.0f; frus[ 5] =  co;      frus[ 6] =  si;        frus[ 7] =  0.0f;
+    frus[ 8] =  co;   frus[ 9] =  0.0f;    frus[10] =  si*aspect; frus[11] =  0.0f;
+    frus[12] = -co;   frus[13] =  0.0f;    frus[14] =  si*aspect; frus[15] =  0.0f;
+    frus[16] =  0.0f; frus[17] =  0.0f;    frus[18] = -1.0f;      frus[19] =  zfar;
+    frus[20] =  0.0f; frus[21] =  0.0f;    frus[22] =  1.0f;      frus[23] = -znear;
+}
+
+void SetProjectionMatrix(mat4 *proj_mat, float* planes, float fovy, float aspect, float near, float far){
+    *proj_mat = glm::perspective(fovy, aspect, near, far);
+    // Get frustum planes for culling
+    iqFrustumF_CreatePerspective(planes, fovy, aspect, near, far);
+    for(int i=0, index=0; i<6; ++i, index+=4){
+        vec3 temp(planes[index+0], planes[index+1], planes[index+2]);
+        temp = normalize(temp);
+        planes[index+0] = temp[0];
+        planes[index+1] = temp[1];
+        planes[index+2] = temp[2];
+    }
+}
+
 void GameState::Draw(GraphicsContext* context, int ticks, Profiler* profiler) {
     CHECK_GL_ERROR();
 
@@ -1260,7 +1316,9 @@ void GameState::Draw(GraphicsContext* context, int ticks, Profiler* profiler) {
     glEnable(GL_DEPTH_TEST);
 
     float aspect_ratio = context->screen_dims[0] / (float)context->screen_dims[1];
-    mat4 proj_mat = glm::perspective(camera_fov, aspect_ratio, 0.1f, 100.0f);
+    mat4 proj_mat;
+    float planes[24];
+    SetProjectionMatrix(&proj_mat, planes, camera_fov, aspect_ratio, 0.1f, 100.0f);
     mat4 view_mat = inverse(camera.GetMatrix());
 
     for(int i=0; i<kMaxCharacters; ++i){
@@ -1273,7 +1331,7 @@ void GameState::Draw(GraphicsContext* context, int ticks, Profiler* profiler) {
     for(int i=0; i<num_drawables; ++i){
         Drawable* drawable = &drawables[i];
         CHECK_GL_ERROR();
-        DrawDrawable(context, proj_mat, view_mat, drawable, profiler);
+        DrawDrawable(planes, this, context, proj_mat, view_mat, drawable, profiler);
         CHECK_GL_ERROR();
     }
     profiler->EndEvent();

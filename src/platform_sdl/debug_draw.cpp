@@ -111,7 +111,7 @@ static void AddBBLine(DebugDrawLines* lines, const glm::mat4& mat, glm::vec3 bb[
     points[1][2] = (flags & e_pos_z)?bb[1][2]:bb[0][2];
     lines->Add(glm::vec3(mat*glm::vec4(points[0],1.0f)), 
         glm::vec3(mat*glm::vec4(points[1],1.0f)), 
-        glm::vec4(1.0f), kPersistent, 1);
+        glm::vec4(1.0f), kDraw, 1);
 }
 
 void DrawBoundingBox(DebugDrawLines* lines, const glm::mat4& mat, glm::vec3 bb[]) {
