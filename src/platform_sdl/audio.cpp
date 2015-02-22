@@ -7,6 +7,7 @@
     #include "stb_vorbis.c"
 #else
     #include <vorbis/vorbisfile.h>
+    #include <memory.h>
 
 size_t OGVmemoryRead(void * buff, size_t b, size_t nelts, void *data);
 int OGVmemorySeek(void *data, ogg_int64_t seek, int type);
@@ -25,7 +26,7 @@ size_t OGVmemoryRead(void * buff, size_t b, size_t nelts, void *data)
     tOGVMemoryReader *of = reinterpret_cast<tOGVMemoryReader*>(data);
     size_t len = b * nelts;
     if (of->buff_pos + len > of->buff_size) {
-        len = of->buff_size - of->buff_pos;
+        len = (size_t)(of->buff_size - of->buff_pos);
     }
     if (len)
         memcpy(buff, of->buff + of->buff_pos, len );
@@ -67,10 +68,9 @@ int OGVmemoryClose(void* data)
     return 0;
 }
 
-long OGVmemoryTell(void* data)
-{
+long OGVmemoryTell(void* data) {
     tOGVMemoryReader *of = reinterpret_cast<tOGVMemoryReader*>(data);
-    return of->buff_pos;
+    return (long)of->buff_pos;
 }
 
 #endif
