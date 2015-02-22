@@ -81,7 +81,7 @@ def ExportWJFL(path):
                 parent = bone.parent
                 while parent != None and parent.name[:4] != "DEF-":
                     name_check = "DEF-"+parent.name[4:]
-                    if parent.name[:4] == "ORG-" and rig_obj.pose.bones[name_check] != None:
+                    if parent.name[:4] == "ORG-" and rig_obj.pose.bones.find(name_check) != -1:
                         parent = rig_obj.pose.bones[name_check]
                     else:
                         parent = parent.parent
