@@ -9,10 +9,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-//TODO: these should all be in a config or something
-static const int kMSAA = 4;
-static const float kMaxAnisotropy = 4.0f;
-
 using namespace glm;
 
 void CheckGLError(const char *file, int line) {

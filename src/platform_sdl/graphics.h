@@ -11,6 +11,10 @@
 
 class FileLoadThreadData;
 
+//TODO: these should all be in a config or something
+static const int kMSAA = 4;
+static const float kMaxAnisotropy = 4.0f;
+
 static const char* shader_uniform_names[] = {
     "mv_mat",
     "proj_mat",

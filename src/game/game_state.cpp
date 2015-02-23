@@ -249,7 +249,7 @@ void AddNavMeshAsset(NavMeshAsset* nav_mesh_asset, NavMesh* nav_mesh, const mat4
 }
 
 
-void LoadCrnTexture(const char* path, FileLoadThreadData* file_load_data) {
+int LoadCrnTexture(const char* path, FileLoadThreadData* file_load_data) {
     StartLoadFile(path, file_load_data);
     crnd::crn_texture_info tex_info;
     if (!crnd::crnd_get_texture_info(file_load_data->memory, 
@@ -318,13 +318,22 @@ void LoadCrnTexture(const char* path, FileLoadThreadData* file_load_data) {
 
         glCompressedTexImage2D(GL_TEXTURE_2D, level_index, internal_format, width, height, 0, total_face_size, pDecomp_images[0]);
         CHECK_GL_ERROR();
+
+        for (crn_uint32 face_index = 0; face_index < tex_info.m_faces; face_index++)
+        {
+            free(pImages[face_index][level_index]);
+        }
     }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, kMaxAnisotropy);
 
     if(!crnd::crnd_unpack_end(context)){
         FormattedError("Error", "Error closing CRN file context: %s", path);
         exit(1);
     }
     EndLoadFile(file_load_data);
+
+    return texture;
 }
 
 void GameState::Init(int* init_stage, GraphicsContext* graphics_context, 
@@ -332,7 +341,6 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
                      FileLoadThreadData* file_load_thread_data, 
                      StackAllocator* stack_allocator) 
 {
-    //LoadCrnTexture(ASSET_PATH "art/bridge_c.crn", file_load_thread_data);
     profiler->StartEvent("Game Init");
     profiler->StartEvent("Loading music");
     num_ogg_tracks = 0;
@@ -398,7 +406,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
     profiler->StartEvent("Loading textures");
     int textures[kNumTex];
     for(int i=0; i<kNumTex; ++i){
-        textures[i] = LoadImage(asset_list[kStartTextures+i+1], file_load_thread_data);
+        textures[i] = LoadCrnTexture(asset_list[kStartTextures+i+1], file_load_thread_data);
     }
     profiler->EndEvent();
 
