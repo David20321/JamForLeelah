@@ -1,5 +1,6 @@
 #include "game/game_state.h"
 #include "game/nav_mesh.h"
+#include "game/assets.h"
 #include "platform_sdl/blender_file_io.h"
 #include "platform_sdl/error.h"
 #include "platform_sdl/file_io.h"
@@ -23,180 +24,6 @@ const int GameState::kMapSize;
 
 using namespace glm;
 
-const char* asset_list[] = {
-    "start_static_draw_meshes",
-    ASSET_PATH "art/street_lamp_export.txt",
-    ASSET_PATH "art/dry_fountain_export.txt",
-    ASSET_PATH "art/flower_box_export.txt",
-    ASSET_PATH "art/garden_tall_corner_export.txt",
-    ASSET_PATH "art/garden_tall_nook_export.txt",
-    ASSET_PATH "art/garden_tall_stairs_export.txt",
-    ASSET_PATH "art/short_wall_export.txt",
-    ASSET_PATH "art/garden_tall_wall_export.txt",
-    ASSET_PATH "art/tree_export.txt",
-    ASSET_PATH "art/wall_pillar_export.txt",
-    ASSET_PATH "art/floor_quad_export.txt",
-    "end_static_draw_meshes",
-    "start_nav_meshes",
-    ASSET_PATH "art/garden_tall_wall_nav_export.txt",
-    ASSET_PATH "art/garden_tall_corner_nav_export.txt",
-    ASSET_PATH "art/garden_tall_nook_nav_export.txt",
-    ASSET_PATH "art/garden_tall_stairs_nav_export.txt",
-    ASSET_PATH "art/floor_quad_export.txt",
-    ASSET_PATH "art/street_lamp_nav_export.txt",
-    "end_nav_meshes",
-    "start_character_assets",
-    ASSET_PATH "art/main_character_rig_export.txt",
-    ASSET_PATH "art/woman_npc_rig_export.txt",
-    ASSET_PATH "art/man_npc_rig_export.txt",
-    "end_character_assets",
-    "start_textures",
-    ASSET_PATH "art/lamp_c.tga",
-    ASSET_PATH "art/dry_fountain_c.tga",
-    ASSET_PATH "art/flowerbox_c.tga",
-    ASSET_PATH "art/garden_tall_corner_c.tga",
-    ASSET_PATH "art/garden_tall_nook_c.tga",
-    ASSET_PATH "art/garden_tall_stairs.tga",
-    ASSET_PATH "art/garden_tall_wall_c.tga",
-    ASSET_PATH "art/short_wall_c.tga",
-    ASSET_PATH "art/tree_c.tga",
-    ASSET_PATH "art/wall_pillar_c.tga",
-    ASSET_PATH "art/tiling_cobbles_c.tga",
-    ASSET_PATH "art/main_character_c.tga",
-    ASSET_PATH "art/woman_npc_c.tga",
-    ASSET_PATH "art/woman_npc_2_c.tga",
-    ASSET_PATH "art/man_npc_c.tga",
-    ASSET_PATH "art/man_npc_2.tga",
-    ASSET_PATH "art/lampshadow.png",
-    "end_textures",
-    "start_fonts",
-    ASSET_PATH "fonts/LiberationMono-Regular.ttf",
-    "end_fonts",
-    "start_shaders",
-#ifdef USE_OPENGLES
-    ASSET_PATH "shaders_gles/3D_model",
-    ASSET_PATH "shaders_gles/3D_model_skinned",
-    ASSET_PATH "shaders_gles/debug_draw",
-    ASSET_PATH "shaders_gles/debug_draw_text",
-    ASSET_PATH "shaders_gles/nav_mesh",
-#else
-    ASSET_PATH "shaders/3D_model",
-    ASSET_PATH "shaders/3D_model_skinned",
-    ASSET_PATH "shaders/debug_draw",
-    ASSET_PATH "shaders/debug_draw_text",
-    ASSET_PATH "shaders/nav_mesh",
-#endif
-    "end_shaders",
-    "start_music",
-    ASSET_PATH "music/UG - Layer 0 - Opt Drone.ogg",
-    ASSET_PATH "music/UG - Pos Layer 1 - Base.ogg",
-    ASSET_PATH "music/UG - Pos Layer 2 - Expanse.ogg",
-    ASSET_PATH "music/UG - Neg Layer 1 - Base.ogg",
-    ASSET_PATH "music/UG - Neg Layer 2 - Expanse.ogg",
-    ASSET_PATH "music/UG - Neg Layer 3 - Isolation.ogg",
-    ASSET_PATH "music/UG - Layer 4 - Drums.ogg",
-    ASSET_PATH "music/UG - Layer 5 - Optional Drum.ogg",
-    "end_music"
-};
-
-enum {
-    kStartStaticDrawMeshes,
-    kMeshLamp,
-    kMeshFountain,
-    kMeshFlowerbox,
-    kMeshGardenTallCorner,
-    kMeshGardenTallNook,
-    kMeshGardenTallStairs,
-    kMeshShortWall,
-    kMeshGardenTallWall,
-    kMeshTree,
-    kMeshWallPillar,
-    kMeshFloor,
-    kEndStaticDrawMeshes,
-
-    kStartNavMeshes,
-    kNavGardenTallWall,
-    kNavGardenTallCorner,
-    kNavGardenTallNook,
-    kNavGardenTallStairs,
-    kNavFloor,
-    kNavLamp,
-    kEndNavMeshes,
-
-    kStartCharacterAssets,
-    kModelChar,
-    kModelWomanNPC,
-    kModelManNPC,
-    kEndCharacterAssets,
-    
-    kStartTextures,
-    kTexLamp,
-    kTexFountain,
-    kTexFlowerbox,
-    kTexGardenTallCorner,
-    kTexGardenTallNook,
-    kTexGardenTallStairs,
-    kTexGardenTallWall,
-    kTexShortWall,
-    kTexTree,
-    kTexWallPillar,
-    kTexFloor,
-    kTexChar,
-    kTexWomanNPC1,
-    kTexWomanNPC2,
-    kTexManNPC1,
-    kTexManNPC2,
-    kTexLampShadow,
-    kEndTextures,
-
-    kStartFonts,
-    kFontDebug,
-    kEndFonts,
-
-    kStartShaders,
-    kShader3DModel,
-    kShader3DModelSkinned,
-    kShaderDebugDraw,
-    kShaderDebugDrawText,
-    kShaderNavMesh,
-    kEndShaders,
-
-    kStartMusic,
-    kOggDrone,
-    kOggPosLayer1,
-    kOggPosLayer2,
-    kOggNegLayer1,
-    kOggNegLayer2,
-    kOggNegLayer3,
-    kOggDrums1,
-    kOggDrums2,
-    kEndMusic
-};
-
-static const int kNumMesh = kEndStaticDrawMeshes-kStartStaticDrawMeshes-1;
-int MeshID(int id){
-    return id - kStartStaticDrawMeshes - 1;
-}
-
-static const int kNumTex = kEndTextures-kStartTextures-1;
-int TexID(int id){
-    return id - kStartTextures - 1;
-}
-
-static const int kNumShaders = kEndShaders-kStartShaders-1;
-int ShaderID(int id){
-    return id - kStartShaders - 1;
-}
-
-static const int kNumNavMesh = kEndNavMeshes-kStartNavMeshes-1;
-int NavMeshID(int id){
-    return id - kStartNavMeshes - 1;
-}
-
-static const int kNumCharacterAssets = kEndCharacterAssets-kStartCharacterAssets-1;
-int CharacterAssetID(int id){
-    return id - kStartCharacterAssets - 1;
-}
 
 static const bool kDrawNavMesh = false;
 
@@ -211,48 +38,6 @@ glm::mat4 Camera::GetMatrix() {
     temp.translation = position;
     temp.rotation = GetRotation();
     return temp.GetCombination();
-}
-
-void StartLoadFile(const char* path, FileLoadThreadData* file_load_data) {
-    int path_len = strlen(path);
-    if(path_len > FileRequest::kMaxFileRequestPathLen){
-        FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
-        exit(1);
-    }
-#ifdef HAVE_THREADS
-    if (SDL_LockMutex(file_load_data->mutex) == 0) {
-        FileRequest* request = file_load_data->queue.AddNewRequest();
-        for(int i=0; i<path_len + 1; ++i){
-            request->path[i] = path[i];
-        }
-        request->condition = SDL_CreateCond();
-        SDL_CondWait(request->condition, file_load_data->mutex);
-        if(file_load_data->err){
-            FormattedError(file_load_data->err_title, file_load_data->err_msg);
-            exit(1);
-        }
-    } else {
-        FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
-        exit(1);
-    }
-#else
-    file_load_data->err = !FileLoadThreadData::LoadFile(
-        path, 
-        file_load_data->memory, 
-        &file_load_data->memory_len, 
-        file_load_data->err_title, 
-        file_load_data->err_msg);
-    if(file_load_data->err){
-        FormattedError(file_load_data->err_title, file_load_data->err_msg);
-        exit(1);
-    }
-#endif
-}
-
-void EndLoadFile(FileLoadThreadData* file_load_data) {
-#ifdef HAVE_THREADS
-    SDL_UnlockMutex(file_load_data->mutex);
-#endif
 }
 
 void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_load_data, StackAllocator* stack_alloc) {
@@ -416,10 +201,11 @@ void BoundingBoxFromParseMesh(ParseMesh* parse_mesh, vec3* bounding_box){
 }
 
 void LoadMeshAssetTxt(FileLoadThreadData* file_load_thread_data,
-                      MeshAsset* mesh_asset, const char* path) 
+                      MeshAsset* mesh_asset, const char* path,
+                      StackAllocator* stack_alloc) 
 {
     ParseMesh parse_mesh;
-    ParseTestFile(path, &parse_mesh);
+    ParseTestFile(path, &parse_mesh, stack_alloc);
     mesh_asset->vert_vbo = 
         CreateVBO(kArrayVBO, kStaticVBO, parse_mesh.vert, 
         parse_mesh.num_vert*sizeof(float)*8);
@@ -449,7 +235,24 @@ void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset,
     drawable->transform = sep_transform.GetCombination();
 }
 
-void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioContext* audio_context, Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator) {
+void AddNavMeshAsset(NavMeshAsset* nav_mesh_asset, NavMesh* nav_mesh, const mat4& mat) {
+    int start_verts = nav_mesh->num_verts;
+    for(int i=0; i<nav_mesh_asset->num_verts; ++i){
+        nav_mesh->verts[nav_mesh->num_verts++] = 
+            vec3(mat * vec4(nav_mesh_asset->verts[i], 1));
+    }
+    for(int i=0; i<nav_mesh_asset->num_indices; ++i){
+        nav_mesh->indices[nav_mesh->num_indices++] =
+            start_verts + nav_mesh_asset->indices[i];
+    }
+}
+
+
+void GameState::Init(int* init_stage, GraphicsContext* graphics_context, 
+                     AudioContext* audio_context, Profiler* profiler, 
+                     FileLoadThreadData* file_load_thread_data, 
+                     StackAllocator* stack_allocator) 
+{
     num_ogg_tracks = 0;
     for(int i=kOggDrone; i<=kOggDrums2; ++i){
         if(num_ogg_tracks > kMaxOggTracks){
@@ -475,13 +278,13 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioCo
     MeshAsset mesh_assets[kNumMesh];
     for(int i=0; i<kNumMesh; ++i){
         LoadMeshAssetTxt(file_load_thread_data, &mesh_assets[i], 
-            asset_list[kStartStaticDrawMeshes+i+1]);
+            asset_list[kStartStaticDrawMeshes+i+1], stack_allocator);
     }
 
     NavMeshAsset nav_mesh_assets[kNumNavMesh];
     for(int i=0; i<kNumNavMesh; ++i){
         ParseMesh parse_mesh;
-        ParseTestFile(asset_list[kStartNavMeshes+i+1], &parse_mesh);
+        ParseTestFile(asset_list[kStartNavMeshes+i+1], &parse_mesh, stack_allocator);
         nav_mesh_assets[i].num_verts = parse_mesh.num_vert;
         nav_mesh_assets[i].num_indices = parse_mesh.num_index;
         nav_mesh_assets[i].verts = (vec3*)stack_allocator->Alloc(parse_mesh.num_vert*sizeof(vec3));
@@ -543,7 +346,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioCo
     num_character_assets = 0;
     for(int i=0; i<kNumCharacterAssets; ++i){
         ParseMesh* parse_mesh = &character_assets[num_character_assets].parse_mesh;
-        ParseTestFile(asset_list[kStartCharacterAssets+i+1], parse_mesh);
+        ParseTestFile(asset_list[kStartCharacterAssets+i+1], parse_mesh, stack_allocator);
         character_assets[num_character_assets].vert_vbo = 
             CreateVBO(kArrayVBO, kStaticVBO, parse_mesh->vert, 
             parse_mesh->num_vert*sizeof(float)*16);
@@ -610,27 +413,6 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioCo
         ++num_drawables;
     }
 
-    /*
-    FillStaticDrawable(&drawables[num_drawables++], fbx_lamp, tex_lamp,
-        shader_3d_model, vec3(0,0,2));
-    FillStaticDrawable(&drawables[num_drawables++], fbx_tree, tex_tree,
-        shader_3d_model, vec3(2,0,0));
-    FillStaticDrawable(&drawables[num_drawables++], fbx_fountain, tex_fountain,
-        shader_3d_model, vec3(4,0,0));
-    FillStaticDrawable(&drawables[num_drawables++], fbx_flowerbox, tex_flower_box,
-        shader_3d_model, vec3(6,0,0));
-    FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_corner, tex_garden_tall_corner,
-        shader_3d_model, vec3(8,0,0));
-    FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_nook, tex_garden_tall_nook,
-        shader_3d_model, vec3(10,0,0));
-    FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_wall, tex_garden_tall_wall,
-        shader_3d_model, vec3(12,0,0));
-    FillStaticDrawable(&drawables[num_drawables++], fbx_garden_tall_stairs, tex_garden_tall_stairs,
-        shader_3d_model, vec3(14,0,0));
-    FillStaticDrawable(&drawables[num_drawables++], fbx_short_wall, tex_short_wall,
-        shader_3d_model, vec3(16,0,0));
-    FillStaticDrawable(&drawables[num_drawables++], fbx_wall_pillar, tex_wall_pillar,
-        shader_3d_model, vec3(18,0,0));*/
     nav_mesh.num_verts = 0;
     nav_mesh.num_indices = 0;
 
@@ -651,6 +433,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioCo
         rotation[i] = 0;
         tile_height[i] = 0;//rand()%20==0;
     }
+
 
     tiles[13*kMapSize+13] = kLamp;
     tiles[15*kMapSize+15] = kNothing;
@@ -772,16 +555,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioCo
                     mesh_assets[MeshID(kMeshGardenTallNook)], 
                     textures[TexID(kTexGardenTallNook)],
                     shaders[ShaderID(kShader3DModel)], vec3(0));
-                NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavGardenTallNook)];
-                int start_verts = nav_mesh.num_verts;
-                for(int i=0; i<nav_mesh_asset->num_verts; ++i){
-                    nav_mesh.verts[nav_mesh.num_verts++] = 
-                        vec3(mat * vec4(nav_mesh_asset->verts[i], 1));
-                }
-                for(int i=0; i<nav_mesh_asset->num_indices; ++i){
-                    nav_mesh.indices[nav_mesh.num_indices++] =
-                        start_verts + nav_mesh_asset->indices[i];
-                }
+                AddNavMeshAsset(&nav_mesh_assets[NavMeshID(kNavGardenTallNook)], &nav_mesh, mat);
                         } break;
             case kWall: {
                 FillStaticDrawable(&drawables[num_drawables++], 
@@ -789,51 +563,31 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioCo
                     textures[TexID(kTexGardenTallWall)],
                     shaders[ShaderID(kShader3DModel)], 
                     translation);
-                NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavGardenTallWall)];
-                int start_verts = nav_mesh.num_verts;
-                for(int i=0; i<nav_mesh_asset->num_verts; ++i){
-                    nav_mesh.verts[nav_mesh.num_verts++] = 
-                        vec3(mat * vec4(nav_mesh_asset->verts[i], 1));
-                }
-                for(int i=0; i<nav_mesh_asset->num_indices; ++i){
-                    nav_mesh.indices[nav_mesh.num_indices++] =
-                        start_verts + nav_mesh_asset->indices[i];
-                }
-                        } break;
+                AddNavMeshAsset(&nav_mesh_assets[NavMeshID(kNavGardenTallWall)], &nav_mesh, mat);
+                } break;
             case kCorner: {
                 FillStaticDrawable(&drawables[num_drawables++], 
                     mesh_assets[MeshID(kMeshGardenTallCorner)], 
                     textures[TexID(kTexGardenTallCorner)],
                     shaders[ShaderID(kShader3DModel)], 
                     translation);
-                NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavGardenTallCorner)];
-                int start_verts = nav_mesh.num_verts;
-                for(int i=0; i<nav_mesh_asset->num_verts; ++i){
-                    nav_mesh.verts[nav_mesh.num_verts++] = 
-                        vec3(mat * vec4(nav_mesh_asset->verts[i], 1));
-                }
-                for(int i=0; i<nav_mesh_asset->num_indices; ++i){
-                    nav_mesh.indices[nav_mesh.num_indices++] =
-                        start_verts + nav_mesh_asset->indices[i];
-                }
-                          } break;
+                AddNavMeshAsset(&nav_mesh_assets[NavMeshID(kNavGardenTallCorner)], &nav_mesh, mat);
+                } break;
             case kFloor: {
+                int tex = glm::linearRand<int>(kTexFloor, kTexFloor4);
+                if(rand()%20 == 0){
+                    tex = kTexFloorManhole;
+                }
+                if(rand()%20 == 0){
+                    tex = kTexFloorGrate;
+                }
                 FillStaticDrawable(&drawables[num_drawables++], 
                     mesh_assets[MeshID(kMeshFloor)], 
-                    textures[TexID(kTexFloor)],
+                    textures[TexID(tex)],
                     shaders[ShaderID(kShader3DModel)], 
                     translation);
-                NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavFloor)];
-                int start_verts = nav_mesh.num_verts;
-                for(int i=0; i<nav_mesh_asset->num_verts; ++i){
-                    nav_mesh.verts[nav_mesh.num_verts++] = 
-                        vec3(mat * vec4(nav_mesh_asset->verts[i], 1));
-                }
-                for(int i=0; i<nav_mesh_asset->num_indices; ++i){
-                    nav_mesh.indices[nav_mesh.num_indices++] =
-                        start_verts + nav_mesh_asset->indices[i];
-                }
-                         } break;
+                AddNavMeshAsset(&nav_mesh_assets[NavMeshID(kNavFloor)], &nav_mesh, mat);
+                } break;
             case kLamp: {
                 FillStaticDrawable(&drawables[num_drawables++], 
                     mesh_assets[MeshID(kMeshLamp)], 
@@ -845,16 +599,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioCo
                     textures[TexID(kTexFloor)],
                     shaders[ShaderID(kShader3DModel)], 
                     translation);
-                NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavLamp)];
-                int start_verts = nav_mesh.num_verts;
-                for(int i=0; i<nav_mesh_asset->num_verts; ++i){
-                    nav_mesh.verts[nav_mesh.num_verts++] = 
-                        vec3(mat * vec4(nav_mesh_asset->verts[i], 1));
-                }
-                for(int i=0; i<nav_mesh_asset->num_indices; ++i){
-                    nav_mesh.indices[nav_mesh.num_indices++] =
-                        start_verts + nav_mesh_asset->indices[i];
-                }
+                AddNavMeshAsset(&nav_mesh_assets[NavMeshID(kNavLamp)], &nav_mesh, mat);
                 } break;
             case kStairs: {
                 FillStaticDrawable(&drawables[num_drawables++], 
@@ -862,16 +607,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioCo
                     textures[TexID(kTexGardenTallStairs)],
                     shaders[ShaderID(kShader3DModel)], 
                     translation);
-                NavMeshAsset* nav_mesh_asset = &nav_mesh_assets[NavMeshID(kNavGardenTallStairs)];
-                int start_verts = nav_mesh.num_verts;
-                for(int i=0; i<nav_mesh_asset->num_verts; ++i){
-                    nav_mesh.verts[nav_mesh.num_verts++] = 
-                        vec3(mat * vec4(nav_mesh_asset->verts[i], 1));
-                }
-                for(int i=0; i<nav_mesh_asset->num_indices; ++i){
-                    nav_mesh.indices[nav_mesh.num_indices++] =
-                        start_verts + nav_mesh_asset->indices[i];
-                }
+                AddNavMeshAsset(&nav_mesh_assets[NavMeshID(kNavGardenTallStairs)], &nav_mesh, mat);
                 } break;
             }
             drawables[num_drawables-1].transform = mat;
@@ -1235,7 +971,10 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
             if(characters[i].exists) {
                 Character* character = &characters[i];
                 vec3 target_dir = character->velocity;
-                static const float turn_speed = 5.0f;
+                float turn_speed = 5.0f;
+                if(character->type == Character::kPlayer){
+                    turn_speed = 10.0f;
+                }
                 if(length(target_dir) > 0.0f){
                     if(length(target_dir) > 1.0f){
                         target_dir = normalize(target_dir);

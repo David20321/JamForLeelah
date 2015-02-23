@@ -4,8 +4,6 @@
 
 #include <SDL.h>
 
-//#define HAVE_THREADS
-
 struct FileRequest {
     static const int kMaxFileRequestPathLen = 512;
     char path[kMaxFileRequestPathLen];
@@ -44,5 +42,7 @@ int FileLoadAsync(void* data);
 
 bool ChangeWorkingDirectory(const char* path);
 static int GetFileSize(const char* path);
+void StartLoadFile(const char* path, FileLoadThreadData* file_load_data);
+void EndLoadFile(FileLoadThreadData* file_load_data);
 
 #endif

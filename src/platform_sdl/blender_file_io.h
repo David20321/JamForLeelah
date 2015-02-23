@@ -5,6 +5,8 @@
 #include "glm/fwd.hpp"
 #include "SDL_stdinc.h"
 
+class StackAllocator;
+
 class ParseMesh {
 public:
     struct Animation {
@@ -29,6 +31,5 @@ public:
     ~ParseMesh();
 };
 
-void ParseTestFile(const char* path, ParseMesh* mesh_final);
-
+void ParseTestFile(const char* path, ParseMesh* mesh_final, StackAllocator* stack_alloc);
 #endif

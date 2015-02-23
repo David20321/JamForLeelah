@@ -55,7 +55,7 @@ struct AudioContext {
     void ShutDown();
 };
 
-void UpdateAudio(AudioContext* audio_context);
+void UpdateAudio(AudioContext* audio_context, StackAllocator* stack_allocator);
 void InitAudio(AudioContext* context, StackAllocator *stack_memory_block);
 
 #endif

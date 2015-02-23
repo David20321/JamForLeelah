@@ -4,10 +4,11 @@
 #include <SDL.h>
 #include <cstring>
 #include "internal/common.h"
+#include "internal/memory.h"
 
 using namespace glm;
 
-void LoadFileToRAM(const char *path, void** mem, int* size) {
+void LoadFileToRAM(const char *path, void** mem, int* size, StackAllocator* stack_alloc) {
     SDL_RWops* file = SDL_RWFromFile(path, "r");
     if(!file){
         FormattedError("Error", "Could not open file \"%s\" for reading", path);
@@ -19,7 +20,10 @@ void LoadFileToRAM(const char *path, void** mem, int* size) {
         exit(1);
     }
     SDL_RWseek(file, 0, RW_SEEK_SET);
-    *mem = malloc(*size);
+    *mem = stack_alloc->Alloc(*size);
+    if(!*mem){
+        FormattedError("Error", "Could not allocate memory for file: %s", path);
+    }
     size_t read = SDL_RWread(file, *mem, *size, 1);
     if(read != 1){
         FormattedError("Error", "Failed to read data from file \"%s\", %s", path, SDL_GetError());
@@ -206,8 +210,15 @@ int ParseMeshStraight::AllocSpace(void* mem) {
         vert_group_space;
 }
 
-void ParseTestFileFromRam(const char* path, ParsePass pass, ParseMeshStraight* mesh, const char* const_file_str, int size) {
-    char* file_str = (char*)malloc(size);
+void ParseTestFileFromRam(const char* path, ParsePass pass, ParseMeshStraight* mesh, 
+                          const char* const_file_str, int size, 
+                          StackAllocator* stack_alloc) 
+{
+    char* file_str = (char*)stack_alloc->Alloc(size);
+    if(!file_str){
+        FormattedError("Error", "Could not alloc memory for ParseTestFileFromRam");
+        exit(1);
+    }
     memcpy(file_str, const_file_str, size);
 
     mesh->num_verts = 0;
@@ -628,7 +639,7 @@ void ParseTestFileFromRam(const char* path, ParsePass pass, ParseMeshStraight* m
             }
         }
     }
-    free(file_str);
+    stack_alloc->Free(file_str);
 }
 
 void ParseMesh::Dispose() {
@@ -689,7 +700,9 @@ mat4 BlenderMatToGame(const mat4 &blender_mat){
     return mat;
 }
 
-void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straight) {
+void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straight, 
+                           StackAllocator* stack_alloc) 
+{
     bool skinned = (mesh_straight->num_bones != 0);
     
     // Prepare structure for easy lookup of the bone ID of a hash string
@@ -702,8 +715,12 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
     }
 
     const int kFloatsPerVert = skinned?ParseMesh::kFloatsPerVert_Skinned:ParseMesh::kFloatsPerVert_Unskinned;
-    float* vert_data;
-    vert_data = (float*)malloc(sizeof(float)*kFloatsPerVert*mesh_straight->num_verts);
+    float* vert_data = (float*)stack_alloc->Alloc(
+        sizeof(float)*kFloatsPerVert*mesh_straight->num_verts);
+    if(!vert_data){
+        FormattedError("Error", "Allocation error: %s: %d", __FILE__, __LINE__);
+        exit(1);
+    }
     int vert_data_index = 0;
     for(int i=0; i<mesh_straight->num_verts; ++i) {
         // Copy over vertex and normal data (switching order from Blender to game)
@@ -775,7 +792,11 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
         num_tris += mesh_straight->polygons[poly_index].num_verts-2;
     }
 
-    int* tri_verts = (int*)malloc(sizeof(int) * 3 * num_tris);
+    int* tri_verts = (int*)stack_alloc->Alloc(sizeof(int) * 3 * num_tris);
+    if(!tri_verts){
+        FormattedError("Error", "Allocation error: %s: %d", __FILE__, __LINE__);
+        exit(1);
+    }
 
     int tri_vert_index = 0;
     for(int poly_index=0; 
@@ -813,8 +834,8 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
     mesh_final->vert = vert_data_expanded;
     mesh_final->num_index = num_tris*3;
     mesh_final->indices = indices;
-    free(tri_verts);
-    free(vert_data);
+    stack_alloc->Free(tri_verts);
+    stack_alloc->Free(vert_data);
 
     if(skinned){
         // Process bones
@@ -863,16 +884,21 @@ void FinalMeshFromStraight(ParseMesh* mesh_final, ParseMeshStraight* mesh_straig
     }
 }
 
-void ParseTestFile(const char* path, ParseMesh* mesh_final){
+void ParseTestFile(const char* path, ParseMesh* mesh_final, StackAllocator* stack_alloc){
     char* file_str;
     int size;
-    LoadFileToRAM(path, (void**)&file_str, &size);
+    LoadFileToRAM(path, (void**)&file_str, &size, stack_alloc);
     ParseMeshStraight mesh_straight;
-    ParseTestFileFromRam(path, kCount, &mesh_straight, file_str, size);
+    ParseTestFileFromRam(path, kCount, &mesh_straight, file_str, size, stack_alloc);
     int space_needed = mesh_straight.AllocSpace(NULL);
-    void* space = malloc(space_needed);
+    void* space = stack_alloc->Alloc(space_needed);
+    if(!space){
+        FormattedError("Error", "Could not allocate memory for parsing file");
+        exit(1);
+    }
     mesh_straight.AllocSpace(space);
-    ParseTestFileFromRam(path, kStore, &mesh_straight, file_str, size);
-    FinalMeshFromStraight(mesh_final, &mesh_straight);
-    free(space);
+    ParseTestFileFromRam(path, kStore, &mesh_straight, file_str, size, stack_alloc);
+    FinalMeshFromStraight(mesh_final, &mesh_straight, stack_alloc);
+    stack_alloc->Free(space);
+    stack_alloc->Free(file_str);
 }

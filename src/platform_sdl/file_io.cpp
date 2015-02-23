@@ -12,6 +12,49 @@
 #include <direct.h>
 #endif
 
+
+void StartLoadFile(const char* path, FileLoadThreadData* file_load_data) {
+    int path_len = strlen(path);
+    if(path_len > FileRequest::kMaxFileRequestPathLen){
+        FormattedError("File path too long", "Path is %d characters, %d allowed", path_len, FileRequest::kMaxFileRequestPathLen);
+        exit(1);
+    }
+#ifdef HAVE_THREADS
+    if (SDL_LockMutex(file_load_data->mutex) == 0) {
+        FileRequest* request = file_load_data->queue.AddNewRequest();
+        for(int i=0; i<path_len + 1; ++i){
+            request->path[i] = path[i];
+        }
+        request->condition = SDL_CreateCond();
+        SDL_CondWait(request->condition, file_load_data->mutex);
+        if(file_load_data->err){
+            FormattedError(file_load_data->err_title, file_load_data->err_msg);
+            exit(1);
+        }
+    } else {
+        FormattedError("SDL_LockMutex failed", "Could not lock file loader mutex: %s", SDL_GetError());
+        exit(1);
+    }
+#else
+    file_load_data->err = !FileLoadThreadData::LoadFile(
+        path, 
+        file_load_data->memory, 
+        &file_load_data->memory_len, 
+        file_load_data->err_title, 
+        file_load_data->err_msg);
+    if(file_load_data->err){
+        FormattedError(file_load_data->err_title, file_load_data->err_msg);
+        exit(1);
+    }
+#endif
+}
+
+void EndLoadFile(FileLoadThreadData* file_load_data) {
+#ifdef HAVE_THREADS
+    SDL_UnlockMutex(file_load_data->mutex);
+#endif
+}
+
 static int GetFileSize(const char* path){
     struct stat st;
     if(stat(path, &st) == -1){

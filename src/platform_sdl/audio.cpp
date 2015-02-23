@@ -92,7 +92,7 @@ static void MyAudioCallback (void* userdata, Uint8* stream, int len) {
 static const float kMasterGain = 0.0f;
 static const float kMusicGain = 1.0f;
 
-void UpdateAudio(AudioContext* audio_context) {
+void UpdateAudio(AudioContext* audio_context, StackAllocator* stack_allocator) {
     const SDL_AudioSpec &spec = audio_context->audio_spec;
     SDL_LockAudioDevice(audio_context->device_id);
     int temp_buffer_read_byte = audio_context->buffer_read_byte;
@@ -100,7 +100,6 @@ void UpdateAudio(AudioContext* audio_context) {
     int target_sample_size = (spec.size / spec.samples);
     int buffer_samples = audio_context->buffer_size/target_sample_size;
 
-    static float* temp_buf = (float*)malloc(sizeof(float) * buffer_samples * 2);
     static const int src_sample_size = 2 * sizeof(float);
     SDL_assert(src_sample_size <= target_sample_size);
     SDL_AudioCVT cvt;
@@ -110,6 +109,11 @@ void UpdateAudio(AudioContext* audio_context) {
     float* flt_buf = (float*)cvt.buf;
     for(int i=0, len=buffer_samples*2; i<len; ++i){
         flt_buf[i] = 0.0f;
+    }
+    float* temp_buf = (float*)stack_allocator->Alloc(sizeof(float) * buffer_samples * 2);
+    if(!temp_buf){
+        FormattedError("Error", "Could not allocate memory for UpdateAudio temp_buffer");
+        exit(1);
     }
     for(int i=0; i<audio_context->num_ogg_tracks; ++i){
         OggTrack* ogg_track = audio_context->ogg_tracks[i];
@@ -134,6 +138,7 @@ void UpdateAudio(AudioContext* audio_context) {
             }
         }
     }
+    stack_allocator->Free(temp_buf);
     SDL_ConvertAudio(&cvt);
     // fill buffer
     SDL_LockAudioDevice(audio_context->device_id);
@@ -142,7 +147,7 @@ void UpdateAudio(AudioContext* audio_context) {
     SDL_UnlockAudioDevice(audio_context->device_id);
 }
 
-void InitAudio(AudioContext* context, StackAllocator *stack_memory_block) {
+void InitAudio(AudioContext* context, StackAllocator *stack_allocator) {
     context->num_ogg_tracks = 0;
     context->shutting_down = false;
     SDL_AudioSpec target_audio_spec;
@@ -167,18 +172,18 @@ void InitAudio(AudioContext* context, StackAllocator *stack_memory_block) {
     buffer_time = max(kMinBufTime, buffer_time);
     int buffer_samples = max((int)(buffer_time * spec.freq), spec.samples);
     context->buffer_size = buffer_samples * sample_size;
-    context->curr_buffer = stack_memory_block->Alloc(context->buffer_size);
+    context->curr_buffer = stack_allocator->Alloc(context->buffer_size);
     if(!context->curr_buffer){
         FormattedError("Buffer alloc failed", "Failed to allocate primary audio buffer");
         exit(1);
     }
-    context->back_buffer = stack_memory_block->Alloc(context->buffer_size);
+    context->back_buffer = stack_allocator->Alloc(context->buffer_size);
     if(!context->back_buffer){
         FormattedError("Buffer alloc failed", "Failed to allocate backup audio buffer");
         exit(1);
     }
     context->buffer_read_byte = 0;
-    UpdateAudio(context);
+    UpdateAudio(context, stack_allocator);
     SDL_PauseAudioDevice(context->device_id, 0);  // start audio playing.
 }
 

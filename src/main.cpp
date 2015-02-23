@@ -17,6 +17,8 @@
 #include <emscripten/emscripten.h>
 #endif
 
+// GameLoop is split into a void func(void* data) function for Emscripten
+
 struct GameLoopParams {
     Profiler* profiler;
     FileLoadThreadData* file_load_thread_data; 
@@ -63,7 +65,7 @@ void GameLoop(void* game_loop_params_ptr) {
     game_state->Draw(graphics_context, SDL_GetTicks(), profiler);
     profiler->EndEvent();
     profiler->StartEvent("Audio");
-    UpdateAudio(audio_context);
+    UpdateAudio(audio_context, stack_allocator);
     profiler->EndEvent();
     profiler->StartEvent("Swap");
     SDL_GL_SwapWindow(graphics_context->window);
