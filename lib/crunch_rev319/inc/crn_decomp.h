@@ -315,10 +315,14 @@ namespace crnd
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h> // for memset and memcpy
 #ifdef WIN32
 #include <memory.h>
+#include malloc.h>
+#elif __APPLE__
+#include "dlmalloc.c" // because Mac malloc.h is missing malloc_usable_size
 #else
-#include <malloc.h>
+#include <malloc_np.h>
 #endif
 #include <stdarg.h>
 #include <new> // needed for placement new, _msize, _expand
@@ -576,7 +580,7 @@ namespace crnd
       enum { value = true };
    };
 
-#define CRND_IS_POD(T) __is_pod(T)
+#define CRND_IS_POD(T) false //__is_pod(T)
 
 } // namespace crnd
 

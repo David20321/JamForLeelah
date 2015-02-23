@@ -1,3 +1,4 @@
+#include "crn_decomp.h"
 #include "game/game_state.h"
 #include "game/nav_mesh.h"
 #include "game/assets.h"
@@ -14,7 +15,6 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/random.hpp"
 #include "glm/gtx/norm.hpp"
-#include "crn_decomp.h"
 #include <SDL.h>
 #include <GL/glew.h>
 #include <cstring>
