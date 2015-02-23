@@ -14,6 +14,7 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/random.hpp"
 #include "glm/gtx/norm.hpp"
+#include "crn_decomp.h"
 #include <SDL.h>
 #include <GL/glew.h>
 #include <cstring>
@@ -248,11 +249,90 @@ void AddNavMeshAsset(NavMeshAsset* nav_mesh_asset, NavMesh* nav_mesh, const mat4
 }
 
 
+void LoadCrnTexture(const char* path, FileLoadThreadData* file_load_data) {
+    StartLoadFile(path, file_load_data);
+    crnd::crn_texture_info tex_info;
+    if (!crnd::crnd_get_texture_info(file_load_data->memory, 
+                                     file_load_data->memory_len, &tex_info))
+    {
+        FormattedError("Error", "Error getting info of CRN file: %s", path);
+        exit(1);
+    }
+    crnd::crnd_unpack_context context = crnd::crnd_unpack_begin(
+        file_load_data->memory, 
+        file_load_data->memory_len);
+    if(!context){
+        FormattedError("Error", "Error loading CRN file: %s", path);
+        exit(1);
+    }
+
+    // Now transcode all face and mipmap levels into memory, one mip level at a time.
+    void *pImages[cCRNMaxFaces][cCRNMaxLevels];
+    crn_uint32 image_size_in_bytes[cCRNMaxLevels];
+    memset(pImages, 0, sizeof(pImages));
+    memset(image_size_in_bytes, 0, sizeof(image_size_in_bytes));
+    
+    GLuint tmp_texture;
+    glGenTextures(1, &tmp_texture);
+    int texture = tmp_texture;
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    // adapted from crnlib example2.cpp
+    for (int level_index = 0, len=tex_info.m_levels; level_index < len; ++level_index) {
+        const crn_uint32 width = max(1U, tex_info.m_width >> level_index);
+        const crn_uint32 height = max(1U, tex_info.m_height >> level_index);
+        const crn_uint32 blocks_x = max(1U, (width + 3) >> 2);
+        const crn_uint32 blocks_y = max(1U, (height + 3) >> 2);
+        const crn_uint32 row_pitch = blocks_x * crnd::crnd_get_bytes_per_dxt_block(tex_info.m_format);
+        const crn_uint32 total_face_size = row_pitch * blocks_y;
+
+        for (crn_uint32 face_index = 0; face_index < tex_info.m_faces; face_index++)
+        {
+            void *p = malloc(total_face_size);
+            pImages[face_index][level_index] = p;
+        }
+
+        // Prepare the face pointer array needed by crnd_unpack_level().
+        void *pDecomp_images[cCRNMaxFaces];
+        for (crn_uint32 face_index = 0; face_index < tex_info.m_faces; face_index++)
+            pDecomp_images[face_index] = pImages[face_index][level_index];
+
+        // Now transcode the level to raw DXTn
+        if (!crnd::crnd_unpack_level(context, pDecomp_images, total_face_size, row_pitch, level_index)) {
+            FormattedError("Error", "Failed to unpack level of CRN texture");
+            exit(1);
+        }
+
+        int internal_format = -1;
+        switch(tex_info.m_format){
+        case cCRNFmtDXT1:
+            internal_format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+            break;
+        case cCRNFmtDXT5:
+            internal_format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+            break;
+        default:
+            FormattedError("Error", "Unknown CRN texture format");
+            exit(1);
+        }
+
+        glCompressedTexImage2D(GL_TEXTURE_2D, level_index, internal_format, width, height, 0, total_face_size, pDecomp_images[0]);
+        CHECK_GL_ERROR();
+    }
+
+    if(!crnd::crnd_unpack_end(context)){
+        FormattedError("Error", "Error closing CRN file context: %s", path);
+        exit(1);
+    }
+    EndLoadFile(file_load_data);
+}
+
 void GameState::Init(int* init_stage, GraphicsContext* graphics_context, 
                      AudioContext* audio_context, Profiler* profiler, 
                      FileLoadThreadData* file_load_thread_data, 
                      StackAllocator* stack_allocator) 
 {
+    //LoadCrnTexture(ASSET_PATH "art/bridge_c.crn", file_load_thread_data);
     profiler->StartEvent("Game Init");
     profiler->StartEvent("Loading music");
     num_ogg_tracks = 0;

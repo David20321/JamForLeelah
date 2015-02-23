@@ -52,6 +52,7 @@ DEFINES
 INCLUDES
     src
 
+    lib/crunch_v101_r1/inc
     lib/glm/
     lib/stb-master
     ${SDL2_INCLUDE_DIRS}
