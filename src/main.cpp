@@ -156,7 +156,8 @@ int main(int argc, char* argv[]) {
     profiler.StartEvent("Set up file loader");
         FileLoadThreadData file_load_thread_data;
         file_load_thread_data.memory_len = 0;
-        file_load_thread_data.memory = stack_allocator.Alloc(FileLoadThreadData::kMaxFileLoadSize);
+        file_load_thread_data.memory = stack_allocator.Alloc(
+            FileLoadThreadData::kMaxFileLoadSize);
         if(!file_load_thread_data.memory){
             FormattedError("Alloc failed", "Could not allocate memory for FileLoadData");
             return 1;

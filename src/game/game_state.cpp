@@ -253,6 +253,8 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
                      FileLoadThreadData* file_load_thread_data, 
                      StackAllocator* stack_allocator) 
 {
+    profiler->StartEvent("Game Init");
+    profiler->StartEvent("Loading music");
     num_ogg_tracks = 0;
     for(int i=kOggDrone; i<=kOggDrums2; ++i){
         if(num_ogg_tracks > kMaxOggTracks){
@@ -264,6 +266,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
     for(int i=0; i<num_ogg_tracks; ++i) {
         audio_context->AddOggTrack(&ogg_track[i]);
     }
+    profiler->EndEvent();
 
     { // Allocate memory for debug lines
         int mem_needed = lines.AllocMemory(NULL);
@@ -275,12 +278,15 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
         }
     }
 
+    profiler->StartEvent("Loading static meshes");
     MeshAsset mesh_assets[kNumMesh];
     for(int i=0; i<kNumMesh; ++i){
         LoadMeshAssetTxt(file_load_thread_data, &mesh_assets[i], 
             asset_list[kStartStaticDrawMeshes+i+1], stack_allocator);
     }
+    profiler->EndEvent();
 
+    profiler->StartEvent("Loading nav meshes");
     NavMeshAsset nav_mesh_assets[kNumNavMesh];
     for(int i=0; i<kNumNavMesh; ++i){
         ParseMesh parse_mesh;
@@ -307,17 +313,22 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
         }
         parse_mesh.Dispose();
     }
+    profiler->EndEvent();
 
+    profiler->StartEvent("Loading textures");
     int textures[kNumTex];
     for(int i=0; i<kNumTex; ++i){
         textures[i] = LoadImage(asset_list[kStartTextures+i+1], file_load_thread_data);
     }
+    profiler->EndEvent();
 
+    profiler->StartEvent("Loading shaders");
     int shaders[kNumShaders];
     for(int i=0; i<kNumShaders; ++i){
         shaders[i] = CreateProgramFromFile(graphics_context, file_load_thread_data, 
                                            asset_list[kStartShaders+i+1]);
     }
+    profiler->EndEvent();
             
     lamp_shadow_tex = textures[TexID(kTexLampShadow)];
                   
@@ -342,7 +353,8 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
                           DebugDrawLines::kMaxLines * 
                           DebugDrawLines::kElementsPerPoint * 
                           2 * sizeof(GLfloat));
-    
+
+    profiler->StartEvent("Loading character assets");
     num_character_assets = 0;
     for(int i=0; i<kNumCharacterAssets; ++i){
         ParseMesh* parse_mesh = &character_assets[num_character_assets].parse_mesh;
@@ -356,6 +368,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
         BoundingBoxFromParseMesh(parse_mesh, character_assets[num_character_assets].bounding_box);
         ++num_character_assets;
     }
+    profiler->EndEvent();
 
     for(int i=0; i<kMaxCharacters; ++i){
         characters[i].exists = false;
@@ -364,6 +377,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
     static const bool kOnlyOneCharacter = false;
     int num_chars = kOnlyOneCharacter?1:kMaxCharacters;
 
+    profiler->StartEvent("Initializing characters");
     for(int i=0; i<num_chars; ++i){
         characters[i].rotation = 0.0f;
         characters[i].exists = true;
@@ -412,6 +426,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
             length(characters[i].character_asset->bounding_box[1] - characters[i].character_asset->bounding_box[0])*0.5f;
         ++num_drawables;
     }
+    profiler->EndEvent();
 
     nav_mesh.num_verts = 0;
     nav_mesh.num_indices = 0;
@@ -519,6 +534,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
         }
     }
 
+    profiler->StartEvent("Setting up tiles");
     for(int z=0; z<kMapSize; ++z){
         for(int x=0; x<kMapSize; ++x){
             int index = z*kMapSize + x;
@@ -613,7 +629,9 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
             drawables[num_drawables-1].transform = mat;
         }
     }
-
+    profiler->EndEvent();
+    
+    profiler->StartEvent("Creating nav mesh");
     nav_mesh.CalcNeighbors(stack_allocator);
     nav_mesh.vert_vbo = CreateVBO(kArrayVBO, kStaticVBO, nav_mesh.verts, nav_mesh.num_verts*sizeof(vec3));
     nav_mesh.index_vbo = CreateVBO(kElementVBO, kStaticVBO, nav_mesh.indices, nav_mesh.num_indices*sizeof(Uint32));
@@ -633,7 +651,9 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
         stack_allocator->Free(nav_mesh_assets[i].verts);
         nav_mesh_assets[i].verts = NULL;
     }
+    profiler->EndEvent();
 
+    profiler->StartEvent("Placing characters in nav mesh");
     for(int i=0; i<num_chars; ++i){
         characters[i].nav_mesh_walker.tri = nav_mesh.ClosestTriToPoint(characters[i].transform.translation);
         vec3 tri_mid;
@@ -643,6 +663,8 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
         }
         characters[i].transform.translation = tri_mid;
     }
+    profiler->EndEvent();
+    profiler->EndEvent();
 
     *init_stage = -1;
 }

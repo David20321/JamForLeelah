@@ -29,7 +29,7 @@ public:
     // Thread info
     bool wants_to_quit;
     SDL_mutex *mutex;
-    static const int kMaxFileLoadSize = 32*1024*1024;
+    static const int kMaxFileLoadSize = 4*1024*1024;
     void *memory;
     int memory_len;
     // File memory
