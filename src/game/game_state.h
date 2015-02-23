@@ -35,12 +35,11 @@ struct Mind {
         kPlayerControlled,
         kWander,
         kSeekTarget,
-        kAvoidTarget,
         kStand
     };
     int wander_update_time;
     int seek_target;
-    float seek_target_distance;
+    float seek_target_distance[2];
     State state;
     glm::vec3 dir;
 };

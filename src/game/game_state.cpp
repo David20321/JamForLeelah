@@ -48,6 +48,7 @@ const char* asset_list[] = {
     "start_character_assets",
     ASSET_PATH "art/main_character_rig_export.txt",
     ASSET_PATH "art/woman_npc_rig_export.txt",
+    ASSET_PATH "art/man_npc_rig_export.txt",
     "end_character_assets",
     "start_textures",
     ASSET_PATH "art/lamp_c.tga",
@@ -64,6 +65,8 @@ const char* asset_list[] = {
     ASSET_PATH "art/main_character_c.tga",
     ASSET_PATH "art/woman_npc_c.tga",
     ASSET_PATH "art/woman_npc_2_c.tga",
+    ASSET_PATH "art/man_npc_c.tga",
+    ASSET_PATH "art/man_npc_2.tga",
     ASSET_PATH "art/lampshadow.png",
     "end_textures",
     "start_fonts",
@@ -123,6 +126,7 @@ enum {
     kStartCharacterAssets,
     kModelChar,
     kModelWomanNPC,
+    kModelManNPC,
     kEndCharacterAssets,
     
     kStartTextures,
@@ -140,6 +144,8 @@ enum {
     kTexChar,
     kTexWomanNPC1,
     kTexWomanNPC2,
+    kTexManNPC1,
+    kTexManNPC2,
     kTexLampShadow,
     kEndTextures,
 
@@ -567,7 +573,7 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioCo
             characters[i].type = Character::kPlayer;
             characters[i].revealed = true;
         } else {
-            characters[i].character_asset = &character_assets[glm::linearRand(0,1)];
+            characters[i].character_asset = &character_assets[glm::linearRand(0,2)];
             characters[i].transform.translation = vec3(rand()%(kMapSize*2),0,rand()%(kMapSize*2));
             characters[i].mind.state = Mind::kWander;
             characters[i].mind.wander_update_time = 0;
@@ -591,6 +597,9 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioCo
         } else if(characters[i].character_asset == &character_assets[1]){
             drawables[num_drawables].texture_id = 
                 textures[TexID(glm::linearRand<int>(kTexWomanNPC1, kTexWomanNPC2))];
+        } else if(characters[i].character_asset == &character_assets[2]){
+            drawables[num_drawables].texture_id = 
+                textures[TexID(glm::linearRand<int>(kTexManNPC1, kTexManNPC2))];
         }
         drawables[num_drawables].shader_id = shaders[ShaderID(kShader3DModelSkinned)];;
         drawables[num_drawables].character = &characters[i];
@@ -1092,7 +1101,6 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
                     target_dir = characters[i].mind.dir;
                     break;
                 case Mind::kSeekTarget:
-                case Mind::kAvoidTarget:
                     if(characters[characters[i].mind.seek_target].exists){
                         target_dir = characters[i].transform.translation - 
                             characters[characters[i].mind.seek_target].transform.translation;
@@ -1100,10 +1108,14 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
                             target_dir *= -1.0f;
                         }
                         float target_dir_len = length(target_dir);
-                        if(target_dir_len > characters[i].mind.seek_target_distance &&
+                        if(target_dir_len > characters[i].mind.seek_target_distance[1] &&
                            target_dir_len > 0.001f)
                         {
                             target_dir = normalize(target_dir) * 0.5f;
+                        } else if(target_dir_len < characters[i].mind.seek_target_distance[0] &&
+                                  target_dir_len > 0.001f)
+                        {
+                            target_dir = normalize(target_dir) * -0.5f;                            
                         } else {
                             target_dir = vec3(0.0f);
                         }
@@ -1504,12 +1516,14 @@ void GameState::CharacterCollisions(Character* characters, float time_step) {
                             if(other->type == Character::kRed){
                                 other->mind.state = Mind::kSeekTarget;
                                 other->mind.seek_target = char_ids[k];
-                                other->mind.seek_target_distance = 0.0f;
+                                other->mind.seek_target_distance[0] = 0.0f;
+                                other->mind.seek_target_distance[1] = 0.0f;
                             } else if(other->type == Character::kGreen){
                                 other->tether_target = char_ids[k];
                                 other->mind.state = Mind::kSeekTarget;
                                 other->mind.seek_target = char_ids[k];
-                                other->mind.seek_target_distance = 2.0f;
+                                other->mind.seek_target_distance[0] = 1.0f;
+                                other->mind.seek_target_distance[1] = 2.0f;
                             }
                         }
                         switch(other->type){
