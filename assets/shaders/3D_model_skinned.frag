@@ -8,6 +8,7 @@ uniform vec3 light_pos[8];
 uniform vec3 light_color[8];
 uniform int light_type[8];
 uniform vec3 fog_color;
+uniform float time;
 in vec3 var_view_pos; 
 in vec2 var_uv; 
 in vec3 var_normal; 
@@ -16,8 +17,14 @@ out vec4 outputColor;
 
 vec4 ApplyFog(vec4 color) {
 	float depth = length(var_view_pos);
-	return vec4(mix(color.xyz, fog_color, max(0.0, min(1.0, (depth - 10.0) * 0.1))), color.a);
+	vec3 fog_sample_pos = var_world_pos + vec3(time * 0.5f + sin(var_world_pos.z + var_world_pos.y)*0.2, 
+											   time * 0.4f + sin(var_world_pos.x + var_world_pos.y)*0.3, 
+											   time * 1.6f + sin(var_world_pos.z + var_world_pos.y)*0.4);
+	depth += sin(fog_sample_pos.x - fog_sample_pos.y) * 0.75;
+	depth += sin(fog_sample_pos.z * 1.5 - fog_sample_pos.y * 2.0) * 0.75;
+	return vec4(mix(color.xyz, fog_color, max(0.0, min(1.0, (depth - 6.0) * 0.07))), color.a);
 }
+
 
 vec4 ApplyLighting(vec4 color) {
     vec3 light_amount = vec3(0.0);
@@ -34,8 +41,8 @@ vec4 ApplyLighting(vec4 color) {
 	    	lamp_uv[1] = clamp(lamp_uv[1], 0.0, 1.0);
 	    	light_falloff *= texture(lamp_tex_id, lamp_uv).r;
     	}
-    	light_falloff = min(light_falloff, 1.0);
-    	//light_falloff *= max(0.0, dot(var_normal, normalize(light_pos[i] - var_world_pos)));
+    	light_falloff = max(0.0, min(light_falloff, 1.0) - 0.1);
+    	light_falloff *= dot(var_normal, normalize(light_pos[i] - var_world_pos))*0.5+0.5;
     	light_amount += light_falloff * light_color[i];
     }
     return color * vec4(light_amount, 1.0);

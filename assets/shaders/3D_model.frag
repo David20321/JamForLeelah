@@ -21,7 +21,7 @@ vec4 ApplyFog(vec4 color) {
 											   time * 1.6f + sin(var_world_pos.z + var_world_pos.y)*0.4);
 	depth += sin(fog_sample_pos.x - fog_sample_pos.y) * 0.75;
 	depth += sin(fog_sample_pos.z * 1.5 - fog_sample_pos.y * 2.0) * 0.75;
-	return vec4(mix(color.xyz, fog_color, max(0.0, min(1.0, (depth - 10.0) * 0.07))), color.a);
+	return vec4(mix(color.xyz, fog_color, max(0.0, min(1.0, (depth - 6.0) * 0.07))), color.a);
 }
 
 vec4 ApplyLighting(vec4 color) {

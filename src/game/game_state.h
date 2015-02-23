@@ -129,7 +129,7 @@ public:
     int tile_height[kMapSize * kMapSize];
 
     void Update(const glm::vec2& mouse_rel, float time_step);
-    void Init(GraphicsContext* graphics_context, AudioContext* audio_context, 
+    void Init(int* init_stage, GraphicsContext* graphics_context, AudioContext* audio_context, 
               Profiler* profiler, FileLoadThreadData* file_load_thread_data, 
               StackAllocator* stack_allocator);
     void Draw(GraphicsContext* context, int ticks, Profiler* profiler);

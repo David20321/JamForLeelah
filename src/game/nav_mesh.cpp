@@ -1,20 +1,15 @@
 #include "game/nav_mesh.h"
 #include "internal/memory.h"
 #include "internal/common.h"
+#include "internal/geometry.h"
 #include "platform_sdl/error.h"
 #include "platform_sdl/graphics.h"
 #include "glm/glm.hpp"
+#include "glm/gtx/norm.hpp"
 #include <GL/glew.h>
 
 using namespace glm;
 
-glm::vec3 NavMeshWalker::GetWorldPos(NavMesh* nav_mesh) {
-    vec3 pos;
-    for(int i=0; i<3; ++i){
-        pos += nav_mesh->verts[nav_mesh->indices[tri*3+i]] * bary_pos[i];
-    }
-    return pos;
-}
 
 // Compute barycentric coordinates (u, v, w) for
 // point p with respect to triangle (a, b, c)
@@ -32,16 +27,6 @@ void Barycentric(vec3 p, vec3 a, vec3 b, vec3 c, vec3* bary)
     (*bary)[1] = (d11 * d20 - d01 * d21) / denom;
     (*bary)[2] = (d00 * d21 - d01 * d20) / denom;
     (*bary)[0] = 1.0f - (*bary)[1] - (*bary)[2];
-}
-
-vec3 NavMeshWalker::GetBaryPos(NavMesh* nav_mesh, vec3 pos) {
-    vec3 bary;
-    Barycentric(pos, 
-        nav_mesh->verts[nav_mesh->indices[tri*3+0]],
-        nav_mesh->verts[nav_mesh->indices[tri*3+1]],
-        nav_mesh->verts[nav_mesh->indices[tri*3+2]],
-        &bary);
-    return bary;
 }
 
 void NavMesh::Draw(GraphicsContext* graphics_context, const mat4& proj_view_mat) {
@@ -132,4 +117,50 @@ void NavMesh::CalcNeighbors(StackAllocator* stack_allocator) {
         }
     }
     stack_allocator->Free(unique_verts);
+}
+
+float Distance2FromPointToTriangle(const vec3& point, const vec3 tri[]) {
+    vec3 norm = normalize(cross(tri[2]-tri[0], tri[1]-tri[0]));
+    float tri_d = dot(norm, tri[0]);
+    float point_d = dot(norm, point);
+    vec3 proj_point = point - norm * (point_d - tri_d);
+    vec3 bary;
+    Barycentric(proj_point, tri[0], tri[1], tri[2], &bary);
+    bool in_tri = true;
+    for(int i=0; i<3; ++i){
+        if(bary[i] < 0.0f){
+            in_tri = false;
+        }
+    }
+    if(in_tri){
+        return glm::abs(point_d - tri_d);
+    } else {
+        float closest_dist = FLT_MAX;
+        for(int i=0; i<3; ++i){
+            vec3 closest = ClosestPointOnSegment(point, tri[i], tri[(i+1)%3]);
+            float dist = distance2(point, closest);
+            if(dist < closest_dist){
+                closest_dist = dist;
+            }
+        }
+        return closest_dist;
+    }
+}
+
+int NavMesh::ClosestTriToPoint(const vec3& pos) {
+    //TODO: use a spatial structure to make this O(logN) instead of O(N)
+    float closest_dist = FLT_MAX;
+    int closest = -1;
+    for(int i=0; i<num_indices; i+=3){
+        vec3 tri_verts[3];
+        for(int j=0; j<3; ++j){
+            tri_verts[j] = verts[indices[i+j]];
+        }
+        float dist = Distance2FromPointToTriangle(pos, tri_verts);
+        if(dist < closest_dist){
+            closest_dist = dist;
+            closest = i/3;
+        }
+    }
+    return closest;
 }

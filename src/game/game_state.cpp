@@ -7,6 +7,7 @@
 #include "platform_sdl/audio.h"
 #include "platform_sdl/profiler.h"
 #include "internal/common.h"
+#include "internal/geometry.h"
 #include "internal/memory.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -442,7 +443,7 @@ void FillStaticDrawable(Drawable* drawable, const MeshAsset& mesh_asset,
     drawable->transform = sep_transform.GetCombination();
 }
 
-void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_context, Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator) {
+void GameState::Init(int* init_stage, GraphicsContext* graphics_context, AudioContext* audio_context, Profiler* profiler, FileLoadThreadData* file_load_thread_data, StackAllocator* stack_allocator) {
     num_ogg_tracks = 0;
     for(int i=kOggDrone; i<=kOggDrums2; ++i){
         if(num_ogg_tracks > kMaxOggTracks){
@@ -553,21 +554,20 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
 
     static const bool kOnlyOneCharacter = false;
     int num_chars = kOnlyOneCharacter?1:kMaxCharacters;
-    num_chars = 1;
 
     for(int i=0; i<num_chars; ++i){
         characters[i].rotation = 0.0f;
         characters[i].exists = true;
-        characters[i].nav_mesh_walker.tri = 0;
-        characters[i].nav_mesh_walker.bary_pos = vec3(1/3.0f);
-        characters[i].character_asset = &character_assets[1];
+        characters[i].nav_mesh_walker.tri = -1;
         characters[i].tether_target = -1;
         if(i == 0){
+            characters[i].character_asset = &character_assets[0];
             characters[i].transform.translation = vec3(kMapSize,0,kMapSize);
             characters[i].mind.state = Mind::kPlayerControlled;
             characters[i].type = Character::kPlayer;
             characters[i].revealed = true;
         } else {
+            characters[i].character_asset = &character_assets[glm::linearRand(0,1)];
             characters[i].transform.translation = vec3(rand()%(kMapSize*2),0,rand()%(kMapSize*2));
             characters[i].mind.state = Mind::kWander;
             characters[i].mind.wander_update_time = 0;
@@ -586,7 +586,12 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
             characters[i].character_asset->parse_mesh.num_index;
         drawables[num_drawables].vbo_layout = kInterleave_3V2T3N4I4W;
         drawables[num_drawables].transform = mat4();
-        drawables[num_drawables].texture_id = textures[TexID(kTexChar)];
+        if(characters[i].character_asset == &character_assets[0]){
+            drawables[num_drawables].texture_id = textures[TexID(kTexChar)];
+        } else if(characters[i].character_asset == &character_assets[1]){
+            drawables[num_drawables].texture_id = 
+                textures[TexID(glm::linearRand<int>(kTexWomanNPC1, kTexWomanNPC2))];
+        }
         drawables[num_drawables].shader_id = shaders[ShaderID(kShader3DModelSkinned)];;
         drawables[num_drawables].character = &characters[i];
         drawables[num_drawables].bounding_sphere_center = 
@@ -883,6 +888,18 @@ void GameState::Init(GraphicsContext* graphics_context, AudioContext* audio_cont
         stack_allocator->Free(nav_mesh_assets[i].verts);
         nav_mesh_assets[i].verts = NULL;
     }
+
+    for(int i=0; i<num_chars; ++i){
+        characters[i].nav_mesh_walker.tri = nav_mesh.ClosestTriToPoint(characters[i].transform.translation);
+        vec3 tri_mid;
+        for(int j=0; j<3; ++j){
+            int tri_index = characters[i].nav_mesh_walker.tri * 3;
+            tri_mid += nav_mesh.verts[nav_mesh.indices[tri_index]] / 3.0f;
+        }
+        characters[i].transform.translation = tri_mid;
+    }
+
+    *init_stage = -1;
 }
 
 static void UpdateCharacter(Character* character, vec3 target_dir, float time_step,
@@ -984,19 +1001,6 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
     if(character->type == Character::kPlayer){
         character->energy -= time_step * kPlayerEnergyLossPerSecond;
     }
-}
-
-
-// Adapted from http://paulbourke.net/geometry/pointlineplane/source.c
-vec3 ClosestPointOnSegment( const vec3& point, const vec3& segment_start, 
-                            const vec3& segment_end) 
-{
-    vec3 segment_start_to_point = point - segment_start;
-    vec3 segment_start_to_end   = segment_end - segment_start;
-    float t = dot(segment_start_to_point, segment_start_to_end) / 
-              distance2(segment_end, segment_start);
-    t = clamp(t,0.0f,1.0f);
-    return segment_start + t * segment_start_to_end;
 }
 
 int OggTrack(int val){
@@ -1219,7 +1223,7 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
             if(characters[i].exists) {
                 Character* character = &characters[i];
                 vec3 target_dir = character->velocity;
-                static const float turn_speed = 10.0f;
+                static const float turn_speed = 5.0f;
                 if(length(target_dir) > 0.0f){
                     if(length(target_dir) > 1.0f){
                         target_dir = normalize(target_dir);

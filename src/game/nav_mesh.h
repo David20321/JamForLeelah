@@ -23,15 +23,12 @@ public:
 
     void CalcNeighbors(StackAllocator* stack_allocator);
     void Draw(GraphicsContext* graphics_context, const glm::mat4& proj_view_mat);
+    int ClosestTriToPoint(const glm::vec3& pos);
 };
 
 class NavMeshWalker {
 public:
     int tri;
-    glm::vec3 bary_pos; //barycentric position
-    glm::vec3 GetWorldPos(NavMesh* nav_mesh);
-    void ApplyWorldSpaceTranslation(NavMesh* nav_mesh, glm::vec3 translation);
-    glm::vec3 GetBaryPos(NavMesh* nav_mesh, glm::vec3 pos);
 };
 
 #endif

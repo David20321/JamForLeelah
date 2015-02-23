@@ -81,8 +81,17 @@ static void RunGame(Profiler* profiler, FileLoadThreadData* file_load_thread_dat
         FormattedError("Error", "Could not alloc memory for game state");
         exit(1);
     }
-    game_state->Init(graphics_context, audio_context, profiler, file_load_thread_data, 
-                     stack_allocator);
+
+    glViewport(0, 0, graphics_context->screen_dims[0], graphics_context->screen_dims[1]);
+    glClearColor(0,0,0,1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    SDL_GL_SwapWindow(graphics_context->window);
+
+    int init_stage = 0;
+    while(init_stage != -1) {
+        game_state->Init(&init_stage, graphics_context, audio_context, profiler, 
+                         file_load_thread_data, stack_allocator);
+    }
     int last_ticks = SDL_GetTicks();
     bool game_running = true;
 
