@@ -580,8 +580,11 @@ namespace crnd
       enum { value = true };
    };
 
-#define CRND_IS_POD(T) false //__is_pod(T)
-
+#ifdef __APPLE__ 
+#define CRND_IS_POD(T) false
+#else
+#define CRND_IS_POD(T) __is_pod(T)
+#endif
 } // namespace crnd
 
 // File: crnd_mem.h
