@@ -2,7 +2,7 @@
 
 uniform mat4 mv_mat; 
 uniform mat4 proj_mat; 
-uniform mat4 bone_matrices[128];
+uniform mat4 bone_matrices[45];
 uniform mat3 norm_mat; 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec2 uv; 
