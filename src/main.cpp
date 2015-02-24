@@ -141,16 +141,45 @@ int main(int argc, char* argv[]) {
     profiler.StartEvent("Checking for assets folder");
     {
         struct stat st;
+        // Check working directory first
         if(stat(ASSET_PATH "under_glass_game_assets_folder.txt", &st) == -1){
+            // Check location of executable next
             char *basePath = SDL_GetBasePath();
             ChangeWorkingDirectory(basePath);
-            SDL_free(basePath);
             if(stat(ASSET_PATH "under_glass_game_assets_folder.txt", &st) == -1){
-                FormattedError("Assets?", "Could not find assets directory, possibly running from inside archive");
-                exit(1);
+                // Finally check location of app bundle (for Mac)
+                bool found_assets = false;
+#ifdef __APPLE__
+                static const int kBufSize = 512;
+                const char* app_bundle = ".app/Contents/Resources/";
+                int app_bundle_len = strlen(app_bundle);
+                int base_path_len = strlen(basePath);
+                if(base_path_len > app_bundle_len){
+                    char* base_path_end = &basePath[base_path_len-app_bundle_len];
+                    if(strcmp(base_path_end, app_bundle) == 0){
+                        int dir_start;
+                        for(char* c=base_path_end; c>=basePath; --c){
+                            if(*c == '/'){
+                                *(c+1) = '\0';
+                                break;
+                            }
+                        }
+                        ChangeWorkingDirectory(basePath);
+                        if(stat(ASSET_PATH "under_glass_game_assets_folder.txt", &st) != -1){
+                            found_assets = true;
+                        }                    
+                    }
+                }
+#endif
+                if(!found_assets){
+                    FormattedError("Assets?", "Could not find assets directory, possibly running from inside archive");
+                    exit(1);
+                }
             }
+            SDL_free(basePath);
         }
     }
+
     profiler.EndEvent();
 
     profiler.StartEvent("Set up file loader");
