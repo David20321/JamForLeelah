@@ -23,7 +23,6 @@ class ParseMesh;
 class Profiler;
 
 struct CharacterAsset {
-    static const int kMaxBones = 128;
     ParseMesh parse_mesh;
     int vert_vbo;
     int index_vbo;
