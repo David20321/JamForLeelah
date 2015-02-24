@@ -1147,6 +1147,7 @@ void DrawDrawable(float *frustum_planes, GameState* game_state,
                   GraphicsContext* graphics_context, const mat4 &proj_mat, 
                   const mat4 &view_mat, Drawable* drawable, Profiler* profiler) 
 {
+    CHECK_GL_ERROR();
     mat4 modelview_mat = view_mat * drawable->transform;
     {
         vec3 test_pos(modelview_mat * vec4(drawable->bounding_sphere_center,1));
@@ -1220,7 +1221,7 @@ void DrawDrawable(float *frustum_planes, GameState* game_state,
         int start_anim_transform = 
             parse_mesh->animations[animation].anim_transform_start +
             parse_mesh->num_bones * frame;
-        mat4 bone_transforms[128];
+        mat4 bone_transforms[45];
         for(int bone_index=0; bone_index<parse_mesh->num_bones; ++bone_index){
             mat4 temp = parse_mesh->anim_transforms[start_anim_transform + bone_index];
             bone_transforms[bone_index] = temp * parse_mesh->inverse_rest_mats[bone_index];
@@ -1229,26 +1230,47 @@ void DrawDrawable(float *frustum_planes, GameState* game_state,
             bone_transforms[i] = drawable->transform * bone_transforms[i];
         }
         glUniform4fv(shader->uniforms[Shader::kColor], 1, (GLfloat*)&character->color);
+        CHECK_GL_ERROR();
         glUniformMatrix4fv(shader->uniforms[Shader::kProjectionMat4], 1, false, (GLfloat*)&proj_mat);
+        CHECK_GL_ERROR();
         glUniformMatrix4fv(shader->uniforms[Shader::kModelviewMat4], 1, false, (GLfloat*)&view_mat);
-        glUniformMatrix4fv(shader->uniforms[Shader::kBoneMatrices], 128, false, (GLfloat*)bone_transforms);
+        CHECK_GL_ERROR();
+        glUniformMatrix4fv(shader->uniforms[Shader::kBoneMatrices], 45, false, (GLfloat*)bone_transforms);
+        CHECK_GL_ERROR();
         glEnableVertexAttribArray(0);
+        CHECK_GL_ERROR();
         glEnableVertexAttribArray(1);
+        CHECK_GL_ERROR();
         glEnableVertexAttribArray(2);
+        CHECK_GL_ERROR();
         glEnableVertexAttribArray(3);
+        CHECK_GL_ERROR();
         glEnableVertexAttribArray(4);
+        CHECK_GL_ERROR();
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), 0);
+        CHECK_GL_ERROR();
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(3*sizeof(GLfloat)));
+        CHECK_GL_ERROR();
         glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(5*sizeof(GLfloat)));
+        CHECK_GL_ERROR();
         glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(8*sizeof(GLfloat)));
+        CHECK_GL_ERROR();
         glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 16*sizeof(GLfloat), (void*)(12*sizeof(GLfloat)));
+        CHECK_GL_ERROR();
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, drawable->index_vbo);
+        CHECK_GL_ERROR();
         glDrawElements(GL_TRIANGLES, drawable->num_indices, GL_UNSIGNED_INT, 0);
+        CHECK_GL_ERROR();
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        CHECK_GL_ERROR();
         glDisableVertexAttribArray(4);
+        CHECK_GL_ERROR();
         glDisableVertexAttribArray(3);
+        CHECK_GL_ERROR();
         glDisableVertexAttribArray(2);
+        CHECK_GL_ERROR();
         glDisableVertexAttribArray(1);
+        CHECK_GL_ERROR();
         glDisableVertexAttribArray(0);
         } break;
     }
