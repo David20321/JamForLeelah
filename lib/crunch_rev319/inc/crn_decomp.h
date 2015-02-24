@@ -318,7 +318,7 @@ namespace crnd
 #include <string.h> // for memset and memcpy
 #ifdef WIN32
 #include <memory.h>
-#include malloc.h>
+#include <malloc.h>
 #elif __APPLE__
 #include "dlmalloc.c" // because Mac malloc.h is missing malloc_usable_size
 #else
