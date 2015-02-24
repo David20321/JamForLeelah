@@ -322,7 +322,7 @@ namespace crnd
 #elif __APPLE__
 #include "dlmalloc.c" // because Mac malloc.h is missing malloc_usable_size
 #else
-#include <malloc_np.h>
+#include <malloc.h>
 #endif
 #include <stdarg.h>
 #include <new> // needed for placement new, _msize, _expand
