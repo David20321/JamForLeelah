@@ -1,5 +1,5 @@
-The source code and shaders are in the public domain, you can do whatever you like with them.
+The source code, shaders, and art assets are in the public domain, you can do whatever you like with them.
 
 The external libraries in the lib folder are provided for convenience, but are under whatever license the creators used for them.
 
-The assets (sounds, textures, models, music) on the other hand, are not in the public domain. All rights to the assets are reserved by Wolfire Games LLC. Please email contact@wolfire.com if you would like permission to do something with them. The motivation behind reserving the rights to the assets is to prevent someone from releasing the exact same game and claiming credit for it.
+The music is not in the public domain. All rights to the music are reserved by Anton Riehl. Please email info@antonriehl.com if you would like permission to do something with it.
