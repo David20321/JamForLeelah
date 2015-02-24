@@ -89,58 +89,81 @@ static void MyAudioCallback (void* userdata, Uint8* stream, int len) {
     audio_context->buffer_read_byte += fill_amount;
 }
 
-static const float kMasterGain = 0.0f;
+static const float kMasterGain = 1.0f;
 static const float kMusicGain = 1.0f;
 
 void UpdateAudio(AudioContext* audio_context, StackAllocator* stack_allocator) {
-    const SDL_AudioSpec &spec = audio_context->audio_spec;
+    // Get playback position in buffer
     SDL_LockAudioDevice(audio_context->device_id);
     int temp_buffer_read_byte = audio_context->buffer_read_byte;
     SDL_UnlockAudioDevice(audio_context->device_id);
-    int target_sample_size = (spec.size / spec.samples);
-    int buffer_samples = audio_context->buffer_size/target_sample_size;
-
+    // Create buffer to convert from 2-channel float to whatever our output format is
     static const int src_sample_size = 2 * sizeof(float);
+    // Calculate some simple info from audio spec
+    const SDL_AudioSpec &spec = audio_context->audio_spec;
+    int target_sample_size = (spec.size / spec.samples);
     SDL_assert(src_sample_size <= target_sample_size);
     SDL_AudioCVT cvt;
     SDL_BuildAudioCVT(&cvt, AUDIO_F32, 2, 48000, spec.format, spec.channels, spec.freq);
-    cvt.len = buffer_samples * src_sample_size;
+    cvt.len = audio_context->buffer_samples * src_sample_size;
     cvt.buf = (Uint8*)audio_context->back_buffer;
     float* flt_buf = (float*)cvt.buf;
-    for(int i=0, len=buffer_samples*2; i<len; ++i){
+    for(int i=0, len=audio_context->buffer_samples*2; i<len; ++i){
         flt_buf[i] = 0.0f;
     }
-    float* temp_buf = (float*)stack_allocator->Alloc(sizeof(float) * buffer_samples * 2);
-    if(!temp_buf){
-        FormattedError("Error", "Could not allocate memory for UpdateAudio temp_buffer");
-        exit(1);
-    }
-    for(int i=0; i<audio_context->num_ogg_tracks; ++i){
-        OggTrack* ogg_track = audio_context->ogg_tracks[i];
+    if(kMusicGain * kMasterGain > 0.0f){
+        // Add each audio track's contribution to output
+        for(int i=0; i<audio_context->num_ogg_tracks; ++i){
+            OggTrack* ogg_track = audio_context->ogg_tracks[i];
+            int channels;
 #ifdef USE_STB_VORBIS
-        stb_vorbis_info info = stb_vorbis_get_info(ogg_track->vorbis);
-        SDL_assert(info.sample_rate == 48000 && info.channels == 2);
+            stb_vorbis_info info = stb_vorbis_get_info(ogg_track->vorbis);
+            SDL_assert(info.sample_rate == 48000 && info.channels == 2);
+            channels = info.channels;
+#else
+            SDL_assert(false); // Need to implement non-stb-vorbis equivalent
 #endif
-        ogg_track->read_pos += temp_buffer_read_byte / target_sample_size;
-        if(ogg_track->read_pos > ogg_track->samples){
-            ogg_track->read_pos -= ogg_track->samples;
-        }
-        if(ogg_track->gain > 0.0f || ogg_track->target_gain > 0.0f){
-            int samples_remaining = ogg_track->samples - ogg_track->read_pos;
-            int samples_to_read = min(samples_remaining, buffer_samples);
-            memcpy(temp_buf, ogg_track->decoded+ogg_track->read_pos*2, sizeof(float) * 2 * samples_to_read);
-            if(samples_to_read < buffer_samples){
-                memcpy(temp_buf+samples_to_read*2, ogg_track->decoded, sizeof(float) * 2 * (buffer_samples-samples_to_read));
+            int samples_read = temp_buffer_read_byte / target_sample_size;
+            int read_offset = samples_read*channels;
+            for(int j=0, len=audio_context->buffer_samples-samples_read, index=0; 
+                j<len; 
+                ++j)
+            {
+                for(int k=0; k<channels; ++k){
+                    ogg_track->decoded[index] = ogg_track->decoded[index+read_offset];
+                    ++index;                    
+                }
             }
-            for(int i=0, len=buffer_samples*2; i<len; ++i){
-                ogg_track->gain = MoveTowards(ogg_track->gain, ogg_track->target_gain, ogg_track->transition_speed);
-                flt_buf[i] += temp_buf[i] * ogg_track->gain * kMusicGain * kMasterGain;
+#ifdef USE_STB_VORBIS
+            int vorbis_samples_read = 
+                stb_vorbis_get_samples_float_interleaved(ogg_track->vorbis, 
+                    channels, 
+                    &ogg_track->decoded[(audio_context->buffer_samples - samples_read) * channels], 
+                    samples_read * channels);
+            if(vorbis_samples_read < samples_read){
+                stb_vorbis_seek_start(ogg_track->vorbis);
+                stb_vorbis_get_samples_float_interleaved(ogg_track->vorbis, 
+                    channels, 
+                    &ogg_track->decoded[(audio_context->buffer_samples - samples_read + vorbis_samples_read) * channels], 
+                    (samples_read - vorbis_samples_read) * channels);
+            }
+#else
+            SDL_assert(false); // Need to implement non-stb-vorbis equivalent
+#endif
+            ogg_track->read_pos += samples_read;
+            if(ogg_track->read_pos > ogg_track->samples){
+                ogg_track->read_pos -= ogg_track->samples;
+            }
+            if(ogg_track->gain > 0.0f || ogg_track->target_gain > 0.0f){
+                for(int i=0, len=audio_context->buffer_samples*2; i<len; ++i){
+                    ogg_track->gain = MoveTowards(ogg_track->gain, ogg_track->target_gain, ogg_track->transition_speed);
+                    flt_buf[i] += ogg_track->decoded[i] * ogg_track->gain * kMusicGain * kMasterGain;
+                }
             }
         }
     }
-    stack_allocator->Free(temp_buf);
     SDL_ConvertAudio(&cvt);
-    // fill buffer
+    // swap audio buffer
     SDL_LockAudioDevice(audio_context->device_id);
     swap(audio_context->curr_buffer, audio_context->back_buffer);
     audio_context->buffer_read_byte -= temp_buffer_read_byte;
@@ -170,8 +193,8 @@ void InitAudio(AudioContext* context, StackAllocator *stack_allocator) {
     double buffer_time = (double)spec.samples / (double)spec.channels / (double)spec.freq;
     static const double kMinBufTime = 1.0f/8.0f;
     buffer_time = max(kMinBufTime, buffer_time);
-    int buffer_samples = max((int)(buffer_time * spec.freq), spec.samples);
-    context->buffer_size = buffer_samples * sample_size;
+    context->buffer_samples = max((int)(buffer_time * spec.freq), spec.samples);
+    context->buffer_size = context->buffer_samples * sample_size;
     context->curr_buffer = stack_allocator->Alloc(context->buffer_size);
     if(!context->curr_buffer){
         FormattedError("Buffer alloc failed", "Failed to allocate primary audio buffer");

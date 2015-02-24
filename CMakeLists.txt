@@ -48,6 +48,8 @@ REFERENCE
     assets/shaders_gles/*.frag
 DEFINES
     $<$<BOOL:${WIN32}>:_CRT_SECURE_NO_WARNINGS>
+    $<$<NOT:$<BOOL:${EMSCRIPTEN}>>:HAVE_THREADS>
+    $<$<NOT:$<BOOL:${EMSCRIPTEN}>>:USE_STB_VORBIS>
     GLM_FORCE_CXX03
 INCLUDES
     src

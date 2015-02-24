@@ -48,6 +48,7 @@ struct AudioContext {
     void* back_buffer;
     int buffer_read_byte;
     int buffer_size;
+    int buffer_samples;
     static const int kMaxOggTracks = 10;
     int num_ogg_tracks;
     OggTrack* ogg_tracks[kMaxOggTracks];

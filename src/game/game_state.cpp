@@ -41,7 +41,7 @@ glm::mat4 Camera::GetMatrix() {
     return temp.GetCombination();
 }
 
-void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_load_data, StackAllocator* stack_alloc) {
+void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_load_data, StackAllocator* stack_alloc, int buffer_samples) {
     StartLoadFile(path, file_load_data);
     ogg_track->mem_len = file_load_data->memory_len;
     ogg_track->mem = stack_alloc->Alloc(file_load_data->memory_len);
@@ -73,12 +73,13 @@ void LoadOgg(OggTrack* ogg_track, const char* path, FileLoadThreadData* file_loa
     ogg_track->target_gain = 0.0f;
     ogg_track->transition_speed = 0.0000003f;
     stb_vorbis_info info = stb_vorbis_get_info(ogg_track->vorbis);
-    ogg_track->decoded = (float*)stack_alloc->Alloc(sizeof(float) * ogg_track->samples * info.channels);
+    SDL_assert(buffer_samples < ogg_track->samples);
+    ogg_track->decoded = (float*)stack_alloc->Alloc(sizeof(float) * buffer_samples * info.channels);
     if(!ogg_track->decoded) {
         FormattedError("Error", "Failed to allocate memory for decoded ogg: %s", path);
     }
-    stb_vorbis_get_samples_float_interleaved(ogg_track->vorbis, info.channels, ogg_track->decoded, ogg_track->samples * info.channels);
 #else
+    SDL_assert(false); // Need to update this functionality to match streaming stb_vorbis system
     tOGVMemoryReader *memfile = new tOGVMemoryReader(ogg_track->mem, ogg_track->mem_len);
     int res = ov_open_callbacks(memfile, &ogg_track->vorbis, NULL, 0, OV_MEMORY_CALLBACKS);
     if (res < 0) {
@@ -349,12 +350,13 @@ void GameState::Init(int* init_stage, GraphicsContext* graphics_context,
     profiler->StartEvent("Game Init");
     profiler->StartEvent("Loading music");
     num_ogg_tracks = 0;
+
     for(int i=kOggDrone; i<=kOggDrums2; ++i){
         if(num_ogg_tracks > kMaxOggTracks){
             FormattedError("Error", "Too many OggTracks");
             exit(1);
         }
-        LoadOgg(&ogg_track[num_ogg_tracks++], asset_list[i], file_load_thread_data, stack_allocator);
+        LoadOgg(&ogg_track[num_ogg_tracks++], asset_list[i], file_load_thread_data, stack_allocator, audio_context->buffer_samples);
     }
     for(int i=0; i<num_ogg_tracks; ++i) {
         audio_context->AddOggTrack(&ogg_track[i]);
@@ -864,7 +866,7 @@ static void UpdateCharacter(Character* character, vec3 target_dir, float time_st
     }
 }
 
-int OggTrack(int val){
+int OggTrackID(int val){
     return val - kOggDrone;
 }
 
@@ -872,7 +874,7 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
     for(int i=0; i<num_ogg_tracks; ++i) {
         ogg_track[i].target_gain = 0.0f;
     }
-    ogg_track[OggTrack(kOggDrone)].target_gain = 0.5f;
+    ogg_track[OggTrackID(kOggDrone)].target_gain = 0.5f;
 
     lines.Update();
     float cam_speed = 10.0f;
@@ -881,7 +883,7 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
         cam_speed *= 0.1f;
     }
     if(editor_mode){
-        ogg_track[OggTrack(kOggDrums2)].target_gain = 1.0f;
+        ogg_track[OggTrackID(kOggDrums2)].target_gain = 1.0f;
         vec3 offset;
         if (state[SDL_SCANCODE_W]) {
             offset -= vec3(0,0,1);
@@ -1061,19 +1063,19 @@ void GameState::Update(const vec2& mouse_rel, float time_step) {
         }
 
         if(!player_alive){
-            ogg_track[OggTrack(kOggNegLayer3)].target_gain = 1.0f;
+            ogg_track[OggTrackID(kOggNegLayer3)].target_gain = 1.0f;
         } else {
-            ogg_track[OggTrack(kOggDrums1)].target_gain = min(1.0f, num_reds * 0.5f);
+            ogg_track[OggTrackID(kOggDrums1)].target_gain = min(1.0f, num_reds * 0.5f);
             float positive = (float)(num_greens - num_reds);
             if(positive > 0.0f){
-                ogg_track[OggTrack(kOggPosLayer1)].target_gain = 1.0f;
+                ogg_track[OggTrackID(kOggPosLayer1)].target_gain = 1.0f;
                 if(positive > 1.0f){
-                    ogg_track[OggTrack(kOggPosLayer2)].target_gain = 1.0f;
+                    ogg_track[OggTrackID(kOggPosLayer2)].target_gain = 1.0f;
                 }
             } else {
-                ogg_track[OggTrack(kOggNegLayer1)].target_gain = 1.0f;
+                ogg_track[OggTrackID(kOggNegLayer1)].target_gain = 1.0f;
                 if(positive < -1.0f){
-                    ogg_track[OggTrack(kOggNegLayer2)].target_gain = 1.0f;
+                    ogg_track[OggTrackID(kOggNegLayer2)].target_gain = 1.0f;
                 }
             }
         }
